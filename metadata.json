@@ -1,0 +1,8 @@
+{
+  "name": "Asva Studio",
+  "description": "سیستم یکپارچه مدیریت محتوا و استودیو (ERP) - شامل دپوی محتوا، تقویم انتشار، تیم و منابع انسانی و گزارشات کلان",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

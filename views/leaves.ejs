@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+    <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | مدیریت مرخصی‌ها</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <style>
+        .leave-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; margin-bottom: 15px; display: flex; flex-direction: column; transition: 0.2s; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .leave-card:hover { border-color: var(--primary-color); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .leave-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .leave-card-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 0.95rem; color: var(--text-muted); }
+        .leave-card-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px; }
+        
+        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; }
+        .status-pending { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+        .status-approved { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+        .status-rejected { background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; }
+        
+        .action-btn { padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: 0.2s; border: none; display: inline-flex; align-items: center; gap: 4px; font-weight: bold; }
+        .btn-approve { background: var(--success-color); color: white; }
+        .btn-approve:hover { filter: brightness(0.9); }
+        .btn-reject { background: var(--error-color); color: white; }
+        .btn-reject:hover { filter: brightness(0.9); }
+        .btn-delete { background: var(--border-color); color: var(--text-dark); }
+        .btn-delete:hover { background: #d1d5db; }
+        
+        .form-container { box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .grid-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        @media(max-width: 900px) {
+            .grid-layout { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <%- include('sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><svg class="lucide lucide-palmtree" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px; color: var(--primary-color); vertical-align: middle;"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4a2 2 0 0 1 2 2v2l-1 1-1-1v-2"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3a2.97 2.97 0 0 0-2.11.89"/><path d="M13 14v8"/><path d="M9 22c2-4 2-5 4-8 2 3 2 4 4 8"/></svg>مدیریت مرخصی‌ها</h1>
+                <p class="page-subtitle">ثبت درخواست مرخصی و انتقال تسک‌ها به همکار جانشین.</p>
+            </div>
+        </div>
+
+        <div class="grid-layout">
+            <!-- فرم ثبت مرخصی -->
+            <div>
+                <div class="form-container">
+                    <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: var(--text-dark); border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                        ثبت درخواست جدید
+                    </h3>
+                    <form id="leaveForm" onsubmit="submitLeave(event)">
+                        <div class="form-group">
+                            <label>همکار متقاضی (شما) <span style="color:red">*</span></label>
+                            <select id="leaveUser" class="form-control" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>همکار جانشین (انتقال تسک‌ها)</label>
+                            <select id="substituteUser" class="form-control"></select>
+                            <small style="color: var(--text-muted); display:block; margin-top:5px;">در صورت تایید، تمام تسک‌های فرد متقاضی در این بازه به همکار جانشین منتقل می‌شود.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>تاریخ شروع <span style="color:red">*</span></label>
+                            <input type="text" id="startDate" class="form-control" required placeholder="مثال: 1403/05/10" dir="ltr" style="text-align: right;">
+                        </div>
+                        <div class="form-group">
+                            <label>تاریخ پایان <span style="color:red">*</span></label>
+                            <input type="text" id="endDate" class="form-control" required placeholder="مثال: 1403/05/12" dir="ltr" style="text-align: right;">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="saveBtn" style="width: 100%; justify-content: center; margin-top: 10px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 
+                            ثبت درخواست مرخصی
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- لیست مرخصی‌ها -->
+            <div>
+                <div class="form-container" style="background: transparent; border: none; padding: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 1.2rem; color: var(--text-dark);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 5px;"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                            لیست درخواست‌ها
+                        </h3>
+                        <button class="btn btn-secondary" onclick="loadLeaves(currentType, 1)" style="padding: 6px 12px; font-size: 0.85rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px;"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                            بروزرسانی
+                        </button>
+                    </div>
+                    
+                    <div id="leavesList">
+                        <div class="skeleton" style="height: 100px; width: 100%; border-radius: 12px; margin-bottom: 15px;"></div>
+                        <div class="skeleton" style="height: 100px; width: 100%; border-radius: 12px;"></div>
+                    </div>
+                    <div id="historyBtnContainer"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="assets/js/app.js?v=4"></script>
+    <script>
+        setTimeout(() => {
+            loadColleagues();
+            loadLeaves('upcoming', 1);
+        }, 100);
+
+        // واکشی لیست همکاران و رندر کردن در کشویی‌ها
+        async function loadColleagues() {
+            try {
+                const res = await fetch('/api/get_colleagues');
+                const data = await res.json();
+                
+                const userSelect = document.getElementById('leaveUser');
+                const subSelect = document.getElementById('substituteUser');
+                
+                userSelect.innerHTML = '<option value="">-- انتخاب کنید --</option>';
+                subSelect.innerHTML = '<option value="">بدون جانشین (تسک‌ها معلق میمانند)</option>';
+                
+                if (data.users && data.users.length > 0) {
+                    data.users.forEach(u => {
+                        const opt = `<option value="${u.id}">${u.full_name}</option>`;
+                        userSelect.innerHTML += opt;
+                        subSelect.innerHTML += opt;
+                    });
+                }
+            } catch(e) {
+                console.error("Error loading colleagues:", e);
+            }
+        }
+
+        // واکشی لیست مرخصی‌ها
+        let currentType = 'upcoming';
+        let currentPage = 1;
+
+        async function loadLeaves(type = 'upcoming', page = 1) {
+            currentType = type;
+            currentPage = page;
+            const listEl = document.getElementById('leavesList');
+            const historyBtnContainer = document.getElementById('historyBtnContainer');
+            
+            if (page === 1) {
+                listEl.innerHTML = '<div class="skeleton" style="height: 100px; width: 100%; border-radius: 12px; margin-bottom: 15px;"></div>';
+                historyBtnContainer.innerHTML = '';
+            } else {
+                historyBtnContainer.innerHTML = '<div style="text-align:center;">در حال بارگذاری...</div>';
+            }
+
+            try {
+                const res = await fetch(`/api/get_leaves?type=${type}&page=${page}&limit=20`);
+                const result = await res.json();
+                
+                if (result.status === 'success') {
+                    renderLeaves(result.data, result.isAdmin, type, page);
+                    
+                    if (type === 'upcoming') {
+                        historyBtnContainer.innerHTML = `<button class="btn btn-outline" style="width: 100%; margin-top: 15px; border-style: dashed;" onclick="loadLeaves('history', 1)">نمایش تاریخچه مرخصی‌ها</button>`;
+                    } else {
+                        const loadedCount = page * result.limit;
+                        if (result.total > loadedCount) {
+                            historyBtnContainer.innerHTML = `<button class="btn btn-outline" style="width: 100%; margin-top: 15px; border-style: dashed;" onclick="loadLeaves('history', ${page + 1})">بارگذاری بیشتر (${result.total - loadedCount} مورد باقی‌مانده)</button>`;
+                        } else {
+                            historyBtnContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); margin-top: 15px; font-size: 0.9rem;">پایان لیست</div>`;
+                        }
+                    }
+                } else {
+                    listEl.innerHTML = `<div style="text-align: center; color: var(--error-color); padding: 20px;">${result.message || 'خطا در دریافت اطلاعات'}</div>`;
+                }
+            } catch(e) {
+                console.error(e);
+                listEl.innerHTML = '<div style="color:red; text-align:center; padding: 20px;">خطا در ارتباط با سرور</div>';
+            }
+        }
+
+        function renderLeaves(leaves, isAdmin, type, page) {
+            const listEl = document.getElementById('leavesList');
+            if (!leaves || leaves.length === 0) {
+                if (page === 1) {
+                    listEl.innerHTML = '<div class="searchable-item" style="text-align: center; color: gray; padding: 30px; background: var(--card-bg); border-radius: 12px; border: 1px dashed var(--border-color);">هیچ درخواستی یافت نشد.</div>';
+                }
+                return;
+            }
+
+            let html = '';
+            leaves.forEach(l => {
+                let badge = '';
+                if (l.status === 'pending') badge = '<span class="status-badge status-pending"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> در حال بررسی</span>';
+                else if (l.status === 'approved') badge = '<span class="status-badge status-approved"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> تایید شده</span>';
+                else if (l.status === 'rejected') badge = '<span class="status-badge status-rejected"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> رد شده</span>';
+                
+                let actions = '';
+                if (isAdmin) {
+                    if (l.status === 'pending') {
+                        actions += `
+                            <button class="action-btn btn-approve" onclick="updateStatus(${l.id}, 'approved')">تایید</button>
+                            <button class="action-btn btn-reject" onclick="updateStatus(${l.id}, 'rejected')">رد درخواست</button>
+                        `;
+                    }
+                    actions += `<button class="action-btn btn-delete" onclick="deleteLeave(${l.id})">حذف</button>`;
+                }
+
+                html += `
+                    <div class="leave-card">
+                        <div class="leave-card-header">
+                            <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-dark); display: flex; align-items: center; gap: 6px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> 
+                                ${l.user_name}
+                            </div>
+                            <div>${badge}</div>
+                        </div>
+                        <div class="leave-card-body">
+                            <div>
+                                <strong style="display:block; margin-bottom: 5px; color: var(--text-dark);">جانشین:</strong>
+                                ${l.substitute_name}
+                            </div>
+                            <div>
+                                <strong style="display:block; margin-bottom: 5px; color: var(--text-dark);">از تاریخ:</strong>
+                                <span dir="ltr">${window.toPersianDigits ? window.toPersianDigits(l.start_date) : l.start_date}</span>
+                            </div>
+                            <div>
+                                <strong style="display:block; margin-bottom: 5px; color: var(--text-dark);">تا تاریخ:</strong>
+                                <span dir="ltr">${window.toPersianDigits ? window.toPersianDigits(l.end_date) : l.end_date}</span>
+                            </div>
+                        </div>
+                        ${actions ? `<div class="leave-card-footer">${actions}</div>` : ''}
+                    </div>
+                `;
+            });
+            
+            if (page === 1) {
+                listEl.innerHTML = html;
+            } else {
+                listEl.insertAdjacentHTML('beforeend', html);
+            }
+        }
+
+        // ارسال فرم به بک‌اند
+        async function submitLeave(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'در حال پردازش...';
+            btn.disabled = true;
+
+            let sDate = window.toEnglishDigits ? window.toEnglishDigits(document.getElementById('startDate').value) : document.getElementById('startDate').value;
+            let eDate = window.toEnglishDigits ? window.toEnglishDigits(document.getElementById('endDate').value) : document.getElementById('endDate').value;
+            
+            if (sDate && eDate && sDate > eDate) {
+                const temp = sDate;
+                sDate = eDate;
+                eDate = temp;
+                document.getElementById('startDate').value = window.toPersianDigits ? window.toPersianDigits(sDate) : sDate;
+                document.getElementById('endDate').value = window.toPersianDigits ? window.toPersianDigits(eDate) : eDate;
+            }
+
+            const payload = {
+                user_id: document.getElementById('leaveUser').value,
+                substitute_id: document.getElementById('substituteUser').value,
+                start_date: sDate,
+                end_date: eDate
+            };
+
+            if(payload.user_id === payload.substitute_id && payload.substitute_id !== "") {
+                showToast("شخص متقاضی نمی‌تواند جانشین خودش باشد!", "error");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/save_leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                
+                if(result.status === 'success') {
+                    showToast(result.message);
+                    e.target.reset();
+                    loadLeaves('upcoming', 1); 
+                } else {
+                    showToast(result.message, "error");
+                }
+            } catch(err) {
+                showToast('خطا در ارتباط با سرور', 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function updateStatus(id, status) {
+            
+            
+            try {
+                const res = await fetch('/api/update_leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, status })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    showToast(result.message);
+                    loadLeaves('upcoming', 1);
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch(e) {
+                showToast('خطا در ارتباط با سرور', 'error');
+            }
+        }
+
+        async function deleteLeave(id) {
+            
+            
+            try {
+                const res = await fetch('/api/delete_leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    showToast(result.message);
+                    loadLeaves('upcoming', 1);
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch(e) {
+                showToast('خطا در ارتباط با سرور', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

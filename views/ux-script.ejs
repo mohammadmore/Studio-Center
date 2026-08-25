@@ -1,0 +1,209 @@
+<style>
+/* Global UX Elements */
+#global-toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 2147483647 !important;
+}
+.global-toast {
+    min-width: 300px;
+    padding: 14px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    animation: slideUp 0.3s ease-out forwards;
+    transition: opacity 0.3s, transform 0.3s;
+}
+.global-toast.hiding {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+}
+.global-toast.success { background-color: var(--success-color); }
+.global-toast.error { background-color: var(--error-color); }
+.global-toast.info { background-color: var(--primary-color); }
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: none; }
+}
+
+#global-loader-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 2147483647 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+#global-loader-overlay.active {
+    visibility: visible;
+    opacity: 1;
+}
+.loader-spinner {
+    border: 4px solid rgba(79, 70, 229, 0.2);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.loader-text {
+    font-weight: bold;
+    color: var(--text-gray);
+    font-size: 1.1rem;
+}
+</style>
+
+<div id="global-toast-container"></div>
+<div id="global-loader-overlay">
+    <div class="loader-spinner"></div>
+    <div class="loader-text" id="global-loader-text">لطفا کمی صبر کنید...</div>
+</div>
+
+<script>
+window.showToast = function(message, type = 'info') {
+    if (window.toPersianDigits && typeof message === 'string') message = window.toPersianDigits(message);
+    if (window.toPersianDigits && typeof message === 'number') message = window.toPersianDigits(message.toString());
+    const container = document.getElementById('global-toast-container');
+    if (!container) return;
+    
+    if (type !== 'success' && type !== 'error' && type !== 'info') {
+        if (message && message.toString().toLowerCase().includes('خطا')) type = 'error';
+        else type = 'info';
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'global-toast ' + type;
+    toast.innerHTML = '<span>' + (type === 'success' ? `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg>` : type === 'error' ? `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>` : `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><circle cx='12' cy='12' r='10'/><path d='M12 16v-4'/><path d='M12 8h.01'/></svg>`) + '</span> <span>' + message + '</span>';
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+};
+
+window.alert = function(msg) { window.showToast(msg); };
+
+window.showLoading = function(text = 'لطفا کمی صبر کنید...') {
+    const loader = document.getElementById('global-loader-overlay');
+    const loaderText = document.getElementById('global-loader-text');
+    if (loader && loaderText) {
+        loaderText.innerText = text;
+        loader.classList.add('active');
+    }
+};
+
+window.hideLoading = function() {
+    const loader = document.getElementById('global-loader-overlay');
+    if (loader) {
+        loader.classList.remove('active');
+    }
+};
+</script>
+
+<style>
+::view-transition-group(root) {
+    z-index: 2147483647 !important;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+</style>
+<script>
+window.toggleTheme = function(event) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const target = isDark ? 'light' : 'dark';
+
+    const performToggle = () => {
+        document.documentElement.setAttribute('data-theme', target);
+        localStorage.setItem('theme', target);
+        
+        // Update theme toggle button icons if they exist
+        document.querySelectorAll('#theme-toggle-btn').forEach(btn => {
+            const moon = btn.querySelector('.icon-moon');
+            const sun = btn.querySelector('.icon-sun');
+            if (moon) moon.style.display = target === 'dark' ? 'none' : 'block';
+            if (sun) sun.style.display = target === 'dark' ? 'block' : 'none';
+        });
+
+        // Update sidebar logo if exists
+        const sidebarLogo = document.getElementById('sidebarStudioLogo');
+        if (sidebarLogo) {
+            const newSrc = target === 'dark' ? sidebarLogo.getAttribute('data-dark') : sidebarLogo.getAttribute('data-light');
+            if (newSrc) sidebarLogo.src = newSrc;
+        }
+
+        if (typeof Chart !== 'undefined') {
+            Chart.defaults.color = target === 'dark' ? 'var(--text-gray)' : '#64748b';
+            Chart.defaults.borderColor = target === 'dark' ? '#334155' : 'var(--border-color)';
+            for (let id in Chart.instances) {
+                Chart.instances[id].update();
+            }
+        }
+    };
+
+    if (!document.startViewTransition || !event) {
+        performToggle();
+        return;
+    }
+
+    const x = event.clientX || window.innerWidth / 2;
+    const y = event.clientY || window.innerHeight / 2;
+    const endRadius = Math.hypot(
+        Math.max(x, innerWidth - x),
+        Math.max(y, innerHeight - y)
+    );
+    
+    document.documentElement.classList.add('theme-transition');
+    const transition = document.startViewTransition(performToggle);
+    
+        transition.ready.then(() => {
+        const clipPath = [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`
+        ];
+        
+        document.documentElement.animate(
+            { clipPath: clipPath },
+            {
+                duration: 500,
+                easing: 'ease-in-out',
+                pseudoElement: '::view-transition-new(root)'
+            }
+        );
+    });
+
+    transition.finished.then(() => {
+        document.documentElement.classList.remove('theme-transition');
+    });
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.querySelectorAll('#theme-toggle-btn').forEach(btn => {
+        const moon = btn.querySelector('.icon-moon');
+        const sun = btn.querySelector('.icon-sun');
+        if (moon) moon.style.display = isDark ? 'none' : 'block';
+        if (sun) sun.style.display = isDark ? 'block' : 'none';
+    });
+});
+</script>

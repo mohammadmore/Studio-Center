@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سطل زباله - استودیو آسوا</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <style>
+        .bin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .bin-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .bin-title { font-size: 1.1rem; font-weight: bold; color: var(--text-color); }
+        .bin-meta { font-size: 0.85rem; color: var(--text-gray); }
+        .btn-restore { background: rgba(16, 185, 129, 0.15); color: #16a34a; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9rem; flex: 1; }
+        .btn-delete-perm { background: rgba(239, 68, 68, 0.15); color: var(--error-color); border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9rem; flex: 1; }
+    </style>
+</head>
+<body>
+    <%- include('sidebar') %>
+    
+    <main class="main-content">
+        <header class="top-nav" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; position: relative;">
+            <div style="flex: 1;"></div>
+            <h1 class="page-title" style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; flex: 2; text-align: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                سطل زباله
+            </h1>
+            <div class="nav-actions" style="flex: 1; display: flex; justify-content: flex-end;">
+                <button onclick="window.history.back()" style="background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-family: inherit; font-weight: bold; transition: all 0.3s ease;">بازگشت</button>
+            </div>
+        </header>
+
+        <div id="binContainer" class="bin-grid">
+            <div style="padding:50px; text-align:center; color: var(--text-gray); grid-column: 1 / -1;">در حال لود...</div>
+        </div>
+    </main>
+
+    <script>
+        async function loadBin() {
+            try {
+                const res = await fetch('/api/recycle_bin').then(r => r.json());
+                const container = document.getElementById('binContainer');
+                if (res.status === 'success') {
+                    if (res.data.length === 0) {
+                        container.innerHTML = '<div style="padding:50px; text-align:center; color: var(--text-gray); grid-column: 1 / -1;">سطل زباله خالی است</div>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    res.data.forEach(item => {
+                        let typeName = 'نامشخص';
+                        if (item.table === 'contents') typeName = 'محتوا';
+                        else if (item.table === 'organizations') typeName = 'سازمان';
+                        else if (item.table === 'smartEventsBank') typeName = 'مناسبت تقویمی';
+                        else if (item.table === 'contentTemplates') typeName = 'قالب محتوا';
+                        else if (item.table === 'collections') typeName = 'مجموعه محتوا';
+                        else if (item.table === 'invoices') typeName = 'فاکتور مالی';
+                        
+                        const date = new Date(item.deleted_at).toLocaleDateString('fa-IR');
+                        
+                        
+                    let delBy = 'نامشخص';
+                    if (typeof item.deleted_by === 'object' && item.deleted_by !== null) {
+                        delBy = item.deleted_by.username || item.deleted_by.full_name || 'سیستم';
+                    } else if (item.deleted_by) {
+                        delBy = item.deleted_by;
+                    }
+html += `
+                            <div class="bin-card">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="background:rgba(128,128,128,0.1); padding:4px 8px; border-radius:6px; font-size:0.75rem;">${typeName}</span>
+                                    <span class="bin-meta">${date}</span>
+                                </div>
+                                <div class="bin-title">${item.item_title}</div>
+                                <div class="bin-meta">حذف شده توسط: ${delBy}</div>
+                                <div style="display:flex; gap:10px; margin-top:10px; flex-wrap: wrap; justify-content: flex-end;">
+                                    ${item.restored ? 
+  '<button class="btn-restore" disabled style="background:#ccc; color:white; cursor:not-allowed; width: 100%; display: flex; justify-content: center; align-items: center; flex: 1; min-width: 105px;">بازیابی شد</button>' : 
+  `<button class="btn-restore" onclick="restoreItem(${item.id})" style="width: 100%; display: flex; justify-content: center; align-items: center; flex: 1; min-width: 105px; background: var(--success-color); color: white;">بازیابی <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg></button>`}
+                                    ${item.restored ? 
+  `<button class="btn-delete-perm" onclick="deleteAgain(${item.id})" style="width: 100%; display: flex; justify-content: center; align-items: center; flex: 1; min-width: 105px; background: var(--error-color); color: white;">حذف مجدد <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 6h18'/><path d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/><path d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg></button>` : 
+  `<button class="btn-delete-perm" onclick="deletePermanent(${item.id})" style="width: 100%; display: flex; justify-content: center; align-items: center; flex: 1; min-width: 105px; background: var(--error-color); color: white;">حذف دائم <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 6h18'/><path d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/><path d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg></button>`}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div style="padding:50px; text-align:center; color: var(--error-color); grid-column: 1 / -1;">خطا در دریافت اطلاعات</div>';
+                }
+            } catch(e) {
+                console.error(e);
+                document.getElementById('binContainer').innerHTML = '<div style="padding:50px; text-align:center; color: var(--error-color); grid-column: 1 / -1;">خطای شبکه</div>';
+            }
+        }
+        
+        async function restoreItem(bin_id) {
+            const res = await fetch('/api/recycle_bin', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'restore', bin_id })
+            }).then(r => r.json());
+            
+            if (res.status === 'success') {
+                window.showToast('آیتم با موفقیت بازگردانی شد', 'success');
+                loadBin();
+            } else {
+                window.showToast(res.message || 'خطا در بازگردانی', 'error');
+            }
+        }
+        
+        async function deleteAgain(bin_id) {
+            if(!(await window.customConfirm('آیا مطمئن هستید که می‌خواهید این آیتم را مجدداً حذف کنید (به سطل زباله برگردانید)؟'))) return;
+            const res = await fetch('/api/recycle_bin', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'delete_again', bin_id })
+            }).then(r => r.json());
+            
+            if (res.status === 'success') {
+                window.showToast(res.message || 'مجدداً به سطل زباله منتقل شد', 'success');
+                loadBin();
+            } else {
+                window.showToast(res.message || 'خطا در حذف مجدد', 'error');
+            }
+        }
+        
+        async function deletePermanent(bin_id) {
+            if(!(await window.customConfirm('آیا از حذف برای همیشه اطمینان دارید؟ این عمل غیرقابل بازگشت است.'))) return;
+            const res = await fetch('/api/recycle_bin', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'delete_permanent', bin_id })
+            }).then(r => r.json());
+            
+            if (res.status === 'success') {
+                window.showToast('آیتم برای همیشه حذف شد', 'success');
+                loadBin();
+            } else {
+                window.showToast(res.message || 'خطا در حذف', 'error');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadBin);
+    </script>
+</body>
+</html>

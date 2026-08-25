@@ -1,0 +1,1981 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | تقویم محتوایی دیواری</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <script src="assets/js/jalaali.min.js?v=2"></script>
+<script>
+        // --- Excel Schedule Modal Logic ---
+        let parsedExcelScheduleRows = [];
+        let excelScheduleWarnings = [];
+
+        function openExcelScheduleModal() {
+            document.getElementById('excelScheduleModal').style.display = 'flex';
+            resetExcelScheduleModal();
+        }
+
+        function closeExcelScheduleModal() {
+            document.getElementById('excelScheduleModal').style.display = 'none';
+        }
+
+        function resetExcelScheduleModal() {
+            parsedExcelScheduleRows = [];
+            excelScheduleWarnings = [];
+            document.getElementById('excelScheduleInput').value = '';
+            document.getElementById('excelScheduleDropZone').style.display = 'block';
+            document.getElementById('excelSchedulePreviewArea').style.display = 'none';
+            document.getElementById('excelScheduleWarningsArea').style.display = 'none';
+            document.getElementById('btnSubmitExcelSchedule').style.display = 'flex';
+            document.getElementById('btnForceSubmitExcelSchedule').style.display = 'none';
+        }
+
+        async function handleExcelScheduleFile(file) {
+            if (!file) return;
+            if (!window.XLSX) {
+                if (window.showToast) window.showToast('کتابخانه پردازش اکسل بارگذاری نشده است. صفحه را رفرش کنید', 'error');
+                return;
+            }
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rows = XLSX.utils.sheet_to_json(worksheet);
+
+                if (!rows || rows.length === 0) {
+                    if (window.showToast) window.showToast('هیچ داده‌ای در فایل اکسل یافت نشد', 'error');
+                    return;
+                }
+
+                parsedExcelScheduleRows = rows.map(r => ({
+                    content_id: r['شناسه محتوا'] || r['شناسه'] || r['id'],
+                    org_name: r['نام تیم'] || r['تیم'] || r['سازمان'] || r['org'],
+                    publish_date: r['تاریخ انتشار'] || r['publish_date'],
+                    publish_time: r['زمان انتشار'] || r['ساعت انتشار'] || r['publish_time']
+                })).filter(r => r.content_id && r.org_name && String(r.org_name).trim() !== '' && !isNaN(parseInt(r.content_id)));
+
+                if (parsedExcelScheduleRows.length === 0) {
+                    if (window.showToast) window.showToast('هیچ ردیف معتبری حاوی شناسه محتوا و نام تیم یافت نشد', 'error');
+                    return;
+                }
+
+                renderExcelSchedulePreview();
+            } catch (e) {
+                console.error(e);
+                if (window.showToast) window.showToast('خطا در خواندن و پردازش فایل اکسل', 'error');
+            }
+        }
+
+        function renderExcelSchedulePreview() {
+            const tbody = document.getElementById('excelSchedulePreviewTableBody');
+            tbody.innerHTML = '';
+            document.getElementById('excelScheduleCountBadge').innerText = parsedExcelScheduleRows.length + ' مورد';
+
+            parsedExcelScheduleRows.forEach((r, idx) => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid rgba(128, 128, 128, 0.05)';
+                tr.innerHTML = `
+                    <td style="padding: 8px 10px; font-weight: 600; color: var(--text-gray);">${idx + 1}</td>
+                    <td style="padding: 8px 10px; font-weight: bold; color: var(--text-dark);">${r.content_id}</td>
+                    <td style="padding: 8px 10px;">${r.org_name}</td>
+                    <td style="padding: 8px 10px; font-family: monospace;">${r.publish_date || '-'} ${r.publish_time || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('excelScheduleDropZone').style.display = 'none';
+            document.getElementById('excelSchedulePreviewArea').style.display = 'block';
+        }
+
+        async function submitExcelSchedule(force = false) {
+            if (!parsedExcelScheduleRows || parsedExcelScheduleRows.length === 0) return;
+
+            const btnId = force ? 'btnForceSubmitExcelSchedule' : 'btnSubmitExcelSchedule';
+            const submitBtn = document.getElementById(btnId);
+            const originalHtml = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'در حال پردازش...';
+
+            try {
+                const res = await fetch('/api/bulk_schedule_contents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: parsedExcelScheduleRows, force })
+                });
+                const result = await res.json();
+
+                if (result.status === 'success') {
+                    if (window.showToast) window.showToast(result.message || 'زمان‌بندی‌ها با موفقیت اعمال شدند', 'success');
+                    closeExcelScheduleModal();
+                    renderCalendar(); // Refresh calendar
+                } else if (result.status === 'warning') {
+                    // Show warnings
+                    document.getElementById('excelScheduleWarningsArea').style.display = 'block';
+                    const warningsList = document.getElementById('excelScheduleWarningsList');
+                    warningsList.innerHTML = result.warnings.map(w => `<li>${w}</li>`).join('');
+                    
+                    document.getElementById('btnSubmitExcelSchedule').style.display = 'none';
+                    document.getElementById('btnForceSubmitExcelSchedule').style.display = 'flex';
+                } else {
+                    if (window.showToast) window.showToast(result.message || 'خطا در ثبت زمان‌بندی‌ها', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                if (window.showToast) window.showToast('خطا در ارتباط با سرور', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+            }
+        }
+
+</script>
+    <style>
+        .calendar-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03); transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .calendar-header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .calendar-nav {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .calendar-nav button {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary-color) !important;
+            border: 1px solid rgba(99, 102, 241, 0.3) !important;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            height: 38px;
+            box-sizing: border-box;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        .calendar-nav button svg {
+            display: inline-block;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+        .calendar-nav button:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.5) !important;
+            transform: translateY(-1px);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .calendar-day-name {
+            background: rgba(128, 128, 128, 0.05);
+            text-align: center;
+            font-weight: bold;
+            padding: 15px 0;
+            color: var(--text-gray);
+            font-size: 0.95rem;
+        }
+
+        .calendar-cell {
+            background: var(--card-bg);
+            height: 130px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            transition: background 0.2s;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+            box-sizing: border-box;
+            width: 100%;
+            min-width: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .calendar-cell:hover {
+            background: rgba(128, 128, 128, 0.05);
+        }
+
+        .calendar-cell.empty-cell {
+            background: rgba(128, 128, 128, 0.1);
+            cursor: default;
+        }
+
+        .calendar-cell.today {
+            background: #eff6ff;
+            box-shadow: inset 0 0 0 2px var(--primary-color);
+        }
+        
+        .calendar-cell.holiday {
+            background: #fce7f3 !important;
+            border-color: #fbcfe8 !important;
+            border-style: solid !important;
+        }
+        .calendar-cell.routine-holiday {
+            background: rgba(244, 63, 94, 0.05) !important;
+            border-color: #fbcfe8 !important;
+            border-style: dashed !important;
+        }
+        .calendar-cell.special-holiday {
+            background: #fecdd3 !important;
+            border-color: #fda4af !important;
+            border-style: solid !important;
+        }
+
+        .day-number {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--text-gray);
+            margin-bottom: 15px;
+            width: 100%;
+            text-align: right;
+        }
+        
+        .today .day-number {
+            color: var(--primary-color);
+        }
+        
+        .holiday .day-number {
+            color: var(--error-color) !important;
+        }
+
+        .content-badge {
+            background: linear-gradient(135deg, var(--primary-color), #4338ca);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 10px;
+            min-width: 40px;
+            text-align: center;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(67, 56, 202, 0.3);
+            transition: transform 0.2s;
+        }
+        
+        .calendar-cell:hover .content-badge {
+            transform: scale(1.1);
+        }
+
+        /* --- استایل‌های پاپ‌آپ (Modal) --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            width: 90%;
+            width: 100%; max-width: 500px; box-sizing: border-box;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #94a3b8;
+        }
+        .close-modal:hover { color: var(--error-color); }
+
+        .popup-item {
+            background: rgba(128, 128, 128, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .popup-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .popup-org-name {
+            font-weight: bold;
+            color: var(--text-gray);
+            font-size: 1.05rem;
+        }
+
+        .popup-content-type {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--primary-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .popup-item-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-gray);
+            font-size: 0.85rem;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 8px;
+        }
+        
+        .popup-time {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+        }
+
+        /* استایل دکمه افزودن محتوا در پاپ‌آپ خالی */
+        .btn-add-content {
+            background: linear-gradient(135deg, var(--success-color), #059669);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+        .btn-add-content:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(16, 185, 129, 0.3);
+        }
+    
+        @media (max-width: 768px) {
+            .calendar-day-name {
+                writing-mode: vertical-rl;
+                transform: rotate(180deg);
+                height: 70px;
+                font-size: 0.75rem !important;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 5px 0 !important;
+            }
+            .desktop-event-item {
+                display: none !important;
+            }
+            .mobile-count-badge {
+                display: block !important;
+            }
+            .calendar-cell {
+                min-height: 70px !important;
+                padding: 2px !important;
+            }
+            .calendar-cell > div:first-child {
+                font-size: 0.9rem;
+                margin-bottom: 2px;
+            }
+        }
+        .mobile-count-badge {
+            display: none;
+            
+            color: white;
+            border-radius: 4px;
+            padding: 2px;
+            font-size: 0.8rem;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 4px;
+        }
+
+    </style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <%- include('sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header-container flex-responsive" style="justify-content: space-between; align-items: center;">
+        <div>
+            <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-calendar-days"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M8 2v3" />
+  <path d="M16 2v3" />
+  <rect x="3" y="3" width="18" height="18" rx="2" />
+  <path d="M3 9h18" />
+  <path d="M8 13h.01" />
+  <path d="M12 13h.01" />
+  <path d="M16 13h.01" />
+  <path d="M8 17h.01" />
+  <path d="M12 17h.01" />
+  <path d="M16 17h.01" />
+</svg> <span>تقویم انتشار محتوا</span></h1>
+            <p class="page-subtitle">برنامه‌ریزی، زمان‌بندی و مدیریت انتشار محتوا‌های استودیو</p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" class="action-buttons">
+            <button id="viewToggleBtn" class="btn-outline" onclick="toggleViewMode()" style="display: inline-flex; align-items: center; gap: 6px; height: 42px; border-radius: 6px; padding: 0 15px; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer; font-family: Tahoma; font-size: 0.9rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg> نمایش فهرستی</button>
+            <button class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px; height: 42px;  color: white !important; border: none; padding: 0 15px; border-radius: 6px; cursor: pointer; font-family: Tahoma; font-size: 0.9rem;" onclick="openExcelScheduleModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> زمان‌بندی با اکسل</button>
+            <button id="btnApplyTemplate" class="btn-primary" onclick="toggleTemplate()" style="display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 15px; border-radius: 6px;  color: white !important; border: none; cursor: pointer; font-family: Tahoma; font-size: 0.9rem; font-weight: bold;">🌟 اعمال قالب</button>
+        </div>
+    </div>
+        
+        <div class="calendar-container">
+            <div class="calendar-header-actions flex-responsive" style="gap: 15px; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 25px;">
+                <div style="flex: 1; display: flex; justify-content: flex-start; width: 100%;">
+                    <div class="calendar-nav" style="display: flex; gap: 8px; width: 100%;">
+                        <button onclick="changeMonth(-1)" style="flex: 1;">ماه قبل</button>
+                        <button onclick="goToToday()" style="flex: 1;">امروز</button>
+                        <button onclick="changeMonth(1)" style="flex: 1;">ماه بعد</button>
+                    </div>
+                </div>
+                
+                <div style="flex: 1; display: flex; justify-content: center !important; align-items: center; text-align: center; width: 100%;">
+                    <h2 id="current-month-label" style="margin: 0 auto; color: var(--primary-color); font-size: 1.8rem; font-weight: 900; text-align: center;"></h2>
+                </div>
+                
+                <div style="flex: 1; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; width: 100%;">
+                    <select id="orgFilter" class="form-control" onchange="renderCalendar()" style="flex: 1; min-width: 150px; height: 42px; padding: 0 10px; border-radius: 6px; font-size: 0.95rem; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-gray);">
+                        <option value="all">همه تیم‌ها</option>
+                    </select>
+                    <select id="typeFilter" class="form-control" onchange="renderCalendar()" style="flex: 1; min-width: 150px; height: 42px; padding: 0 10px; border-radius: 6px; font-size: 0.95rem; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-gray);">
+                        <option value="all">همه محتوا‌ها</option>
+                    </select>
+                </div>
+            </div>
+
+            
+            <div id="list-view-container" style="display: none; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color); padding: 20px; overflow-x: auto;">
+                <div class="mobile-list-container" id="mobile-list-container">
+                    
+                    <div id="list-view-body" style="display: flex; flex-direction: column; gap: 16px;">
+                    </div>
+                </div>
+            </div>
+<div class="table-responsive"><div class="calendar-grid" id="calendar-grid">
+                <div class="calendar-day-name">شنبه</div>
+                <div class="calendar-day-name">یکشنبه</div>
+                <div class="calendar-day-name">دوشنبه</div>
+                <div class="calendar-day-name">سه‌شنبه</div>
+                <div class="calendar-day-name">چهارشنبه</div>
+                <div class="calendar-day-name">پنج‌شنبه</div>
+                <div class="calendar-day-name">جمعه</div>
+                <!-- Skeleton cells -->
+                <% for(let i=0; i<35; i++) { %>
+                <div class="calendar-cell skeleton" style="opacity: 0.5;"></div>
+                <% } %>
+            </div></div>
+        </div>
+    </main>
+
+        <!-- Apply Template Modal -->
+    <div class="modal-overlay" id="applyTemplateModal">
+        <div class="modal-content" style="width: 100%; max-width: 500px; box-sizing: border-box;">
+            <div class="modal-header">
+                <h3 class="modal-title">🌟 اعمال قالب محتوایی</h3>
+                <button class="close-btn" onclick="document.getElementById('applyTemplateModal').style.display='none'">×</button>
+            </div>
+            <div style="padding: 20px;">
+                <label style="display:block; margin-bottom: 8px;">انتخاب سازمان:</label>
+                <select id="templateOrg" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; margin-bottom: 15px;"></select>
+                
+                <label style="display:block; margin-bottom: 8px;">انتخاب قالب:</label>
+                <select id="templateSelect" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; margin-bottom: 15px;"></select>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-primary" style="flex: 1;" onclick="applyTemplatePreview()">اعمال قالب</button>
+                    <button type="button" class="btn-outline"  onclick="document.getElementById('applyTemplateModal').style.display='none'" style="flex: 1;">انصراف</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Suggestion Modal -->
+    <div class="modal-overlay" id="suggestionModal">
+        <div class="modal-content" style="width: 100%; max-width: 600px; box-sizing: border-box;">
+            <div class="modal-header">
+                <h3 class="modal-title">تخصیص محتوا به پیشنهاد قالب</h3>
+                <button class="close-btn" onclick="document.getElementById('suggestionModal').style.display='none'">×</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="color: var(--text-gray); margin-bottom:15px;">نوع محتوا: <strong id="sugType"></strong> | موضوع: <strong id="sugTopic"></strong></p>
+                <input type="hidden" id="currentSuggestionId">
+                
+                <label style="font-weight: bold;">انتخاب از دپو برای این سازمان:</label>
+                <div id="sugDepotList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: rgba(128, 128, 128, 0.05); margin-top: 10px; margin-bottom: 15px;">
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn" class="btn btn-danger-light" style="flex: 1; border: none; padding: 10px; border-radius: 6px; cursor: pointer;" onclick="dismissSuggestion()">حذف پیشنهاد</button>
+                    <button type="button" class="btn-outline"  onclick="document.getElementById('suggestionModal').style.display='none'" style="flex: 1;">بستن</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="contentModal">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">محتوا‌های تاریخ ...</h3>
+                <button class="close-modal" onclick="closeModal(true)">&times;</button>
+            </div>
+            <div id="modalBody">
+                <!-- محتوا‌ها اینجا توسط JS تزریق می‌شوند -->
+            </div>
+        </div>
+    </div>
+
+    
+    
+    <!-- Confirm Modal -->
+    <div class="modal-overlay" id="customConfirmModal" style="display: none; z-index: 2147483647 !important;">
+        <div class="modal-content" style="width: 100%; max-width: 400px; box-sizing: border-box; text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 10px;">ℹ️</div>
+            <h3 style="margin-bottom: 15px; color: var(--text-dark);">توجه</h3>
+            <p id="customConfirmMessage" style="color: var(--text-gray); line-height: 1.6; margin-bottom: 20px; white-space: pre-wrap;"></p>
+            <div style="display: flex; gap: 10px;">
+                <button id="customConfirmYes" class="btn-primary" style="flex: 1;">تایید</button>
+                <button id="customConfirmNo" class="btn-outline" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: white; cursor: pointer;">انصراف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- پنل کشویی (Drawer) نمایش محتوا -->
+    
+
+    
+    <!-- پاپ‌آپ زمان‌بندی گروهی با اکسل -->
+    <div class="modal-overlay" id="excelScheduleModal">
+        <div class="modal-content" onclick="event.stopPropagation()" style="width: 100%; max-width: 600px; box-sizing: border-box; max-height: 85vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+                <span><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg></span> زمان‌بندی گروهی با اکسل
+                </h3>
+                <button class="close-modal" onclick="closeExcelScheduleModal()">&times;</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+                <div style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4 style="margin: 0; color: var(--text-gray); font-size: 1rem;">📌 راهنمای فرمت استاندارد:</h4>
+                <p style="font-size: 0.9rem; line-height: 1.6; margin-top: 8px;">
+                فایل اکسل شما باید حاوی این ستون‌ها در ردیف اول (Header) باشد:
+                <br>
+                - <b>شناسه محتوا</b> (الزامی) <br>
+                - <b>نام تیم</b> (الزامی) <br>
+                - <b>تاریخ انتشار</b> (مثلاً 1403/05/12)<br>
+                - <b>زمان انتشار</b> (مثلاً 10:30)
+                </p>
+                </div>
+                
+                <div id="excelScheduleDropZone" style="border: 2px dashed var(--primary-color); border-radius: 12px; padding: 40px; text-align: center; background: rgba(79, 70, 229, 0.05); cursor: pointer; transition: background 0.3s;" onclick="document.getElementById('excelScheduleInput').click();">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px;"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4Z"/><path d="M18 21v-8a2 2 0 0 0-2-2h-3"/><path d="M4 22V4a2 2 0 0 1 2-2h8l6 6v14"/></svg>
+                    <div style="font-weight: 700; color: var(--primary-color); font-size: 1rem; margin-bottom: 4px;">انتخاب یا رها کردن فایل اکسل</div>
+                    <div style="color: var(--text-gray); font-size: 0.85rem;">فرمت‌های مجاز: xlsx, xls</div>
+                    <input type="file" id="excelScheduleInput" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelScheduleFile(this.files[0])">
+                </div>
+                
+                <div id="excelSchedulePreviewArea" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0; color: var(--text-dark);">پیش‌نمایش محتوا‌های شناسایی شده</h4>
+                        <span id="excelScheduleCountBadge" style=" color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; font-weight: bold;">0 مورد</span>
+                    </div>
+                    <div style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                        <table class="data-table" style="width: 100%; text-align: right; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead style="position: sticky; top: 0; background: var(--card-bg); z-index: 10;">
+                                <tr style="border-bottom: 2px solid rgba(128, 128, 128, 0.1);">
+                                    <th style="padding: 10px; color: var(--text-gray);">#</th>
+                                    <th style="padding: 10px; color: var(--text-gray);">شناسه</th>
+                                    <th style="padding: 10px; color: var(--text-gray);">نام تیم</th>
+                                    <th style="padding: 10px; color: var(--text-gray);">تاریخ و ساعت</th>
+                                </tr>
+                            </thead>
+                            <tbody id="excelSchedulePreviewTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="excelScheduleWarningsArea" style="display: none; margin-top: 15px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px;">
+                        <h4 style="margin: 0 0 8px 0; color: var(--error-color); font-size: 0.95rem;">اخطارها (مغایرت‌ها):</h4>
+                        <ul id="excelScheduleWarningsList" style="margin: 0; padding-right: 20px; font-size: 0.85rem; color: var(--error-color);">
+                        </ul>
+                        <div style="margin-top: 10px; font-size: 0.85rem; font-weight: bold; color: var(--text-dark);">آیا مایل به نادیده گرفتن اخطارها و ادامه هستید؟</div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button id="btnSubmitExcelSchedule" class="btn-primary" style="flex: 2; padding: 12px; font-size: 1rem; display: flex; justify-content: center; align-items: center;" onclick="submitExcelSchedule()">
+                            تایید و ثبت زمان‌بندی‌ها
+                        </button>
+                        <button id="btnForceSubmitExcelSchedule" class="btn-primary" style="flex: 2; padding: 12px; font-size: 1rem; display: none; justify-content: center; align-items: center; background: var(--warning-color);" onclick="submitExcelSchedule(true)">
+                            ادامه با نادیده گرفتن اخطارها
+                        </button>
+                        <button class="btn-outline" style="flex: 1; padding: 12px; font-size: 1rem;" onclick="closeExcelScheduleModal()">انصراف</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- پاپ‌آپ افزودن/برنامه‌ریزی محتوا -->
+    <div class="modal-overlay" id="scheduleModal">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-height: 85vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="scheduleModalTitle">افزودن محتوا برای تاریخ ...</h3>
+                <button class="close-modal" onclick="closeScheduleModal(true)">&times;</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <label style="font-weight: bold;">ساعت انتشار (اختیاری)</label>
+                <input type="time" id="newScheduleTime" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
+                <label style="font-weight: bold;">نام سازمان (کارفرما)</label>
+                <select id="scheduleOrg" onchange="loadOrgContents()" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
+                    <option value="">-- انتخاب سازمان --</option>
+                </select>
+
+                <div id="existingContentsSection" style="display: none; flex-direction: column; gap: 10px;">
+                    <label style="font-weight: bold;">انتخاب از محتوا‌های موجود دپو (منتشر نشده)</label>
+                    <input type="text" id="searchOrgContents" placeholder="جستجو..." onkeyup="filterOrgContents()" style="padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                    <div id="orgContentsList" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: rgba(128, 128, 128, 0.05);">
+                    </div>
+                </div>
+
+                
+                <div style="text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color);" id="toggleNewContentWrapper">
+                    <button type="button" onclick="window.showNewContentForm()" style="background: none; border: none; color: var(--primary-color); font-weight: bold; cursor: pointer; font-family: Tahoma; font-size: 0.95rem;">+ تعریف محتوای کاملاً جدید</button>
+                </div>
+                <div id="newContentSection" style="display: none; flex-direction: column; gap: 10px; margin-top: 5px;">
+                    <div style="text-align: right; margin-bottom: 5px;">
+                        <button type="button" onclick="window.showDepotList()" style="background: none; border: none; color: var(--text-gray); font-size: 0.9rem; cursor: pointer; text-decoration: underline;">🔙 بازگشت به انتخاب از دپو</button>
+                    </div>
+                <label style="font-weight: bold; color: var(--primary-color);">ایجاد محتوای کاملاً جدید</label>
+                <input type="text" id="newScheduleTitle" placeholder="عنوان محتوای جدید" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
+                <select id="newScheduleType" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
+                </select>
+                <label style="font-weight: bold;">تعداد ایجاد (تکرار در همین روز)</label>
+                <input type="text" inputmode="numeric" id="newScheduleCount" value="1" min="1" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
+
+                <label style="font-weight: bold; margin-top: 10px; display: block;">مدیر پروژه</label>
+                <select id="newScheduleManager" onchange="updateScheduleTeamCheckboxes()" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
+                    <option value="">-- انتخاب مدیر پروژه --</option>
+                </select>
+
+                <label style="font-weight: bold; margin-top: 10px; display: block;">همکاران تیم (چند انتخاب)</label>
+                <div id="newScheduleTeamCheckboxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);"></div>
+
+                <label style="font-weight: bold; margin-top: 10px; display: block;">مراحل لازم تولید</label>
+                <div id="newScheduleStages" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                
+                <label style="font-weight: bold; margin-top: 10px; display: block;">تعداد اجزای محتوا (اختیاری)</label>
+                <div id="newScheduleComponentsCount" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="ویدئو" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> ویدئو</div>
+                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="پوستر گرافیکی" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> پوستر گرافیکی</div>
+                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="فایل صوتی" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> فایل صوتی</div>
+                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="متن/کپشن" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> متن/کپشن</div>
+                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="استوری" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> استوری</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color); display: flex; flex-direction: column; gap: 10px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: bold; color: var(--text-gray);">
+                    <input type="checkbox" id="isRecurring" onchange="document.getElementById('recurringOptions').style.display = this.checked ? 'grid' : 'none';"> تکرارشونده
+                </label>
+                <div id="recurringOptions" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <div>
+                        <label style="font-size: 0.9rem; color: var(--text-gray);">فاصله تکرار (روز):</label>
+                        <input type="text" inputmode="numeric" id="recurrenceInterval" min="1" value="7" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; margin-top: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.9rem; color: var(--text-gray);">تعداد دفعات تکرار:</label>
+                        <input type="text" inputmode="numeric" id="recurrenceCount" min="1" value="12" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; margin-top: 4px;">
+                    </div>
+                    <div style="grid-column: 1 / -1; margin-top: 5px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; color: var(--text-gray);">
+                            <input type="checkbox" id="countInStats"> شمارش هر تکرار در آمار عملکرد (اگر زده نشود، فقط نمونه اول در آمار محاسبه می‌شود اما در گزارش با برچسب تکرار ذکر میگردد)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="submitSchedule()" style="margin-top: 20px;">تأیید و ذخیره</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    window.selectedBatchIds = [];
+    
+    function toggleBatchSelect(id, isChecked) {
+        id = parseInt(id);
+        if (isChecked) {
+            if (!window.selectedBatchIds.includes(id)) window.selectedBatchIds.push(id);
+        } else {
+            window.selectedBatchIds = window.selectedBatchIds.filter(x => x !== id);
+        }
+        updateBatchUI();
+    }
+    
+    function updateBatchUI() {
+        const bar = document.getElementById('batchActionsBar');
+        const count = document.getElementById('batchCount');
+        
+        document.querySelectorAll('.batch-checkbox').forEach(cb => {
+            cb.checked = window.selectedBatchIds.includes(parseInt(cb.value));
+        });
+    
+        if (window.selectedBatchIds.length > 0) {
+            bar.style.display = 'flex';
+            count.innerText = window.toPersianDigits(window.selectedBatchIds.length) + ' محتوا انتخاب شده';
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+    
+    function clearBatchSelection() {
+        window.selectedBatchIds = [];
+        updateBatchUI();
+    }
+    
+    function openBatchEditModal() {
+        if (window.selectedBatchIds.length === 0) return;
+        document.getElementById('batchEditCountLabel').innerText = window.toPersianDigits(window.selectedBatchIds.length);
+        document.getElementById('batchAction').value = '';
+        toggleBatchFields();
+        document.getElementById('batchEditModal').style.display = 'flex';
+    }
+    
+    function toggleBatchFields() {
+        const action = document.getElementById('batchAction').value;
+        const container = document.getElementById('batchFieldsContainer');
+        const submitBtn = document.getElementById('batchSubmitBtn');
+        
+        document.getElementById('bf-status').style.display = 'none';
+        document.getElementById('bf-shift-dates').style.display = 'none';
+        document.getElementById('bf-manager').style.display = 'none';
+        document.getElementById('bf-team').style.display = 'none';
+        
+        if (!action) {
+            container.style.display = 'none';
+            submitBtn.style.display = 'none';
+            return;
+        }
+        
+        container.style.display = 'block';
+        submitBtn.style.display = 'inline-block';
+        
+        if (action === 'status') document.getElementById('bf-status').style.display = 'block';
+        if (action === 'shift_dates') document.getElementById('bf-shift-dates').style.display = 'block';
+        if (action === 'manager') {
+            document.getElementById('bf-manager').style.display = 'block';
+            let html = '<option value="">-- تعیین نشده --</option>';
+            if(window.allColleagues) {
+                window.allColleagues.forEach(c => {
+                    html += `<option value="${c.full_name}">${c.full_name}</option>`;
+                });
+            }
+            document.getElementById('batchManagerInput').innerHTML = html;
+        }
+        if (action === 'team') {
+            document.getElementById('bf-team').style.display = 'block';
+            let html = '';
+            if(window.allColleagues) {
+                window.allColleagues.forEach(c => {
+                    html += `<label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" name="batchTeamInput_cb" value="${c.id}"> ${c.full_name}</label>`;
+                });
+            }
+            document.getElementById('batchTeamInput').innerHTML = html;
+        }
+        
+        if (action === 'delete') {
+            container.style.display = 'none'; // No fields for delete
+        }
+    }
+    
+    async function submitBatchEdit() {
+        const action = document.getElementById('batchAction').value;
+        if (!action) return;
+        
+        let payload = {
+            ids: window.selectedBatchIds,
+            action: action
+        };
+        
+        if (action === 'delete') {
+            if (!(await window.customConfirm('آیا از حذف گروهی این محتوا‌ها اطمینان دارید؟'))) return;
+        } else if (action === 'status') {
+            payload.status = document.getElementById('batchStatusInput').value;
+        } else if (action === 'shift_dates') {
+            payload.shift_days = document.getElementById('batchShiftDaysInput').value;
+        } else if (action === 'manager') {
+            payload.project_manager = document.getElementById('batchManagerInput').value;
+        } else if (action === 'team') {
+            const cbs = Array.from(document.querySelectorAll('input[name="batchTeamInput_cb"]:checked'));
+            payload.team = cbs.map(cb => cb.value);
+        }
+        
+        try {
+            const res = await fetch('/api/batch_edit_contents', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                if(window.showToast) window.showToast('عملیات گروهی با موفقیت انجام شد.', 'success');
+                document.getElementById('batchEditModal').style.display = 'none';
+                clearBatchSelection();
+                if (typeof renderCalendar === 'function') renderCalendar();
+            } else {
+                if(window.showToast) window.showToast('خطا: ' + result.message, 'error');
+            }
+        } catch(e) {
+            console.error(e);
+            if(window.showToast) window.showToast('خطا در ارتباط با سرور', 'error');
+        }
+    }
+
+        let currentDate = new Date();
+        let currentJalali = jalaali.toJalaali(currentDate);
+        let currentYear = currentJalali.jy;
+        let currentMonth = currentJalali.jm;
+
+        const monthNames = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
+        const dayNames = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"];
+
+        let currentViewMode = window.innerWidth <= 768 ? 'list' : 'grid';
+
+        function applyViewMode() {
+            const btn = document.getElementById('viewToggleBtn');
+            window.allDepotItems = Object.values(window.monthlyData).flat();
+            const grid = document.getElementById('calendar-grid');
+            const list = document.getElementById('list-view-container');
+            if(!btn || !grid || !list) return;
+            if (currentViewMode === 'list') {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg> نمایش تقویم`;
+                grid.style.display = 'none';
+                list.style.display = 'block';
+            } else {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> نمایش فهرستی`;
+                grid.style.display = 'grid';
+                list.style.display = 'none';
+            }
+        }
+        
+        function toggleViewMode() {
+            currentViewMode = currentViewMode === 'grid' ? 'list' : 'grid';
+            applyViewMode();
+            renderCalendar();
+        }
+
+        window.monthlyData = {};
+
+        // تابع تبدیل اعداد انگلیسی به فارسی
+        
+
+        // Template System
+        
+        
+        function toggleTemplate() {
+            if (window.activeTemplatePreview) {
+                window.activeTemplatePreview = null;
+                document.getElementById('btnApplyTemplate').innerText = '🌟 اعمال قالب';
+                document.getElementById('btnApplyTemplate').style.backgroundColor = 'var(--warning-color)';
+                
+                const filterEl = document.getElementById('orgFilter');
+                if (filterEl) {
+                    filterEl.value = 'all';
+                }
+                
+                renderCalendar();
+            } else {
+                openApplyTemplateModal();
+            }
+        }
+
+
+        async function openApplyTemplateModal() {
+            try {
+                const [orgRes, tplRes] = await Promise.all([
+                    fetch('/api/get_orgs', { cache: 'no-store' }),
+                    fetch('/api/get_content_templates')
+                ]);
+                const orgData = await orgRes.json();
+                const tplData = await tplRes.json();
+                
+                window.allTemplatesData = tplData;
+
+                const orgSelect = document.getElementById('templateOrg');
+                orgSelect.innerHTML = '<option value="">-- انتخاب سازمان --</option>';
+                if (orgData.data) {
+                    window.orgsData = orgData.data; // Store for preview usage
+                    (orgData.data || []).forEach(o => {
+                        orgSelect.innerHTML += `<option value="${o.id}">${o.org_name}</option>`;
+                    });
+                }
+                
+                const tplSelect = document.getElementById('templateSelect');
+                tplSelect.innerHTML = '<option value="">-- انتخاب قالب --</option>';
+                if (tplData) {
+                    (tplData || []).forEach(t => {
+                        tplSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+                    });
+                }
+                
+                document.getElementById('applyTemplateModal').style.display = 'flex';
+            } catch (e) { console.error(e); }
+        }
+
+        
+        function applyTemplatePreview() {
+            const orgId = document.getElementById('templateOrg').value;
+            const tplId = document.getElementById('templateSelect').value;
+            if (!orgId || !tplId) return showToast('لطفاً سازمان و قالب را انتخاب کنید.');
+            
+            const tpl = window.allTemplatesData.find(t => t.id == tplId);
+            const org = window.orgsData.find(o => o.id == orgId);
+            
+            if (tpl && org) {
+                window.activeTemplatePreview = { org, tpl };
+                document.getElementById('btnApplyTemplate').innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> لغو قالب`;
+                document.getElementById('btnApplyTemplate').style.backgroundColor = 'var(--error-color)';
+                document.getElementById('applyTemplateModal').style.display = 'none';
+                
+                const filterEl = document.getElementById('orgFilter');
+                if (filterEl) {
+                    filterEl.value = orgId;
+                }
+                renderCalendar();
+            }
+        }
+
+
+        async function openSuggestionModal(sugId) {
+            document.getElementById('currentSuggestionId').value = sugId;
+            let sug = null;
+            // Find suggestion in window.monthlyData
+            for (let day in window.monthlyData) {
+                const found = window.monthlyData[day].find(x => x.is_suggestion && x.id === sugId);
+                if (found) { sug = found; break; }
+            }
+            if (!sug) return;
+            
+            document.getElementById('sugType').innerText = sug.content_type;
+            document.getElementById('sugTopic').innerText = sug.topic;
+            
+            // Load depot for this org
+            try {
+                const res = await fetch(`/api/get_org_contents?org_id=${sug.org_id}`);
+                const result = await res.json();
+                const list = document.getElementById('sugDepotList');
+                list.innerHTML = '';
+                if (result.status === 'success') {
+                    const available = result.data.filter(c => c.status !== 'done' && !c.publish_date).sort((a, b) => {
+                        const aMatch = a.content_type === sug.content_type ? -1 : 1;
+                        const bMatch = b.content_type === sug.content_type ? -1 : 1;
+                        return aMatch - bMatch;
+                    });
+                    if (available.length === 0) {
+                        list.innerHTML = '<div style="padding:10px; text-align:center; color: var(--text-gray);">محتوای آزادی در دپو یافت نشد.</div>';
+                    } else {
+                        (available || []).forEach(c => {
+                            list.innerHTML += `
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background: var(--card-bg); border:1px solid var(--border-color); border-radius:6px; margin-bottom: 5px;">
+                                    <div style="flex:1;">
+                                        <div style="font-weight:bold; font-size:0.9rem;">${c.title}</div>
+                                        <div style="font-size:0.8rem; color: var(--text-gray);">${c.content_type || 'نامشخص'}</div>
+                                    </div>
+                                    <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="fulfillSuggestion(${sugId}, ${c.id})">تخصیص</button>
+                                </div>`;
+                        });
+                    }
+                }
+            } catch (e) { console.error(e); }
+            
+            document.getElementById('suggestionModal').style.display = 'flex';
+        }
+
+        async function dismissSuggestion() {
+            const sugId = document.getElementById('currentSuggestionId').value;
+            if (!sugId) return;
+            if(!(await window.customConfirm('آیا از حذف این پیشنهاد اطمینان دارید؟'))) return;
+            
+            try {
+                const res = await fetch('/api/dismiss_template_suggestion', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ suggestion_id: sugId })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    document.getElementById('suggestionModal').style.display='none';
+                    renderCalendar();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function fulfillSuggestion(sugId, contentId) {
+            try {
+                const res = await fetch('/api/fulfill_template_suggestion', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ suggestion_id: sugId, content_id: contentId })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    document.getElementById('suggestionModal').style.display = 'none';
+                    renderCalendar();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function changeMonth(step) {
+            currentMonth += step;
+            if (currentMonth > 12) {
+                currentMonth = 1;
+                currentYear++;
+            } else if (currentMonth < 1) {
+                currentMonth = 12;
+                currentYear--;
+            }
+            renderCalendar();
+        }
+
+        function goToToday() {
+            let today = jalaali.toJalaali(new Date());
+            currentYear = today.jy;
+            currentMonth = today.jm;
+            renderCalendar();
+        }
+
+        async function renderCalendar() {
+            // اعمال ارقام فارسی برای سال
+            document.getElementById('current-month-label').innerText = monthNames[currentMonth - 1] + " " + toPersianDigits(currentYear);
+            
+            let daysInMonth = 31;
+            if (currentMonth > 6 && currentMonth < 12) daysInMonth = 30;
+            if (currentMonth === 12) {
+                daysInMonth = jalaali.isLeapJalaaliYear(currentYear) ? 30 : 29;
+            }
+
+            let firstDayGregorian = jalaali.toGregorian(currentYear, currentMonth, 1);
+            let firstDayDateObj = new Date(firstDayGregorian.gy, firstDayGregorian.gm - 1, firstDayGregorian.gd);
+            let firstDayOfWeek = (firstDayDateObj.getDay() + 1) % 7; 
+
+            window.monthlyData = {};
+            
+            const filterEl = document.getElementById('orgFilter');
+            const filterVal = filterEl ? filterEl.value : 'all';
+            const typeFilterEl = document.getElementById('typeFilter');
+            const typeFilterVal = typeFilterEl ? typeFilterEl.value : 'all';
+            
+            let specialHolidays = [];
+            try {
+                const [response, smartResp] = await Promise.all([
+                    fetch(`/api/get_events?year=${currentYear}&month=${currentMonth}`, { cache: 'no-store' }),
+                    fetch(`/api/get_smart_events_monthly?year=${currentYear}&month=${currentMonth}`, { cache: 'no-store' })
+                ]);
+                
+                const data = await response.json();
+                if(data.status === 'success') {
+                    (data.data || []).forEach(item => {
+                        const matchesOrg = filterVal === 'all' || item.org_id == filterVal;
+                        const matchesType = typeFilterVal === 'all' || item.content_type === typeFilterVal;
+                        if (matchesOrg && matchesType) {
+                            let day = parseInt(item.publish_day); 
+                            if(!window.monthlyData[day]) window.monthlyData[day] = [];
+                            window.monthlyData[day].push(item);
+                        }
+                    });
+                    
+                    if (data.suggestions) {
+                        (data.suggestions || []).forEach(sug => {
+                            const matchesOrg = filterVal === 'all' || sug.org_id == filterVal;
+                            // For suggestions, we might assume content_type is the suggestion's type.
+                            const matchesType = typeFilterVal === 'all' || sug.content_type === typeFilterVal;
+                            if (matchesOrg && matchesType) {
+                                let day = parseInt(sug.day);
+                                if(!window.monthlyData[day]) window.monthlyData[day] = [];
+                                window.monthlyData[day].push({ ...sug, is_suggestion: true });
+                            }
+                        });
+                    }
+                    if (data.routine_holidays) {
+                        window.calendarData = data;
+                    }
+                }
+                
+                // Fetch smart events to find special holidays
+                const smartData = await smartResp.json();
+                if(smartData.status === 'success' && smartData.data) {
+                    (smartData.data || []).forEach(ev => {
+                        if (ev.is_holiday == 1) {
+                            specialHolidays.push(parseInt(ev.publish_day));
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("خطا در دریافت اطلاعات", e);
+            }
+
+            const grid = document.getElementById('calendar-grid');
+            const cells = grid.querySelectorAll('.calendar-cell');
+            cells.forEach(cell => cell.remove());
+
+            let newCellsHtml = '';
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                newCellsHtml += `<div class="calendar-cell empty-cell"></div>`;
+            }
+
+
+            // Inject template previews
+            if (window.activeTemplatePreview) {
+                const tpl = window.activeTemplatePreview.tpl;
+                const org = window.activeTemplatePreview.org;
+                if (tpl.items) {
+                    let tplItems = typeof tpl.items === "string" ? JSON.parse(tpl.items) : tpl.items;
+                    if (Array.isArray(tplItems)) tplItems.forEach(item => {
+                        let day = parseInt(item.dayOffset);
+                        if(day >= 1 && day <= daysInMonth) {
+                            if(!window.monthlyData[day]) window.monthlyData[day] = [];
+                            window.monthlyData[day].push({ 
+                                is_template_preview: true,
+                                template_name: tpl.name || 'قالب اختصاصی',
+                                content_type: item.type,
+                                topic: item.topic,
+                                count: item.count || 1,
+                                org_logo: org.logo_url || '',
+                                org_id: org.id
+                            });
+                        }
+                    });
+                }
+            }
+
+            let todayJalali = jalaali.toJalaali(new Date());
+
+            const routineHolidays = window.calendarData && window.calendarData.routine_holidays ? window.calendarData.routine_holidays : [5];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                let isToday = (d === todayJalali.jd && currentMonth === todayJalali.jm && currentYear === todayJalali.jy) ? 'today' : '';
+                
+                let gregorianDay = jalaali.toGregorian(currentYear, currentMonth, d);
+                let jsDate = new Date(gregorianDay.gy, gregorianDay.gm - 1, gregorianDay.gd);
+                let dayNameStr = dayNames[jsDate.getDay()];
+                let currentDayOfWeek = jsDate.getDay();
+                let isRoutineHoliday = routineHolidays.includes(currentDayOfWeek);
+                let isSpecialHoliday = specialHolidays.includes(d);
+                let isHoliday = isRoutineHoliday || isSpecialHoliday;
+                let holidayClass = isSpecialHoliday ? 'holiday special-holiday' : (isRoutineHoliday ? 'holiday routine-holiday' : '');
+
+                let onclickEvent = `onclick="openDayDetails(${d}, \'${dayNameStr}\')"`;
+                
+                let hasTemplatePreview = false;
+                let previewColor = '';
+                
+                if(window.monthlyData[d]) {
+                    window.monthlyData[d].forEach(item => {
+                        if (item.is_template_preview) {
+                            hasTemplatePreview = true;
+                            previewColor = item.org_color || 'var(--primary-color)';
+                        }
+                    });
+                }
+                
+                let cellHtml = '';
+                if (hasTemplatePreview) {
+                    cellHtml += `<div class="calendar-cell ${isToday ? 'today' : ''} ${holidayClass}" style="border: 2px dashed ${previewColor}; background: color-mix(in srgb, ${previewColor} 5%, transparent);" ${onclickEvent}>`;
+                } else {
+                    cellHtml += `<div class="calendar-cell ${isToday ? 'today' : ''} ${holidayClass}" ${onclickEvent}>`;
+                }
+                
+                cellHtml += `<div class="day-number">${toPersianDigits(d)}</div>`;
+                
+                let itemsHtml = '';
+                if(window.monthlyData[d]) {
+                    const count = window.monthlyData[d].length;
+                    itemsHtml += `<div class="mobile-count-badge">${toPersianDigits(count)} محتوا</div>`;
+                    
+                    const maxVisible = 2;
+                    let visibleItems = window.monthlyData[d].slice(0, maxVisible);
+                    let hiddenCount = window.monthlyData[d].length - maxVisible;
+
+                    visibleItems.forEach(item => {
+
+                        if(item.is_template_preview) {
+                            let blockColor = item.org_color || 'var(--primary-color)';
+                            let logoHtml = item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; display:inline-block; vertical-align:middle; margin-left:2px;" loading="lazy">` : '';
+                            itemsHtml += `<div class="desktop-event-item" style="font-size: 0.75rem; background: color-mix(in srgb, ${blockColor} 5%, transparent); border: 1px dashed color-mix(in srgb, ${blockColor} 20%, transparent); border-right: 3px dashed color-mix(in srgb, ${blockColor} 63%, transparent); padding: 4px 6px; border-radius: 4px; color: var(--text-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; margin-bottom: 2px;" title="${item.title || item.content_type} (${item.topic}) - کلیک برای افزودن" onclick="event.stopPropagation(); window.openScheduleWithPreview('${item.org_id}', '${item.content_type}', '${encodeURIComponent(item.topic || '')}', ${d}, ${item.count})">${logoHtml} ${item.count > 1 ? item.count + 'x ' : ''}${item.title || item.content_type} (${item.topic})</div>`;
+                        } else if(item.is_suggestion) {
+                            let logoHtml = item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; display:inline-block; vertical-align:middle; margin-left:2px;" loading="lazy">` : '';
+                            const color = item.org_color || 'var(--primary-color)';
+                            itemsHtml += `<div class="desktop-event-item" style="font-size: 0.75rem; background: color-mix(in srgb, ${color} 5%, transparent); border: 1px dashed color-mix(in srgb, ${color} 19%, transparent); border-right: 3px dashed color-mix(in srgb, ${color} 63%, transparent); padding: 3px 5px; border-radius: 4px; color: var(--text-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" title="پیشنهاد قالب: ${item.title || item.content_type} - ${item.topic}" onclick="event.stopPropagation(); openSuggestionModal(${item.id})">${logoHtml} پیشنهاد: ${item.title || item.content_type} (${item.topic})</div>`;
+                        } else {
+                            let blockColor = item.org_color || 'var(--primary-color)';
+                            let logoHtml = item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; display:inline-block; vertical-align:middle; margin-left:2px;" loading="lazy">` : '';
+                            itemsHtml += `<div class="desktop-event-item" style="font-size: 0.75rem; background: color-mix(in srgb, ${blockColor} 8%, transparent); border-right: 3px solid ${blockColor}; padding: 3px 5px; border-radius: 4px; margin-bottom: 2px; color: var(--text-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" title="${item.title || item.content_type}" onclick="event.stopPropagation(); window.openContentDetails(${item.id})">${logoHtml} ${item.title || item.content_type}</div>`;
+                        }
+                    });
+                }
+                
+                cellHtml += `<div class="day-content" style="margin-top: 8px;">${itemsHtml}</div>`;
+                cellHtml += `</div>`;
+                newCellsHtml += cellHtml;
+            }
+            
+            grid.insertAdjacentHTML('beforeend', newCellsHtml);
+
+            // List View Generation
+            const tbody = document.getElementById('list-view-body');
+            if (tbody) {
+                tbody.innerHTML = '';
+                let hasItems = false;
+                Object.keys(window.monthlyData).sort((a,b)=>a-b).forEach(day => {
+                    let d = parseInt(day);
+                    let gregorianDay = jalaali.toGregorian(currentYear, currentMonth, d);
+                    let jsDate = new Date(gregorianDay.gy, gregorianDay.gm - 1, gregorianDay.gd);
+                    let currentDayOfWeek = jsDate.getDay();
+                    let isRoutineHoliday = routineHolidays.includes(currentDayOfWeek);
+                    let isSpecialHoliday = specialHolidays.includes(d);
+                    let isHoliday = isRoutineHoliday || isSpecialHoliday;
+                    const rawDayData = window.monthlyData[day] || [];
+                    const filterEl = document.getElementById('orgFilter');
+                    const typeFilterEl = document.getElementById('typeFilter');
+                    const filterVal = filterEl ? filterEl.value : 'all';
+                    const typeFilterVal = typeFilterEl ? typeFilterEl.value : 'all';
+                    
+                    const dayData = rawDayData.filter(item => {
+                        const matchesOrg = filterVal === 'all' || item.org_id == filterVal;
+                        const matchesType = typeFilterVal === 'all' || item.content_type === typeFilterVal;
+                        return matchesOrg && matchesType;
+                    });
+                    
+                    if (dayData.length > 0) {
+                        hasItems = true;
+                        let dayColor = isHoliday ? 'var(--error-color)' : 'var(--primary-color)';
+                        let dayHeaderHtml = `
+                            <div style="font-weight: bold; font-size: 1.2rem; color: ${dayColor}; margin-top: 16px; margin-bottom: 8px; border-bottom: 2px solid var(--border-color); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='18' x='3' y='4' rx='2' ry='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>
+                                ${dayNames[currentDayOfWeek]} ${toPersianDigits(day)} ${monthNames[currentMonth-1]} ${toPersianDigits(currentYear)}
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+                        `;
+                        tbody.innerHTML += dayHeaderHtml;
+                        
+                        dayData.forEach(ev => {
+                            let badgeText = ev.content_type || 'محتوا';
+                            let orgName = ev.org_name || 'بدون سازمان';
+                            
+                            let rowHtml = `
+                                <div class="list-card ${isSpecialHoliday ? 'special-holiday' : (isRoutineHoliday ? 'routine-holiday' : '')}" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                                        <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-color); display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" class="batch-checkbox" value="${ev.id}" onclick="event.stopPropagation(); toggleBatchSelect(this.value, this.checked)" style="accent-color: var(--primary-color); transform: scale(1.2);">
+                                            ${ev.title || ev.content_type || orgName}
+                                        </div>
+                                        <span style="background: ${ev.is_published ? 'rgba(16, 185, 129, 0.1)' : 'rgba(128,128,128,0.1)'}; color: ${ev.is_published ? '#16a34a' : 'var(--text-gray)'}; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;">
+                                            ${ev.is_published ? 'منتشر شده' : 'در حال تدوین'}
+                                        </span>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 6px; color: var(--text-gray); font-size: 0.95rem;">
+                                            ${ev.org_logo ? `<img alt="" src="${ev.org_logo}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} 
+                                            ${orgName}
+                                        </div>
+                                        <span style="background: color-mix(in srgb, var(--primary-color) 10%, transparent); color: var(--primary-color); padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold;">
+                                            ${badgeText}
+                                        </span>
+                                    </div>
+                                    
+                                    <div style="margin-top: 4px;">
+                                        <button class="btn-primary"  onclick="window.openContentDetails(${ev.id})" style="width: 100%; ">مشاهده و ویرایش</button>
+                                    </div>
+                                </div>
+                            `;
+                            tbody.innerHTML += rowHtml;
+                        });
+                        
+                        tbody.innerHTML += '</div>'; // close the date group container
+                    }
+                });
+                if (!hasItems) {
+                    tbody.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-gray); background: var(--card-bg); border-radius: 12px;">رویدادی برای این ماه ثبت نشده است</div>';
+                }
+            }
+            window.allDepotItems = Object.values(window.monthlyData).flat();
+        }
+
+        window.openDayDetails = function(dayNumber, dayNameStr) {
+            let gregorian = jalaali.toGregorian(currentYear, currentMonth, dayNumber);
+            let jsDate = new Date(gregorian.gy, gregorian.gm - 1, gregorian.gd);
+            let jalaliText = `${dayNameStr}، ${toPersianDigits(dayNumber)} ${monthNames[currentMonth - 1]} ${toPersianDigits(currentYear)}`;
+            let hijriText = new Intl.DateTimeFormat('fa-IR-u-ca-islamic', {day: 'numeric', month: 'long', year: 'numeric'}).format(jsDate);
+            let miladiText = new Intl.DateTimeFormat('fa-IR-u-ca-gregory', {day: 'numeric', month: 'long', year: 'numeric'}).format(jsDate);
+            
+            document.getElementById('modalTitle').innerHTML = `<div style="font-size: 1.4rem; font-weight: bold; color: var(--text-gray); margin-bottom: 5px;">${jalaliText}</div><div style="font-size: 0.9rem; color: var(--text-gray); font-weight: normal; margin-top: 4px;">${hijriText} &nbsp;|&nbsp; ${miladiText}</div>`;
+            
+            const listEl = document.getElementById('modalBody');
+            const filterEl = document.getElementById('orgFilter');
+            const typeFilterEl = document.getElementById('typeFilter');
+            const filterVal = filterEl ? filterEl.value : 'all';
+            const typeFilterVal = typeFilterEl ? typeFilterEl.value : 'all';
+            
+            const rawDayData = window.monthlyData[dayNumber] || [];
+            const dayData = rawDayData.filter(item => {
+                const matchesOrg = filterVal === 'all' || item.org_id == filterVal;
+                const matchesType = typeFilterVal === 'all' || item.content_type === typeFilterVal;
+                return matchesOrg && matchesType;
+            });
+            
+            if(dayData && dayData.length > 0) {
+                let html = '';
+                dayData.forEach(item => {
+                    let orgName = item.org_name || 'بدون سازمان';
+                    let typeName = item.content_type || 'نامشخص';
+                    let time = item.publish_time || '--:--';
+                    let title = item.title || item.content_type || orgName;
+                    
+                    let cardHtml = '';
+                    
+                    if (item.is_template_preview) {
+                        const blockColor = item.org_color || 'var(--primary-color)';
+                        cardHtml = `<div class="popup-item" style="cursor:pointer; background: color-mix(in srgb, ${blockColor} 5%, transparent); border: 2px dashed color-mix(in srgb, ${blockColor} 50%, transparent); border-radius: 12px; transition:all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;" onmouseover="this.style.transform='scale(1.02)'; this.style.background='color-mix(in srgb, ${blockColor} 8%, transparent)';" onmouseout="this.style.transform='scale(1)'; this.style.background='color-mix(in srgb, ${blockColor} 5%, transparent)';" onclick="window.openScheduleWithPreview('${item.org_id}', '${item.content_type}', '${encodeURIComponent(item.topic || '')}', ${dayNumber}, ${item.count || 1})">
+                            <div style="margin-bottom: 8px;">
+                                ${item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" loading="lazy">` : '<span style="font-size: 24px;">🏢</span>'}
+                            </div>
+                            <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-gray); margin-bottom: 5px;">محتوای پیشنهادی پکیج ${item.template_name ? '(' + item.template_name + ')' : ''}</div>
+                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                <span style="background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-gray); font-size: 0.85rem; padding: 4px 12px; border-radius: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">${typeName}</span>
+                                <span style="background: ${blockColor}; color: white; font-size: 0.85rem; padding: 4px 12px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">جهت افزودن کلیک کنید</span>
+                            </div>
+                        </div>`;
+                    } else if (item.is_suggestion) {
+                        const color = item.org_color || 'var(--primary-color)';
+                        cardHtml = `<div class="popup-item" style="cursor:pointer; background: color-mix(in srgb, ${color} 5%, transparent); border: 1px dashed color-mix(in srgb, ${color} 25%, transparent); transition:transform 0.2s; display: flex; flex-direction: column;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="openSuggestionModal(${item.id})">
+                            <div class="popup-item-header">
+                                <span class="popup-org-name" style="font-size: 1.1rem; color: var(--text-gray);">پیشنهاد: ${typeName} <span style="font-size:0.85rem; color: var(--text-gray); font-weight:normal;">(${item.topic || typeName})</span></span>
+                            </div>
+                            <div style="margin-top: 8px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px;">
+                                <span class="popup-content-type" style="background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-gray); display:inline-flex; align-items:center; gap:4px;">${item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} ${orgName}</span>
+                                <span style="font-size: 0.75rem; color: ${color}; margin-top: auto; margin-bottom: auto; background: color-mix(in srgb, ${color} 8%, transparent); padding: 2px 6px; border-radius: 4px; font-weight: bold;">جهت تخصیص کلیک کنید</span>
+                            </div>
+                            <div class="popup-item-footer" style="margin-top: auto;">
+                                <span><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M8 2v4'/><path d='M16 2v4'/><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M3 10h18'/></svg> ${dayNameStr} ${toPersianDigits(dayNumber)} ${monthNames[currentMonth - 1]}</span>
+                            </div>
+                        </div>`;
+                    } else {
+                        const blockColor = item.org_color || 'var(--primary-color)';
+                        cardHtml = `<div class="popup-item" style="border-right: 4px solid ${blockColor}; background: color-mix(in srgb, ${blockColor} 10%, transparent); border-left: 1px solid color-mix(in srgb, ${blockColor} 20%, transparent); border-top: 1px solid color-mix(in srgb, ${blockColor} 20%, transparent); border-bottom: 1px solid color-mix(in srgb, ${blockColor} 20%, transparent); cursor:pointer; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.openContentDetails(${item.id})">
+                            <div class="popup-item-header">
+                                <span class="popup-org-name">${title}</span>
+                                <span class="popup-time">${time}</span>
+                            </div>
+                            <div style="margin-top: 8px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px;">
+                                <span class="popup-content-type" style="background: rgba(128, 128, 128, 0.1); color: var(--text-gray); display:inline-flex; align-items:center; gap:4px;">${item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} ${orgName}</span>
+                                <span class="popup-content-type">${typeName}</span>
+                                ${item.topic ? `<span class="popup-content-type" class="topic-badge">🎯 ${item.topic}</span>` : ''}
+                            </div>
+                            <div class="popup-item-footer">
+                                <span>${item.is_published ? `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg> منتشر شده` : `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg> در حال تدوین`}</span>
+                                ${item.project_manager ? `<span><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> ${item.project_manager}</span>` : ''}
+                            </div>
+                        </div>`;
+                    }
+                    html += cardHtml;
+                });
+                listEl.innerHTML = html;
+            } else {
+                listEl.innerHTML = '<p style="text-align:center; color: var(--text-gray); padding: 20px;">محتوایی در این روز یافت نشد.</p>';
+            }
+            const addBtnHtml = `
+                <div style="text-align: center; margin-top: 15px;">
+                    <button class="btn-primary"  onclick="addNewContent(${dayNumber})" style="" >
+                        <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 12h14'/><path d='M12 5v14'/></svg> افزودن محتوای جدید
+                    </button>
+                </div>
+            `;
+            listEl.innerHTML += addBtnHtml;
+            document.getElementById('contentModal').style.display = 'flex';
+        }
+
+        function closeModal(e) {
+            if (e === true || (e.target && e.target.id === 'contentModal')) {
+                document.getElementById('contentModal').style.display = 'none';
+            }
+        }
+    
+            
+        ;
+        
+        window.switchDrawerTab = function(tabName) {
+            document.querySelectorAll('.drawer-tab').forEach(btn => {
+                btn.style.color = 'var(--text-gray)';
+                btn.style.borderBottomColor = 'transparent';
+            });
+            document.querySelectorAll('#drawerContentArea > div').forEach(div => {
+                div.style.display = 'none';
+            });
+            
+            const activeBtn = document.getElementById('tab-btn-' + tabName);
+            const activeDiv = document.getElementById('drawer-tab-' + tabName);
+            
+            if(activeBtn && activeDiv) {
+                activeBtn.style.color = 'var(--primary-color)';
+                activeBtn.style.borderBottomColor = 'var(--primary-color)';
+                activeDiv.style.display = 'block';
+            }
+        };
+
+        window.updateKanbanStatus = async function() {
+            if(!window.currentDrawerContentId) return;
+            const newStatus = document.getElementById('drawerKanbanStatus').value;
+            try {
+                const res = await fetch('/api/update_content_details', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: window.currentDrawerContentId,
+                        status: newStatus
+                    })
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    if(window.showToast) window.showToast('وضعیت با موفقیت به‌روز شد', 'success');
+                    // update local data
+                    for (let day in window.monthlyData) {
+                        let match = window.monthlyData[day].find(i => i.id == window.currentDrawerContentId);
+                        if (match) { match.status = newStatus; break; }
+                    }
+                } else {
+                    if(window.showToast) window.showToast(data.message || 'خطا در ذخیرهسازی', 'error');
+                }
+            } catch(e) {
+                console.error(e);
+                if(window.showToast) window.showToast('خطا در ارتباط با سرور', 'error');
+            }
+        };
+
+        
+        window.renderDrawerAttachments = function(attachments) {
+            const list = document.getElementById('drawerAttachmentsList');
+            if(!list) return;
+            list.innerHTML = '';
+            if (attachments.length === 0) {
+                list.innerHTML = '<p style="text-align:center; color:var(--text-gray); font-size:0.9rem;">هیچ فایلی ضمیمه نشده است</p>';
+                return;
+            }
+            attachments.forEach(att => {
+                const item = document.createElement('div');
+                item.style = 'display: flex; align-items: center; justify-content: space-between; padding: 10px; background: white; border: 1px solid var(--border-color); border-radius: 8px;';
+                item.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                        <div style="width: 40px; height: 40px; background: var(--card-bg); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-gray);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                        </div>
+                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; font-size: 0.9rem; direction: ltr;">
+                            <a href="${att.url}" target="_blank" style="color: var(--text-dark); text-decoration: none;">${att.name || 'فایل ضمیمه'}</a>
+                        </div>
+                    </div>
+                    <a href="${att.url}" download class="btn" style="padding: 6px 12px; font-size: 0.8rem;  color: white; border-radius: 6px; text-decoration: none;">دانلود</a>
+                `;
+                list.appendChild(item);
+            });
+        };
+
+        window.handleAttachmentUpload = async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if(!window.currentDrawerContentId) {
+                if(window.showToast) window.showToast('محتوایی انتخاب نشده است', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                if(window.showToast) window.showToast('در حال آپلود...', 'info');
+                
+                const res = await fetch('/api/upload_file', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    const newAtt = { url: data.url, name: file.name };
+                    window.currentDrawerContentAttachments.push(newAtt);
+                    
+                    const updateRes = await fetch('/api/update_content_details', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            id: window.currentDrawerContentId,
+                            attachments: window.currentDrawerContentAttachments
+                        })
+                    });
+                    const updateData = await updateRes.json();
+                    
+                    if(updateData.status === 'success') {
+                        if(window.showToast) window.showToast('فایل با موفقیت ضمیمه شد', 'success');
+                        renderDrawerAttachments(window.currentDrawerContentAttachments);
+                        
+                        for (let day in window.monthlyData) {
+                            let items = window.monthlyData[day];
+                            for (let it of items) {
+                                if (it.id == window.currentDrawerContentId) {
+                                    it.attachments = window.currentDrawerContentAttachments;
+                                }
+                            }
+                        }
+                    } else {
+                        if(window.showToast) window.showToast(updateData.message || 'خطا در ذخیره مشخصات فایل', 'error');
+                    }
+                } else {
+                    if(window.showToast) window.showToast(data.message || 'خطا در آپلود فایل', 'error');
+                }
+            } catch(e) {
+                console.error(e);
+                if(window.showToast) window.showToast('ارتباط با سرور برقرار نشد', 'error');
+            }
+            
+            event.target.value = '';
+        };
+
+        // تابعی که با زدن دکمه "اضافه کردن محتوا" فراخوانی می‌شود
+        
+        window.openScheduleWithPreview = async (org_id, content_type, topic, dayNumber, count) => {
+            topic = decodeURIComponent(topic);
+            await addNewContent(dayNumber);
+            setTimeout(() => {
+                document.getElementById('newContentSection').style.display = 'none';
+                if (document.getElementById('toggleNewContentWrapper')) {
+                    document.getElementById('toggleNewContentWrapper').style.display = 'block';
+                }
+                document.getElementById('newScheduleTitle').value = topic;
+                document.getElementById('newScheduleType').value = content_type;
+                document.getElementById('newScheduleCount').value = count || 1;
+                
+                const orgSelect = document.getElementById('scheduleOrg');
+                if (orgSelect) {
+                    orgSelect.value = org_id;
+                    orgSelect.dispatchEvent(new Event('change'));
+                }
+            }, 500);
+        };
+
+        window.showNewContentForm = function() {
+            document.getElementById('existingContentsSection').style.display = 'none';
+            if(document.getElementById('toggleNewContentWrapper')) {
+                document.getElementById('toggleNewContentWrapper').style.display = 'none';
+            }
+            document.getElementById('newContentSection').style.display = 'flex';
+        };
+
+        window.showDepotList = function() {
+            document.getElementById('newContentSection').style.display = 'none';
+            if(document.getElementById('toggleNewContentWrapper')) {
+                document.getElementById('toggleNewContentWrapper').style.display = 'block';
+            }
+            if (document.getElementById('scheduleOrg').value) {
+                document.getElementById('existingContentsSection').style.display = 'flex';
+            }
+        };
+
+        let selectedDayStr = '';
+        async function addNewContent(dayNumber) {
+            // ساخت رشته تاریخ
+            const y = currentYear.toString();
+            const m = currentMonth.toString().padStart(2, '0');
+            const d = dayNumber.toString().padStart(2, '0');
+            selectedDayStr = `${y}/${m}/${d}`;
+            
+            // بستن مدال قبلی اگر باز است
+            closeModal(true);
+            
+            const modal = document.getElementById('scheduleModal');
+            document.getElementById('scheduleModalTitle').innerText = 'افزودن محتوا برای تاریخ ' + toPersianDigits(selectedDayStr);
+            
+            // ریست فرم
+            document.getElementById('scheduleOrg').innerHTML = '<option value="">-- انتخاب سازمان --</option>';
+            document.getElementById('existingContentsSection').style.display = 'none';
+            document.getElementById('orgContentsList').innerHTML = '';
+            document.getElementById('newScheduleTitle').value = '';
+            document.getElementById('newContentSection').style.display = 'none';
+            if (document.getElementById('toggleNewContentWrapper')) {
+                document.getElementById('toggleNewContentWrapper').style.display = 'block';
+            }
+            
+            try {
+                // لود سازمان‌ها
+                const orgRes = await fetch('/api/get_orgs', { cache: 'no-store' });
+                const orgData = await orgRes.json();
+                if (orgData.data) {
+                    const select = document.getElementById('scheduleOrg');
+                    orgData.data.forEach(o => {
+                        select.innerHTML += `<option value="${o.id}">${o.org_name}</option>`;
+                    });
+                }
+                
+                // لود همکاران
+                const colRes = await fetch('/api/get_colleagues');
+                const colData = await colRes.json();
+                const mgrSelect = document.getElementById('newScheduleManager');
+                const teamSelect = document.getElementById('newScheduleTeamCheckboxes');
+                mgrSelect.innerHTML = '<option value="">-- انتخاب مدیر پروژه --</option>';
+                teamSelect.innerHTML = '';
+                if (colData.users) {
+                    (colData.users || []).forEach(u => {
+                        mgrSelect.innerHTML += `<option value="${u.full_name}">${u.full_name}</option>`;
+                        teamSelect.innerHTML += `<label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; cursor:pointer;"><input type="checkbox" name="newScheduleTeam_cb" value="${u.full_name}"> ${u.full_name}</label>`;
+                    });
+                }
+
+                // لود انواع محتوا و مراحل
+                const setRes = await fetch('/api/manage_settings', { cache: 'no-store' });
+                const setData = await setRes.json();
+                if (setData.data) {
+                    if (setData.data.content_type) {
+                        const tSelect = document.getElementById('newScheduleType');
+                        tSelect.innerHTML = '';
+                        (setData.data && setData.data.content_type || []).forEach(t => {
+                            tSelect.innerHTML += `<option value="${t.setting_key}">${t.setting_key}</option>`;
+                        });
+                    }
+                    if (setData.data.stages) {
+                        const stagesDiv = document.getElementById('newScheduleStages');
+                        stagesDiv.innerHTML = '';
+                        (setData.data && setData.data.stages || []).forEach(s => {
+                            stagesDiv.innerHTML += `<label><input type="checkbox" value="${s.setting_key}"> ${s.setting_key}</label>`;
+                        });
+                    }
+                }
+            } catch (e) { console.error(e); }
+            
+            modal.style.display = 'flex';
+        }
+
+        function closeScheduleModal(forceClose = false, event = null) {
+            if (forceClose || (event && event.target.id === 'scheduleModal')) {
+                document.getElementById('scheduleModal').style.display = 'none';
+            }
+        }
+
+        let currentOrgContents = [];
+        let selectedContentId = null;
+
+        async function loadOrgContents() {
+            const orgId = document.getElementById('scheduleOrg').value;
+            selectedContentId = null;
+            if (!orgId) {
+                document.getElementById('existingContentsSection').style.display = 'none';
+                return;
+            }
+            try {
+                const res = await fetch(`/api/get_org_contents?org_id=${orgId}`);
+                const result = await res.json();
+                if (result.status === 'success') {
+                    // فیلتر محتوا‌های منتشر نشده (فرضا هرچه status غیر done یا بدون publish_date)
+                    const targetType = document.getElementById('newScheduleType').value;
+                    currentOrgContents = result.data.filter(c => c.status !== 'done').sort((a, b) => {
+                        if (targetType) {
+                            const aMatch = a.content_type === targetType ? -1 : 1;
+                            const bMatch = b.content_type === targetType ? -1 : 1;
+                            return aMatch - bMatch;
+                        }
+                        return 0;
+                    });
+                    renderOrgContents(currentOrgContents);
+                    document.getElementById('existingContentsSection').style.display = 'flex';
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderOrgContents(list) {
+            const container = document.getElementById('orgContentsList');
+            container.innerHTML = '';
+            if (list.length === 0) {
+        container.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-gray)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <div style="color: var(--text-gray); font-size: 0.85rem;">محتوای منتشر نشده‌ای یافت نشد.</div>
+            </div>`;
+    }
+            list.forEach(c => {
+                container.innerHTML += `
+            <div style="padding: 10px; background: var(--card-bg); border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: 0.2s;" 
+                 onclick="selectContent(this, ${c.id})" class="org-content-item">
+                <strong>${c.title}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 5px;">وضعیت: ${c.status} | نوع: ${c.content_type}</div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML += `
+        <div style="padding: 12px; background: rgba(128, 128, 128, 0.1); border: 1px dashed #94a3b8; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; color: var(--text-gray); margin-top: 10px; transition: 0.2s;" 
+             onclick="showNewContentSection()" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='var(--border-color)'">
+            + تعریف محتوای جدید
+        </div>
+    `;
+}
+
+        function showNewContentSection() {
+    document.getElementById('newContentSection').style.display = 'flex';
+    document.querySelectorAll('.org-content-item').forEach(el => {
+        el.style.border = '1px solid #ddd';
+        el.style.background = 'white';
+    });
+    selectedContentId = null;
+}
+
+function selectContent(element, id) {
+    document.getElementById('newContentSection').style.display = 'none';
+            document.querySelectorAll('.org-content-item').forEach(el => {
+                el.style.border = '1px solid #ddd';
+                el.style.background = 'white';
+            });
+            element.style.border = '1px solid var(--primary-color)';
+            element.style.background = 'rgba(99, 102, 241, 0.15)';
+            selectedContentId = id;
+            document.getElementById('newScheduleTitle').value = ''; // اگر از موجود انتخاب کرد، عنوان جدید را پاک کن
+        }
+
+        function filterOrgContents() {
+            const term = document.getElementById('searchOrgContents').value.toLowerCase();
+            const filtered = currentOrgContents.filter(c => c.title.toLowerCase().includes(term));
+            renderOrgContents(filtered);
+        }
+
+                        
+        function showCustomConfirm(message, onYes) {
+            document.getElementById('customConfirmMessage').innerText = message;
+            document.getElementById('customConfirmModal').style.display = 'flex';
+            document.getElementById('customConfirmYes').onclick = () => {
+                document.getElementById('customConfirmModal').style.display = 'none';
+                if(onYes) onYes();
+            };
+            document.getElementById('customConfirmNo').onclick = () => {
+                document.getElementById('customConfirmModal').style.display = 'none';
+            };
+        }
+
+        async function submitSchedule() {
+            const orgId = document.getElementById('scheduleOrg').value;
+            if (!orgId) return showToast('لطفاً سازمان را انتخاب کنید.');
+            const newTitle = document.getElementById('newScheduleTitle').value.trim();
+            const publishTime = document.getElementById('newScheduleTime').value;
+
+            // Date validation (past date check)
+            let today = jalaali.toJalaali(new Date());
+            let todayStr = `${today.jy}/${today.jm.toString().padStart(2, '0')}/${today.jd.toString().padStart(2, '0')}`;
+            let isPastDate = selectedDayStr < todayStr;
+
+            if (isPastDate) {
+                showCustomConfirm("از آنجا که این تاریخ گذشته است، فرض بر این است که محتوا قبلا منتشر شده و اکنون صرفا برای مستندسازی اضافه می‌شود.\nوضعیت این محتوا به طور خودکار روی «منتشر شده» تنظیم خواهد شد.\n\nآیا تایید می‌کنید؟", () => {
+                    executeSubmitSchedule('published');
+                });
+                return;
+            }
+            executeSubmitSchedule(undefined);
+        }
+
+        async function executeSubmitSchedule(customStatus) {
+            const orgId = document.getElementById('scheduleOrg').value;
+            const newTitle = document.getElementById('newScheduleTitle').value.trim();
+            const publishTime = document.getElementById('newScheduleTime').value;
+
+
+            const isRecurring = document.getElementById('isRecurring').checked;
+            const recurrenceInterval = parseInt(window.toEnglishDigits(document.getElementById('recurrenceInterval').value)) || 7;
+            const recurrenceCount = parseInt(window.toEnglishDigits(document.getElementById('recurrenceCount').value)) || 12;
+            const countInStats = document.getElementById('countInStats').checked;
+            
+            const recurrenceData = isRecurring ? {
+                is_recurring: true,
+                recurrence_interval_days: recurrenceInterval,
+                recurrence_count: recurrenceCount,
+                count_in_stats: countInStats
+            } : {};
+
+            if (selectedContentId && !newTitle) {
+                // برنامه‌ریزی محتوای موجود
+                try {
+                    const res = await fetch('/api/schedule_content', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ id: selectedContentId, publish_date: selectedDayStr,
+                            publish_time: publishTime, status: customStatus, ...recurrenceData })
+                    });
+                    const result = await res.json();
+                    if (result.status === 'success') {
+                        closeScheduleModal(true);
+                        renderCalendar(); // آپدیت تقویم
+                    } else showToast('خطا: ' + result.message);
+                } catch(e) { console.error(e); showToast('خطا در ارتباط با سرور', 'error'); }
+            } else if (newTitle) {
+                // ایجاد محتوای جدید
+                const type = document.getElementById('newScheduleType').value;
+                const project_manager = document.getElementById('newScheduleManager').value;
+                const assigned_colleagues = Array.from(document.querySelectorAll('input[name="newScheduleTeam_cb"]:checked')).map(cb => cb.value);
+                const stageBoxes = document.querySelectorAll('#newScheduleStages input[type="checkbox"]:checked');
+                const stages = Array.from(stageBoxes).map(cb => cb.value);
+
+                const components_count = {};
+                document.querySelectorAll('.comp-count-sched').forEach(input => {
+                    const val = parseInt(window.toEnglishDigits(input.value));
+                    if (val > 0) components_count[input.dataset.name] = val;
+                });
+
+                try {
+                    const res = await fetch('/api/add_content', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            title: newTitle, 
+                            type, 
+                            org_id: orgId,
+                            publish_date: selectedDayStr,
+                            publish_time: publishTime,
+                            status: customStatus,
+                            project_manager,
+                            assigned_colleagues,
+                            stages,
+                            components_count,
+                            ...recurrenceData
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.status === 'success') {
+                        closeScheduleModal(true);
+                        renderCalendar(); // آپدیت تقویم
+                    } else showToast('خطا: ' + result.message);
+                } catch(e) { console.error(e); showToast('خطا در ارتباط با سرور', 'error'); }
+            } else {
+                showToast('لطفاً یک محتوا از لیست انتخاب کنید یا عنوان محتوای جدید را وارد نمایید.');
+            }
+        }
+
+        async function initCalendar() {
+            // Start rendering calendar immediately so its data fetching happens concurrently
+            const renderPromise = renderCalendar();
+            try {
+                if (!window.allOrgs) {
+                    const [orgRes, colRes, setRes] = await Promise.all([
+                        fetch('/api/get_orgs', { cache: 'no-store' }),
+                        fetch('/api/get_colleagues'),
+                        fetch('/api/manage_settings', { cache: 'no-store' })
+                    ]);
+                    window.allOrgs = (await orgRes.json()).data || [];
+                    window.allColleagues = (await colRes.json()).users || [];
+                    window.allSettings = (await setRes.json()).data || {};
+                    const collectionsRes = await fetch('/api/get_collections');
+                    window.allCollections = (await collectionsRes.json()).data || [];
+                }
+                const filter = document.getElementById('orgFilter');
+                filter.innerHTML = '<option value="all">همه تیم‌ها</option>';
+                (window.allOrgs || []).forEach(org => {
+                    filter.innerHTML += `<option value="${org.id}">${org.org_name}</option>`;
+                });
+                
+                const tFilter = document.getElementById('typeFilter');
+                tFilter.innerHTML = '<option value="all">همه محتوا‌ها</option>';
+                if (window.allSettings && window.allSettings.content_type) {
+                    (window.allSettings.content_type || []).forEach(t => {
+                        tFilter.innerHTML += `<option value="${t.setting_key}">${t.setting_key}</option>`;
+                    });
+                }
+            } catch(e) { console.log(e); }
+            await renderPromise;
+        }
+        setTimeout( () => { applyViewMode(); initCalendar(); });
+    </script>
+<script src="assets/js/app.js?v=4"></script>
+    <%- include('partials/content-identity') %>
+</body>
+</html>

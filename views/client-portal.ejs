@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | پورتال کارفرمایان (پنل مدیریت)</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <style>
+        .org-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 15px -3px rgba(0,0,0,0.04); transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+        .org-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .org-logo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border-color);
+        }
+        .link-box {
+            background: rgba(128, 128, 128, 0.05);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: monospace;
+            direction: ltr;
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+        .copy-btn {
+            background: #e0f2fe;
+            color: #0284c7;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+<script>
+    var savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+</script>
+</head>
+
+<body>
+    <%- include('sidebar') %>
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-smartphone"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+  <path d="M12 18h.01" />
+</svg> <span>پورتال اختصاصی کارفرمایان</span></h1>
+                <p class="page-subtitle">ارسال لینک‌های اختصاصی برند‌ها برای انتخاب مناسبت‌ها و تایید محتوا</p>
+            </div>
+        </div>
+
+        <div id="orgsList">
+            <div class="skeleton" style="height: 120px; width: 100%; margin-bottom: 10px; border-radius: 8px;"></div><div class="skeleton" style="height: 120px; width: 100%; border-radius: 8px;"></div>
+        </div>
+    </main>
+
+    <script src="assets/js/app.js?v=4"></script>
+    <script>
+        setTimeout( () => {
+            loadClientPortals();
+        });
+
+        
+        function filterPortals() {
+            const query = document.getElementById('searchPortal').value.toLowerCase();
+            const cards = document.querySelectorAll('#orgsList .org-card');
+            cards.forEach(card => {
+                const text = card.innerText.toLowerCase();
+                card.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        async function loadClientPortals() {
+            try {
+                const res = await fetch('/api/get_orgs', { cache: 'no-store' });
+                const orgData = await res.json();
+                const orgs = orgData.data || [];
+                
+                const list = document.getElementById('orgsList');
+                list.innerHTML = '';
+                
+                if(orgs.length === 0) {
+                    list.innerHTML = '<div style="text-align: center; padding: 50px; color: gray;">هیچ کارفرمایی ثبت نشده است.</div>';
+                    return;
+                }
+
+                // Get current Persian year/month for the smart-events link
+                const jalaaliDate = new Intl.DateTimeFormat('fa-IR-u-nu-latn', { year: 'numeric', month: 'numeric' }).format(new Date());
+                const [year, month] = jalaaliDate.split('/');
+                
+                const baseUrl = window.location.origin;
+
+                (orgs || []).forEach(org => {
+                    const eventsLink = `${baseUrl}/client-events?org_id=${org.id}&year=${year}&month=${month}`;
+                    
+                    list.innerHTML += `
+                        <div class="org-card">
+                            <div class="org-info">
+                                <img src="${org.logo_url}" class="org-logo" alt="${org.org_name}" loading="lazy">
+                                <div>
+                                    <h3 style="margin-bottom: 5px; color: var(--text-gray);">${org.org_name}</h3>
+                                    <span style="font-size: 0.85rem; color: var(--text-gray); background: rgba(128, 128, 128, 0.1); padding: 3px 8px; border-radius: 4px;">${org.industry}</span>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div>
+                                    <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> لینک اختصاصی مناسبت‌های این ماه:</div>
+                                    <div class="link-box">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; max-width: 300px; white-space: nowrap;">${eventsLink}</span>
+                                        <button class="copy-btn" onclick="copyToClipboard('${eventsLink}')">کپی</button>
+                                    </div>
+                                    <div style="margin-top: 10px;">
+                                        <a href="client-dashboard?org_id=${org.id}" style=" color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg> <span>مشاهده داشبورد کارفرما</span></a>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--success-color);">
+                                    ✓ دسترسی به پورتال با نام کاربری: <strong>${org.username || 'تنظیم نشده'}</strong>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--warning-color); margin-top: 5px; display: flex; align-items: center; gap: 4px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> <span>بازخورد‌ها: در این ماه بازخوردی ثبت نشده است.</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) {
+                console.error(e);
+                document.getElementById('orgsList').innerHTML = '<div style="text-align: center; padding: 50px; color: red;">خطا در ارتباط با سرور.</div>';
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('لینک کپی شد!');
+            }).catch(err => {
+                console.error('Copy failed', err);
+            });
+        }
+    </script>
+</body>
+</html>

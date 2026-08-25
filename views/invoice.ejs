@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | فاکتور</title>
+    <link href="assets/css/style.css?v=6" rel="stylesheet">
+        <style>
+        .invoice-paper { background: var(--card-bg); padding: 40px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .invoice-header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+        .invoice-header-left { text-align: left; }
+        .invoice-header-right { text-align: right; }
+        .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .invoice-table th, .invoice-table td { border: 1px solid var(--border-color); padding: 8px 6px; text-align: right; }
+        .invoice-table th { background: rgba(128, 128, 128, 0.05); font-weight: bold; }
+        .invoice-table input { width: 100%; border: 1px solid transparent; background: transparent; padding: 8px; font-family: inherit; }
+        .invoice-table input:focus { border-color: var(--primary-color); background: var(--card-bg); outline: none; }
+        .invoice-totals { width: 300px; margin-right: auto; }
+        .invoice-totals-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+        .invoice-controls { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        
+        @media print {
+            body { background: var(--card-bg); }
+            .sidebar, .top-header, .invoice-controls, .no-print, button { display: none !important; }
+            .main-content { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+            .invoice-paper { box-shadow: none !important; border: none !important; margin: 0; padding: 0; max-width: 100%; }
+            .multi-select-display { border: none !important; background: transparent !important; padding: 5px !important; min-height: auto !important; }
+            .multi-select-tag { background: transparent !important; border: none !important; color: black !important; padding: 0 !important; font-size: inherit !important; }
+            .multi-select-tag:not(:last-child)::after { content: "، "; color: black; }
+            input, textarea, select {
+                border: none !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                appearance: none !important;
+                -webkit-appearance: none !important;
+                resize: none !important;
+                color: black !important;
+            }
+            .invoice-table th, .invoice-table td {
+                border-color: #000 !important;
+                color: #000 !important;
+            }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+    
+    <style>
+        .multi-select { position: relative; width: 100%; text-align: right; z-index: 1; }
+        .multi-select-display { min-height: 34px; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 8px; cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: var(--bg-color); color: var(--text-dark); }
+        .multi-select-dropdown { display: none; position: absolute; top: 100%; right: 0; left: 0; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; z-index: 9999; max-height: 200px; overflow-y: auto; padding: 5px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); margin-top: 4px; }
+        .multi-select-dropdown label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; margin: 0; border-radius: 4px; transition: background 0.2s; font-size: 0.85rem; color: var(--text-dark); }
+        .multi-select-dropdown label:hover { background: rgba(128, 128, 128, 0.1); }
+        .multi-select-tag { background: rgba(79, 70, 229, 0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap; border: 1px solid rgba(79, 70, 229, 0.2); }
+    </style>
+    <script>
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.multi-select')) {
+                document.querySelectorAll('.multi-select-dropdown').forEach(el => {
+                    el.style.display = 'none';
+                    el.closest('.multi-select').style.zIndex = '1';
+                    const tr = el.closest('tr');
+                    if (tr) {
+                        tr.style.zIndex = '';
+                        tr.style.position = '';
+                    }
+                });
+            }
+        });
+        function toggleMultiSelect(el) {
+            const dropdown = el.nextElementSibling;
+            const isVisible = dropdown.style.display === 'block';
+            document.querySelectorAll('.multi-select-dropdown').forEach(d => {
+                d.style.display = 'none';
+                d.closest('.multi-select').style.zIndex = '1';
+                const tr = d.closest('tr');
+                if (tr) {
+                    tr.style.zIndex = '';
+                    tr.style.position = '';
+                }
+            });
+            if (!isVisible) {
+                dropdown.style.display = 'block';
+                el.closest('.multi-select').style.zIndex = '9999';
+                const tr = el.closest('tr');
+                if (tr) {
+                    tr.style.zIndex = '9999';
+                    tr.style.position = 'relative';
+                }
+            }
+        }
+        function updateMultiPlatform(index, checkbox) {
+            let currentStr = currentInvoiceData.items[index].platform || '';
+            let platforms = currentStr.split(/[,،]/).map(s => s.trim()).filter(s => s && s !== 'بدون پلتفرم');
+            
+            const container = checkbox.closest('.multi-select');
+            
+            if (checkbox.checked) {
+                if (checkbox.value === 'بدون پلتفرم') {
+                    platforms = [];
+                    container.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(cb => {
+                        if (cb.value !== 'بدون پلتفرم') cb.checked = false;
+                    });
+                } else {
+                    if (!platforms.includes(checkbox.value)) platforms.push(checkbox.value);
+                    const noPlatformCb = container.querySelector('input[value="بدون پلتفرم"]');
+                    if (noPlatformCb) noPlatformCb.checked = false;
+                }
+            } else {
+                platforms = platforms.filter(p => p !== checkbox.value);
+                if (platforms.length === 0) {
+                    const noPlatformCb = container.querySelector('input[value="بدون پلتفرم"]');
+                    if (noPlatformCb) noPlatformCb.checked = true;
+                }
+            }
+            
+            if (platforms.length === 0) {
+                currentInvoiceData.items[index].platform = 'بدون پلتفرم';
+            } else {
+                currentInvoiceData.items[index].platform = platforms.join('، ');
+            }
+            
+            const display = container.querySelector('.multi-select-display');
+            const selectedArr = currentInvoiceData.items[index].platform.split(/[,،]/).map(s => s.trim()).filter(s => s && s !== 'بدون پلتفرم');
+            if (selectedArr.length === 0) {
+                display.innerHTML = '<span class="multi-select-tag">بدون پلتفرم</span>';
+            } else {
+                display.innerHTML = selectedArr.map(plt => `<span class="multi-select-tag">${plt}</span>`).join('');
+            }
+        }
+        
+        function updateBulkMultiPlatform(checkbox) {
+            let currentStr = document.getElementById('bulkPlatformValue').value || '';
+            let platforms = currentStr.split(/[,،]/).map(s => s.trim()).filter(s => s && s !== 'بدون تغییر' && s !== 'بدون پلتفرم');
+            
+            const container = checkbox.closest('.multi-select');
+            
+            if (checkbox.checked) {
+                if (checkbox.value === 'بدون پلتفرم') {
+                    platforms = [];
+                    container.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(cb => {
+                        if (cb.value !== 'بدون پلتفرم') cb.checked = false;
+                    });
+                } else {
+                    if (!platforms.includes(checkbox.value)) platforms.push(checkbox.value);
+                    const noPlatformCb = container.querySelector('input[value="بدون پلتفرم"]');
+                    if (noPlatformCb) noPlatformCb.checked = false;
+                }
+            } else {
+                platforms = platforms.filter(p => p !== checkbox.value);
+            }
+            
+            let newValue = platforms.length === 0 ? '' : platforms.join('، ');
+            if (checkbox.checked && checkbox.value === 'بدون پلتفرم') {
+                newValue = 'بدون پلتفرم';
+            }
+            
+            document.getElementById('bulkPlatformValue').value = newValue;
+            
+            const display = container.querySelector('.multi-select-display');
+            if (newValue === '') {
+                display.innerHTML = '<span style="color:#9ca3af; font-size:0.85rem;">بدون تغییر</span>';
+            } else if (newValue === 'بدون پلتفرم') {
+                display.innerHTML = '<span class="multi-select-tag">بدون پلتفرم</span>';
+            } else {
+                const selectedArr = newValue.split(/[,،]/).map(s => s.trim()).filter(s => s);
+                display.innerHTML = selectedArr.map(plt => `<span class="multi-select-tag">${plt}</span>`).join('');
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
+    <script src="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+</head>
+<body>
+    <%- include('sidebar') %>
+
+    <main class="main-content">
+        
+
+        <div class="page-header-container flex-responsive no-print">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-receipt"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 17V7" />
+  <path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8" />
+  <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" />
+</svg> <span>فرم سازنده فاکتور</span></h1>
+                <p class="page-subtitle">ایجاد و ویرایش فاکتور‌های رسمی با تنظیمات پیشرفته.</p>
+            </div>
+            <a href="invoices_list" class="btn-outline" style="text-decoration: none;">بازگشت به لیست فاکتور‌ها</a>
+        </div>
+        
+        <div class="invoice-controls no-print" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);">
+            <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 10px;">+ ایجاد فاکتور جدید (بر اساس محتواهای کارفرما)</div>
+            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="font-size: 0.85rem; margin-bottom: 4px; display: block;">کارفرما:</label>
+                    <select id="orgSelector" class="form-control" onchange="onDraftOrgChange()">
+                        <option value="">-- انتخاب کارفرما --</option>
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 0.85rem; margin-bottom: 4px; display: block;">مجموعه (اختیاری):</label>
+                    <select id="colSelect" class="form-control">
+                        <option value="">همه مجموعه‌ها</option>
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 0.85rem; margin-bottom: 4px; display: block;">وضعیت (اختیاری):</label>
+                    <select id="statusSelect" class="form-control">
+                        <option value="">همه وضعیت‌ها</option>
+                        <option value="raw">ورودی خام</option>
+                        <option value="todo">در صف انتظار</option>
+                        <option value="in_progress">در حال تولید</option>
+                        <option value="review">ارزیابی استودیو</option>
+                        <option value="client_review">ارزیابی کارفرما</option>
+                        <option value="needs_revision">نیاز به اصلاح</option>
+                        <option value="done">تکمیل شده</option>
+                        <option value="approved_by_client">تایید کارفرما</option>
+                        <option value="ready_to_publish">آماده انتشار</option>
+                        <option value="published" selected>منتشر شده</option>
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 0.85rem; margin-bottom: 4px; display: block;">پلتفرم (اختیاری):</label>
+                    <select id="platformSelect" class="form-control">
+                        <option value="">همه پلتفرم‌ها</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 5px;">
+                <input type="text" id="draftStartDate" class="form-control" placeholder="از تاریخ (مثلا 1403/01/01)" style="width: 160px;" data-jdp>
+                <input type="text" id="draftEndDate" class="form-control" placeholder="تا تاریخ (مثلا 1403/02/01)" style="width: 160px;" data-jdp>
+                <label style="display: flex; align-items: center; gap: 5px; color: var(--text-dark); cursor: pointer; white-space: nowrap; font-size: 0.9rem;">
+                    <input type="checkbox" id="draftNoTimeLimit" onchange="toggleDraftTimeInputs()" style="width: 16px; height: 16px;">
+                    بدون محدودیت زمانی
+                </label>
+                <button class="btn-primary" onclick="generateDraft()" style="margin-right: auto;">تولید پیشنویس فاکتور</button>
+            </div>
+        </div>
+        <div class="invoice-controls no-print" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 150px;">
+                <label>تاریخ صدور:</label>
+                <input type="text" id="invIssueDate" class="form-control" placeholder="1405/01/01" onchange="updateInvoiceUI()">
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+                <label>تاریخ سررسید:</label>
+                <input type="text" id="invDueDate" class="form-control" placeholder="1405/01/10" onchange="updateInvoiceUI()">
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+                <label>وضعیت فاکتور:</label>
+                <select id="invStatus" class="form-control" onchange="updateInvoiceUI()">
+                    <option value="draft">پیشنویس</option>
+                    <option value="issued">صادر شده</option>
+                    <option value="paid">پرداخت شده</option>
+                    <option value="cancelled">لغو شده</option>
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+                <label>واحد پول:</label>
+                <select id="invCurrency" class="form-control" onchange="changeCurrency()">
+                    <option value="toman">تومان</option>
+                    <option value="rial">ریال</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="no-print" style="background: var(--card-bg); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 30px;">
+            <label style="font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="showHeader" checked onchange="toggleInvoiceParts()">
+                نمایش سربرگ و مشخصات استودیو (Header)
+            </label>
+            
+            <label style="font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 15px; color: var(--primary-color);">
+                <input type="checkbox" id="showAdvanced" onchange="document.getElementById('advancedSettings').style.display = this.checked ? 'block' : 'none'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> تنظیمات پیشرفته نمایش اجزای فاکتور
+            </label>
+            
+            <div id="advancedSettings" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                    <label style="cursor: pointer;"><input type="checkbox" id="showLogo" checked onchange="toggleInvoiceParts()"> نمایش لوگوی استودیو</label>
+                    <label style="cursor: pointer;"><input type="checkbox" id="showInvDetails" checked onchange="toggleInvoiceParts()"> نمایش شماره فاکتور و تاریخ</label>
+                    <label style="cursor: pointer;"><input type="checkbox" id="showClientDetails" checked onchange="toggleInvoiceParts()"> نمایش کادر مشخصات کارفرما</label>
+                    <label style="cursor: pointer;"><input type="checkbox" id="showFooter" checked onchange="toggleInvoiceParts()"> نمایش فوتر (تشکر و شماره حساب)</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="no-print" style="margin-bottom: 30px; display: flex; gap: 15px; justify-content: flex-end;">
+            <button class="btn-primary" onclick="saveInvoice()" style="height: 45px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره فاکتور در دیتابیس</button>
+            <button class="btn-outline" onclick="printInvoice()" style="height: 45px; background: var(--card-bg);" id="printBtn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M6 18H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/><path d="M6 2h12v4H6z"/></svg> چاپ فاکتور (PDF)</button>
+        </div>
+
+        <div class="invoice-paper" id="invoicePaper">
+            
+            <div class="invoice-header" id="invoiceHeader" style="align-items: center;">
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <img alt="" id="studioLogoLight" src="" style="width: 80px; height: 80px; object-fit: contain; display: none;" loading="lazy"><img alt="" id="studioLogoDark" src="" style="width: 80px; height: 80px; object-fit: contain; display: none;" loading="lazy">
+                    <div>
+                        <h1 style="color: var(--primary-color); margin-bottom: 5px;" id="studioName">نام استودیو</h1>
+                        <p style="color: var(--text-gray); font-weight: bold; margin-bottom: 5px;">فاکتور رسمی خدمات</p>
+                        <p style="color: var(--text-gray); font-size: 0.85rem; margin-bottom: 3px;" id="studioAddress"></p>
+                        <p style="color: var(--text-gray); font-size: 0.85rem; margin-bottom: 3px;" id="studioContact"></p>
+                        <p style="color: var(--text-gray); font-size: 0.85rem;" id="studioWeb"></p>
+                    </div>
+                </div>
+                
+                <div class="invoice-details" id="invoiceMeta" style="text-align: left;">
+                    <h2 style="color: var(--text-dark); margin-bottom: 10px;">فاکتور فروش</h2>
+                    <p>شماره فاکتور: <strong id="invNumber">---</strong></p>
+                    <p>تاریخ صدور: <strong id="lblIssueDate">---</strong></p>
+                    <p>تاریخ سررسید: <strong id="lblDueDate">---</strong></p>
+                    <p>وضعیت: <strong id="lblStatus">---</strong></p>
+                </div>
+            </div>
+
+            <div class="flex-responsive" id="clientDetails" style="display: flex; justify-content: space-between; margin-bottom: 30px; background: rgba(128, 128, 128, 0.05); padding: 20px; border-radius: 8px;">
+                <div>
+                    <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 5px;">فاکتور شده برای:</p>
+                    <h3 style="color: var(--primary-color); margin-bottom: 5px;" id="invOrgName">---</h3>
+                    <p style="font-size: 0.9rem; margin-bottom: 5px;">حوزه فعالیت: <span id="invOrgIndustry">---</span></p>
+                </div>
+                <div style="text-align: left;">
+                    <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 5px;">اطلاعات تماس:</p>
+                    <p style="font-size: 0.9rem; margin-bottom: 5px;" id="invRepName">---</p>
+                    <p style="font-size: 0.9rem;" id="invRepPhone">---</p>
+                </div>
+            </div>
+
+                        <div id="bulkActions" class="no-print" style="display: none; background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--primary-color); margin-bottom: 15px; flex-direction: column; gap: 15px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-weight: bold; color: var(--primary-color);"><span id="selectedCount">0</span> مورد انتخاب شده</span>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-outline" style="border-color: red; color: red;" onclick="deleteSelectedItems()">حذف</button>
+                        <button class="btn-outline" onclick="duplicateSelectedItems()">کپی</button>
+                        <button class="btn-outline" style="border-color: var(--text-gray); color: var(--text-gray);" onclick="clearSelection()">انصراف از انتخاب</button>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; background: rgba(128, 128, 128, 0.05); padding: 10px; border-radius: 8px;">
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 5px; display: block;">پلتفرم / بستر (خالی = بدون تغییر):</label>
+                        <div class="multi-select" id="bulkPlatformContainer">
+                            <input type="hidden" id="bulkPlatformValue" value="">
+                            <div class="multi-select-display" onclick="toggleMultiSelect(this)">
+                                <span style="color:#9ca3af; font-size:0.85rem;">بدون تغییر</span>
+                            </div>
+                            <div class="multi-select-dropdown" id="bulkPlatformDropdown">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex: 1; min-width: 100px;">
+                        <label style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 5px; display: block;">تعداد (خالی = بدون تغییر):</label>
+                        <input type="text" inputmode="numeric" id="bulkQty" class="form-control" placeholder="تعداد" onchange="this.value = toPersianDigits(parseNumericInput(this.value))">
+                    </div>
+                    <div style="flex: 1; min-width: 120px;">
+                        <label style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 5px; display: block;">فی (<span class="currency-label">تومان</span>) (خالی = بدون تغییر):</label>
+                        <input type="text" inputmode="numeric" id="bulkPrice" class="form-control" placeholder="فی" onchange="this.value = formatFarsiMoney(parseNumericInput(this.value))">
+                    </div>
+                    <button class="btn-primary" onclick="applyBulkEdit()" style="padding: 10px 20px;">اعمال ویرایش گروهی</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th class="no-print" style="width: 30px; text-align: center;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" style="cursor: pointer;"></th>
+                            <th style="width: 50px; text-align: center;">ردیف</th>
+                            <th style="min-width: 160px;">شرح خدمات / کالا</th>
+                            <th style="min-width: 140px;">پلتفرم / بستر</th>
+                            <th style="width: 80px;">تعداد</th>
+                            <th style="min-width: 120px; white-space: nowrap;">فی (<span class="currency-label">تومان</span>)</th>
+                            <th style="min-width: 130px; white-space: nowrap;">مبلغ کل (<span class="currency-label">تومان</span>)</th>
+                            <th class="no-print" style="width: 50px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 6h18'/><path d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/><path d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/><line x1='10' x2='10' y1='11' y2='17'/><line x1='14' x2='14' y1='11' y2='17'/></svg></th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoiceItems">
+                        <!-- Items rendered here -->
+                    </tbody>
+                    <tfoot class="no-print">
+                        <tr>
+                            <td colspan="8" style="text-align: center; background: rgba(128, 128, 128, 0.05); cursor: pointer; color: var(--primary-color); font-weight: bold;" onclick="addManualItem()">
+                                + افزودن ردیف دستی به فاکتور
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="flex-responsive" style="display: flex; justify-content: space-between; gap: 20px;">
+                <div style="width: 50%;">
+                    <p style="margin-bottom: 10px; font-weight: bold;">توضیحات فاکتور:</p>
+                    <textarea id="invNotes" class="form-control" style="height: 100px; resize: none; width: 100%;" onchange="currentInvoiceData.notes = this.value" placeholder="توضیحات اضافی، شرایط قرارداد و..."></textarea>
+                </div>
+                <div class="totals-section">
+                    <div class="totals-row">
+                        <span>جمع مبلغ کل (بدون کسورات):</span>
+                        <strong id="invSubtotal">۰</strong>
+                    </div>
+                    <div class="totals-row no-print">
+                        <span style="display: flex; align-items: center; gap: 10px;">درصد مالیات ارزش افزوده:</span>
+                        <input type="text" inputmode="numeric" id="invTaxPercent" class="form-control" style="width: 60px; height: 25px; padding: 2px 5px; text-align: center;" value="0" onchange="this.value = toPersianDigits(parseNumericInput(this.value)); calculateTotals()">
+                    </div>
+                    <div class="totals-row">
+                        <span>مالیات:</span>
+                        <strong id="invTaxAmount">۰</strong>
+                    </div>
+                    <div class="totals-row no-print">
+                        <span>مبلغ تخفیف دستی (<span class="currency-label">تومان</span>):</span>
+                        <input type="text" inputmode="numeric" id="invDiscount" class="form-control" style="width: 100px; height: 25px; padding: 2px 5px; text-align: center;" value="0" onchange="this.value = formatFarsiMoney(parseNumericInput(this.value)); calculateTotals()">
+                    </div>
+                    <div class="totals-row">
+                        <span>تخفیف:</span>
+                        <strong id="invDiscountAmount" style="color: var(--error-color);">۰</strong>
+                    </div>
+                    <div class="totals-row final">
+                        <span>مبلغ قابل پرداخت:</span>
+                        <strong id="invTotal">۰</strong>
+                    </div>
+                    <div class="totals-row no-print" style="margin-top: 10px;">
+                        <span>مبلغ پرداخت شده (علیالحساب):</span>
+                        <input type="text" inputmode="numeric" id="invPaidAmount" class="form-control" style="width: 100px; height: 25px; padding: 2px 5px; text-align: center;" value="0" onchange="this.value = formatFarsiMoney(parseNumericInput(this.value)); calculateTotals()">
+                    </div>
+                    <div class="totals-row">
+                        <span>پرداخت شده:</span>
+                        <strong id="invPaidDisplay" style="color: #16a34a;">۰</strong>
+                    </div>
+                    <div class="totals-row" style="font-weight: bold;">
+                        <span>باقیمانده:</span>
+                        <strong id="invRemainingDisplay" style="color: var(--error-color);">۰</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div id="invoiceFooter" style="margin-top: 40px; text-align: center; color: var(--text-gray); font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 20px;">
+                <p style="margin-bottom: 10px; font-weight: bold; color: var(--text-dark);">از اعتماد شما به <span id="footerStudioName">استودیوی ما</span> سپاسگزاریم.</p>
+                <div style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; display: inline-block; text-align: right; min-width: 300px;">
+                    <p style="margin-bottom: 8px;">جهت تسویه حساب، لطفاً مبلغ فوق را به حساب زیر واریز نمایید:</p>
+                    <p style="margin-bottom: 5px;">نام صاحب حساب: <strong id="footerManagerName">---</strong></p>
+                    <p style="margin-bottom: 5px;">شماره شبا: <strong id="shabaText" style="font-family: monospace; direction: ltr; display: inline-block;">---</strong></p>
+                    <p>شماره کارت: <strong id="cardText" style="font-family: monospace; direction: ltr; display: inline-block;">---</strong></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="assets/js/app.js?v=4"></script>
+    
+    <!-- PDF Preview Modal -->
+    <div id="pdfPreviewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+        <div style="background: var(--card-bg); width: 90%; max-width: 1000px; height: 90vh; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-color);">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    پیش‌نمایش چاپ و PDF
+                </h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-outline" onclick="closePreviewModal()" style="border: none; background: transparent; cursor: pointer;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Modal Body (Preview) -->
+            <div style="flex: 1; overflow: auto; padding: 30px; display: flex; justify-content: center; background: #525659;">
+                <div id="previewContainer" style="background: white; padding: 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 210mm; min-height: 297mm; transform-origin: top center; direction: rtl;">
+                    <!-- Clone goes here -->
+                </div>
+            </div>
+            
+            <!-- Modal Footer (Actions) -->
+            <div style="padding: 15px 20px; background: #e0f2fe; color: #0369a1; border-top: 1px solid #bae6fd; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                نکته: برای دانلود فایل PDF، پس از کلیک روی دکمه زیر، در پنجره باز شده قسمت Destination را روی <strong>Save as PDF</strong> تنظیم کنید. این روش بالاترین کیفیت را برای زبان فارسی تضمین می‌کند.
+            </div>
+            <!-- Modal Footer (Actions) -->
+            <div style="padding: 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 15px; background: var(--bg-color);">
+                <button class="btn-outline" onclick="closePreviewModal()">انصراف</button>
+                <button class="btn-primary" onclick="executeNativePrint()" style="display: flex; align-items: center; gap: 8px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    چاپ / ذخیره به عنوان PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toPersianDigits(num) {
+            if(!num && num !== 0) return '';
+            const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            return num.toString().replace(/\d/g, x => farsiDigits[x]);
+        }
+        function formatFarsiMoney(num) {
+            return toPersianDigits(num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+        }
+
+        function parseNumericInput(val) {
+            if (!val && val !== 0) return 0;
+            const persianToEnglish = s => s.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+            let clean = persianToEnglish(val.toString()).replace(/[^\d.]/g, '');
+            return Number(clean) || 0;
+        }
+
+        window.availablePlatforms = [];
+        let currentInvoiceData = {
+            id: null,
+            org_id: null,
+            items: [],
+            tax_percent: 0,
+            discount: 0,
+            paid_amount: 0,
+            notes: ''
+        };
+        let currentOrganization = null;
+
+        setTimeout( async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const invoiceId = urlParams.get('id');
+
+            // Load orgs
+            try {
+                const res = await fetch('/api/get_orgs', { cache: 'no-store' });
+                const orgData = await res.json();
+                const select = document.getElementById('orgSelector');
+                (orgData.data || []).forEach(org => {
+                    select.innerHTML += `<option value="${org.id}">${org.org_name}</option>`;
+                });
+            } catch (e) {
+                console.error("Failed to load organizations:", e);
+                if (typeof showToast === 'function') showToast('خطا در دریافت لیست سازمان‌ها.');
+            }
+
+            // Load platforms
+            try {
+                const pRes = await fetch('/api/manage_settings');
+                const pResult = await pRes.json();
+                if (pResult.status === 'success' && pResult.data && pResult.data.platform) {
+                    window.availablePlatforms = pResult.data.platform.filter(p => p.is_active === 1 || p.is_active === undefined);
+                    const bulkContainer = document.getElementById('bulkPlatformContainer');
+                    if (bulkContainer) {
+                        const dropdown = document.getElementById('bulkPlatformDropdown');
+                        dropdown.innerHTML = '';
+                        window.availablePlatforms.forEach(p => {
+                            const name = p.setting_key || p.name || p.key;
+                            dropdown.innerHTML += `<label><input type="checkbox" value="${name}" onchange="updateBulkMultiPlatform(this)"> ${name}</label>`;
+                        });
+                        dropdown.innerHTML += `<label><input type="checkbox" value="بدون پلتفرم" onchange="updateBulkMultiPlatform(this)"> بدون پلتفرم</label>`;
+                    }
+                    const platformSelect = document.getElementById('platformSelect');
+                    if (platformSelect) {
+                        window.availablePlatforms.forEach(p => {
+                            const name = p.setting_key || p.name || p.key;
+                            platformSelect.innerHTML += `<option value="${name}">${name}</option>`;
+                        });
+                        platformSelect.innerHTML += `<option value="بدون پلتفرم">بدون پلتفرم</option>`;
+                    }
+                }
+                if (typeof renderItems === 'function') renderItems();
+            } catch (e) { console.error("Error loading platforms", e); }
+            
+            // Load Studio info for header
+            try {
+                const sRes = await fetch('/api/get_studio_info');
+                const sResult = await sRes.json();
+                if (sResult.status === 'success' && sResult.data) {
+                    const sd = sResult.data;
+                    if (sd.name) {
+                        document.getElementById('studioName').innerText = sd.name;
+                        document.getElementById('footerStudioName').innerText = sd.name;
+                    }
+                    
+                    const hasLight = !!sd.logo_light || !!sd.logo;
+                    const hasDark = !!sd.logo_dark || !!sd.logo;
+                    
+                    if (hasLight) {
+                        const logoL = document.getElementById('studioLogoLight');
+                        logoL.src = sd.logo_light || sd.logo;
+                        logoL.dataset.hasImage = "true";
+                    }
+                    if (hasDark) {
+                        const logoD = document.getElementById('studioLogoDark');
+                        logoD.src = sd.logo_dark || sd.logo_light || sd.logo;
+                        logoD.dataset.hasImage = "true";
+                    }
+                    
+                    window.updateInvoiceLogoDisplay = function() {
+                        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                        const showLogoChecked = document.getElementById('showLogo') ? document.getElementById('showLogo').checked : true;
+                        const showHeaderChecked = document.getElementById('showHeader') ? document.getElementById('showHeader').checked : true;
+                        const shouldShow = showLogoChecked && showHeaderChecked;
+                        
+                        const logoL = document.getElementById('studioLogoLight');
+                        const logoD = document.getElementById('studioLogoDark');
+                        
+                        if (logoL && logoL.dataset.hasImage === "true") logoL.style.display = (shouldShow && !isDark) ? 'block' : 'none';
+                        if (logoD && logoD.dataset.hasImage === "true") logoD.style.display = (shouldShow && isDark) ? 'block' : 'none';
+                    };
+                    window.updateInvoiceLogoDisplay();
+                    
+                    // observer for theme changes
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach((mutation) => {
+                            if (mutation.attributeName === 'data-theme') {
+                                window.updateInvoiceLogoDisplay();
+                            }
+                        });
+                    });
+                    observer.observe(document.documentElement, { attributes: true });
+
+                    if (sd.address) document.getElementById('studioAddress').innerText = 'آدرس: ' + sd.address;
+                    
+                    let contact = [];
+                    if (sd.phone) contact.push('تلفن: ' + sd.phone);
+                    if (sd.email) contact.push('ایمیل: ' + sd.email);
+                    document.getElementById('studioContact').innerText = contact.join(' | ');
+                    
+                    let web = [];
+                    if (sd.website) web.push(sd.website);
+                    if (sd.instagram) web.push('Instagram: ' + sd.instagram);
+                    document.getElementById('studioWeb').innerText = web.join(' | ');
+                    
+                    const accountHolder = sd.account_holder || sd.manager_name;
+                    if (accountHolder) document.getElementById('footerManagerName').innerText = accountHolder;
+                    if (sd.shaba) document.getElementById('shabaText').innerText = sd.shaba;
+                    if (sd.card_number) document.getElementById('cardText').innerText = sd.card_number;
+                }
+            } catch(e) {}
+
+            if (invoiceId) {
+                // Load existing invoice
+                loadInvoiceById(invoiceId);
+            }
+        });
+
+        async function loadInvoiceById(id) {
+            try {
+                const response = await fetch(`/api/generate_invoice?invoice_id=${id}`);
+                const data = await response.json();
+                if(data.status === 'success') {
+                    currentInvoiceData = {
+                        id: data.invoice_id,
+                        org_id: data.organization.id,
+                        items: data.items || [],
+                        tax_percent: 0,
+                        discount: data.discount || 0,
+                        paid_amount: data.paid_amount || 0,
+                        notes: data.notes || ''
+                    };
+                    
+                    // reverse-calculate tax percent for UI
+                    if(data.tax > 0 && data.subtotal > 0) {
+                        currentInvoiceData.tax_percent = Math.round((data.tax / data.subtotal) * 100);
+                    }
+                    
+                    currentOrganization = data.organization;
+                    
+                    document.getElementById('orgSelector').value = data.organization.id;
+                    document.getElementById('invNumber').innerText = toPersianDigits(data.invoice_number);
+                    document.getElementById('invIssueDate').value = toPersianDigits(data.date || '');
+                    document.getElementById('invDueDate').value = toPersianDigits(data.due_date || '');
+                    document.getElementById('invStatus').value = data.status_name || 'draft';
+                    document.getElementById('invNotes').value = data.notes || '';
+                    document.getElementById('invTaxPercent').value = currentInvoiceData.tax_percent;
+                    document.getElementById('invDiscount').value = currentInvoiceData.discount;
+                    document.getElementById('invPaidAmount').value = currentInvoiceData.paid_amount;
+                    
+                    updateInvoiceUI();
+                    setTimeout(toggleInvoiceParts, 100);
+                } else showToast(data.message);
+            } catch(e) { console.error(e); if (typeof showToast === 'function') showToast('خطای شبکه. لطفا دوباره تلاش کنید.', 'error'); }
+        }
+
+        
+        jalaliDatepicker.startWatch({
+            minDate: "attr",
+            maxDate: "attr",
+            time: false
+        });
+
+                function toggleDraftTimeInputs() {
+            const noLimit = document.getElementById('draftNoTimeLimit').checked;
+            const sDate = document.getElementById('draftStartDate');
+            const eDate = document.getElementById('draftEndDate');
+            sDate.disabled = noLimit;
+            eDate.disabled = noLimit;
+            if (noLimit) {
+                sDate.dataset.prev = sDate.value;
+                eDate.dataset.prev = eDate.value;
+                sDate.value = '--/--/----';
+                eDate.value = '--/--/----';
+                sDate.style.backgroundColor = '#f3f4f6';
+                eDate.style.backgroundColor = '#f3f4f6';
+            } else {
+                sDate.value = sDate.dataset.prev || '';
+                eDate.value = eDate.dataset.prev || '';
+                sDate.style.backgroundColor = '';
+                eDate.style.backgroundColor = '';
+            }
+        }
+
+        async function onDraftOrgChange() {
+            const orgId = document.getElementById('orgSelector').value;
+            const colSelect = document.getElementById('colSelect');
+            if (colSelect) colSelect.innerHTML = '<option value="">همه مجموعه‌ها</option>';
+            
+            if (!orgId) return;
+            
+            try {
+                const res = await fetch(`/api/get_collections?org_id=${orgId}`);
+                const data = await res.json();
+                if (data.status === 'success' && data.data && colSelect) {
+                    data.data.forEach(col => {
+                        colSelect.innerHTML += `<option value="${col.id}">${col.title}</option>`;
+                    });
+                }
+            } catch(e) { console.error(e); if (typeof showToast === 'function') showToast('خطای شبکه. لطفا دوباره تلاش کنید.', 'error'); }
+        }
+
+        async function generateDraft() {
+            const orgId = document.getElementById('orgSelector').value;
+            if(!orgId) {
+                if(typeof showToast === 'function') showToast('لطفا یک کارفرما انتخاب کنید.', 'warning');
+                return;
+            }
+            
+            const colId = document.getElementById('colSelect').value;
+            const status = document.getElementById('statusSelect').value;
+            const platform = document.getElementById('platformSelect').value;
+            let startDate = document.getElementById('draftStartDate').value;
+            let endDate = document.getElementById('draftEndDate').value;
+            if (startDate === '--/--/----') startDate = '';
+            if (endDate === '--/--/----') endDate = '';
+            const noTimeLimit = document.getElementById('draftNoTimeLimit').checked;
+            
+            let url = `/api/generate_invoice?org_id=${orgId}`;
+            if (colId) url += `&col_id=${colId}`;
+            if (status) url += `&status=${status}`;
+            if (platform) url += `&platform=${encodeURIComponent(platform)}`;
+            if (!noTimeLimit) {
+                if (startDate) url += `&start_date=${startDate}`;
+                if (endDate) url += `&end_date=${endDate}`;
+            }
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if(data.status === 'success') {
+                    currentInvoiceData = {
+                        id: null,
+                        org_id: orgId,
+                        items: data.items || [],
+                        tax_percent: 0,
+                        discount: 0,
+                        paid_amount: 0,
+                        notes: ''
+                    };
+                    currentOrganization = data.organization;
+                    
+                    document.getElementById('invNumber').innerText = '---'; // پیش نویس
+                    document.getElementById('invIssueDate').value = toPersianDigits(data.date || '');
+                    document.getElementById('invDueDate').value = '';
+                    document.getElementById('invStatus').value = 'draft';
+                    document.getElementById('invNotes').value = '';
+                    document.getElementById('invTaxPercent').value = 0;
+                    document.getElementById('invDiscount').value = 0;
+                    document.getElementById('invPaidAmount').value = 0;
+                    
+                    updateInvoiceUI();
+                    setTimeout(toggleInvoiceParts, 100);
+                } else showToast(data.message);
+            } catch(e) { console.error(e); if (typeof showToast === 'function') showToast('خطای شبکه. لطفا دوباره تلاش کنید.', 'error'); }
+        }
+
+
+        
+        let currentCurrency = 'toman';
+        function changeCurrency() {
+            const newCurrency = document.getElementById('invCurrency').value;
+            if (newCurrency === currentCurrency) return;
+            
+            const multiplier = newCurrency === 'rial' ? 10 : 0.1;
+            
+            // Update items
+            currentInvoiceData.items.forEach(item => {
+                item.unit_price = item.unit_price * multiplier;
+                item.row_total = item.row_total * multiplier;
+            });
+            
+            // Update discount and paid_amount
+            currentInvoiceData.discount = currentInvoiceData.discount * multiplier;
+            currentInvoiceData.paid_amount = currentInvoiceData.paid_amount * multiplier;
+            
+            // Update DOM Inputs directly if they have numeric values
+            document.getElementById('invDiscount').value = formatFarsiMoney(currentInvoiceData.discount);
+            document.getElementById('invPaidAmount').value = formatFarsiMoney(currentInvoiceData.paid_amount);
+            
+            // Update bulk edit fields
+            document.getElementById('bulkPrice').value = '';
+            
+            // Update table headers
+            const labels = document.querySelectorAll('.currency-label');
+            labels.forEach(label => {
+                label.innerText = newCurrency === 'rial' ? 'ریال' : 'تومان';
+            });
+            
+            currentCurrency = newCurrency;
+            
+            renderItems();
+            calculateTotals();
+            if(typeof showToast === 'function') {
+                showToast(`واحد پول به ${newCurrency === 'rial' ? 'ریال' : 'تومان'} تغییر یافت`, 'success');
+            }
+        }
+
+        function renderItems() {
+            selectedItems.clear();
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = false;
+            updateSelectionUI();
+            const tbody = document.getElementById('invoiceItems');
+            tbody.innerHTML = '';
+            
+            if(currentInvoiceData.items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">موردی یافت نشد.</td></tr>';
+            } else {
+                currentInvoiceData.items.forEach((item, index) => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="no-print" style="text-align: center;"><input type="checkbox" class="item-checkbox" data-index="${index}" onclick="handleCheckboxClick(event, ${index})" onchange="updateSelection()" style="cursor: pointer;"></td>
+                            <td style="text-align: center;">${toPersianDigits(index + 1)}</td>
+                            <td><input type="text" class="form-control" style="padding:5px;" value="${item.type}" onchange="updateItem(${index}, 'type', this.value)"></td>
+                            <td>
+                                <div class="multi-select">
+                                    <div class="multi-select-display" onclick="toggleMultiSelect(this)">
+                                        ${(item.platform || 'بدون پلتفرم').split(/[,،]/).filter(x => x.trim()).map(plt => `<span class="multi-select-tag">${plt.trim()}</span>`).join('')}
+                                    </div>
+                                    <div class="multi-select-dropdown">
+                                        ${window.availablePlatforms.map(p => {
+                                            const pName = p.setting_key || p.name || p.key;
+                                            const isChecked = (item.platform || '').split(/[,،]/).map(s=>s.trim()).includes(pName) ? 'checked' : '';
+                                            return `<label><input type="checkbox" value="${pName}" ${isChecked} onchange="updateMultiPlatform(${index}, this)"> ${pName}</label>`;
+                                        }).join('')}
+                                        <label><input type="checkbox" value="بدون پلتفرم" ${(!item.platform || item.platform === 'بدون پلتفرم') ? 'checked' : ''} onchange="updateMultiPlatform(${index}, this)"> بدون پلتفرم</label>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><input type="text" inputmode="numeric" class="form-control" style="padding:5px; text-align:center;" value="${toPersianDigits(item.qty)}" onchange="updateItem(${index}, 'qty', parseNumericInput(this.value))"></td>
+                            <td style="min-width: 130px;"><input type="text" inputmode="numeric" class="form-control" style="padding:5px; text-align: center;" value="${formatFarsiMoney(item.unit_price)}" onchange="updateItem(${index}, 'unit_price', parseNumericInput(this.value))"></td>
+                            <td style="color:var(--primary-color); font-weight:bold; min-width: 150px; white-space: nowrap;">${formatFarsiMoney(item.qty * item.unit_price)}</td>
+                            <td class="no-print"><button onclick="removeItem(${index})" style="background:none; border:none; color:red; cursor:pointer;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></button></td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        function updateItem(index, field, value) {
+            currentInvoiceData.items[index][field] = value;
+            if(field === 'qty' || field === 'unit_price') {
+                currentInvoiceData.items[index].row_total = currentInvoiceData.items[index].qty * currentInvoiceData.items[index].unit_price;
+            }
+            calculateTotals();
+            renderItems(); // re-render to update row_total
+        }
+
+        function addManualItem() {
+            currentInvoiceData.items.push({
+                type: 'آیتم سفارشی جدید',
+                platform: '---',
+                qty: 1,
+                unit_price: 0,
+                row_total: 0
+            });
+            calculateTotals();
+            renderItems();
+        }
+
+        function removeItem(index) {
+            currentInvoiceData.items.splice(index, 1);
+            calculateTotals();
+            renderItems();
+        }
+
+        function calculateTotals() {
+            let subtotal = 0;
+            currentInvoiceData.items.forEach(i => subtotal += i.row_total);
+            
+            const taxPct = parseNumericInput(document.getElementById('invTaxPercent').value);
+            const discount = parseNumericInput(document.getElementById('invDiscount').value);
+            const paid = parseNumericInput(document.getElementById('invPaidAmount').value);
+            
+            // Format input display
+            document.getElementById('invTaxPercent').value = toPersianDigits(taxPct);
+            document.getElementById('invDiscount').value = formatFarsiMoney(discount);
+            document.getElementById('invPaidAmount').value = formatFarsiMoney(paid);
+            
+            const taxAmt = Math.round(subtotal * (taxPct / 100));
+            const total = subtotal + taxAmt - discount;
+            
+            currentInvoiceData.tax_percent = taxPct;
+            currentInvoiceData.discount = discount;
+            currentInvoiceData.paid_amount = paid;
+            
+            document.getElementById('invSubtotal').innerText = formatFarsiMoney(subtotal);
+            document.getElementById('invTaxAmount').innerText = formatFarsiMoney(taxAmt);
+            document.getElementById('invDiscountAmount').innerText = formatFarsiMoney(discount);
+            document.getElementById('invTotal').innerText = formatFarsiMoney(total);
+            document.getElementById('invPaidDisplay').innerText = formatFarsiMoney(paid);
+            document.getElementById('invRemainingDisplay').innerText = formatFarsiMoney(total - paid);
+        }
+
+        const statusMap = {
+            'draft': 'پیشنویس',
+            'issued': 'صادر شده',
+            'paid': 'پرداخت شده',
+            'cancelled': 'لغو شده'
+        };
+
+        function updateInvoiceUI() {
+            if(!currentOrganization) return;
+            
+            document.getElementById('invOrgName').innerText = currentOrganization.org_name || '---';
+            document.getElementById('invOrgIndustry').innerText = currentOrganization.industry || '---';
+            document.getElementById('invRepName').innerText = currentOrganization.contact_name || currentOrganization.rep_name || '---';
+            document.getElementById('invRepPhone').innerText = toPersianDigits(currentOrganization.phone_number || currentOrganization.rep_phone || '---');
+            
+            document.getElementById('lblIssueDate').innerText = toPersianDigits(document.getElementById('invIssueDate').value || '---');
+            document.getElementById('lblDueDate').innerText = toPersianDigits(document.getElementById('invDueDate').value || '---');
+            document.getElementById('lblStatus').innerText = statusMap[document.getElementById('invStatus').value] || '---';
+            
+            renderItems();
+            calculateTotals();
+        }
+
+        async function saveInvoice() {
+            if(!currentInvoiceData.org_id) {
+                showToast('ابتدا یک کارفرما انتخاب کنید.');
+                return;
+            }
+            
+            let subtotal = 0;
+            currentInvoiceData.items.forEach(i => subtotal += i.row_total);
+            const taxAmt = Math.round(subtotal * (currentInvoiceData.tax_percent / 100));
+            const total = subtotal + taxAmt - currentInvoiceData.discount;
+
+            const payload = {
+                action: 'save',
+                id: currentInvoiceData.id,
+                org_id: currentInvoiceData.org_id,
+                issue_date: document.getElementById('invIssueDate').value,
+                due_date: document.getElementById('invDueDate').value,
+                status: document.getElementById('invStatus').value,
+                items: currentInvoiceData.items,
+                subtotal: subtotal,
+                tax: taxAmt,
+                discount: currentInvoiceData.discount,
+                total: total,
+                notes: currentInvoiceData.notes,
+                paid_amount: currentInvoiceData.paid_amount
+            };
+
+            try {
+                const res = await fetch('/api/invoices', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    showToast('فاکتور با موفقیت ذخیره شد.', 'success');
+                    window.location.href = 'invoice?id=' + data.data.id;
+                } else showToast(data.message);
+            } catch(e) { console.error(e); showToast('خطا در ارتباط با سرور. لطفا اتصال را بررسی کنید.', 'error'); }
+        }
+
+        function toggleInvoiceParts() {
+            const header = document.getElementById('invoiceHeader');
+            if(header) header.style.display = document.getElementById('showHeader').checked ? 'flex' : 'none';
+            
+            if (typeof window.updateInvoiceLogoDisplay === 'function') window.updateInvoiceLogoDisplay();
+            
+            const invDetails = document.getElementById('invoiceMeta');
+            if(invDetails) invDetails.style.display = document.getElementById('showInvDetails').checked ? 'block' : 'none';
+            
+            const clientDetails = document.getElementById('clientDetails');
+            if(clientDetails) clientDetails.style.display = document.getElementById('showClientDetails').checked ? 'flex' : 'none';
+            
+            const footer = document.getElementById('invoiceFooter');
+            if(footer) footer.style.display = document.getElementById('showFooter').checked ? 'block' : 'none';
+        }
+    </script>
+    
+    
+    <!-- PDF Preview Modal -->
+    <div id="pdfPreviewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+        <div style="background: var(--card-bg); width: 90%; max-width: 1000px; height: 90vh; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-color);">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    پیش‌نمایش چاپ و PDF
+                </h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-outline" onclick="closePreviewModal()" style="border: none; background: transparent; cursor: pointer;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Modal Body (Preview) -->
+            <div style="flex: 1; overflow: auto; padding: 30px; display: flex; justify-content: center; background: #525659;">
+                <div id="previewContainer" style="background: white; padding: 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 210mm; min-height: 297mm; transform-origin: top center; direction: rtl;">
+                    <!-- Clone goes here -->
+                </div>
+            </div>
+            
+            <!-- Modal Footer (Actions) -->
+            <div style="padding: 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 15px; background: var(--bg-color);">
+                <button class="btn-outline" onclick="closePreviewModal()">انصراف</button>
+                <button class="btn-primary" onclick="executeNativePrint()" style="display: flex; align-items: center; gap: 8px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    چاپ / دانلود PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+                                function printInvoice() {
+            const invoicePaper = document.getElementById('invoicePaper');
+            const previewContainer = document.getElementById('previewContainer');
+            
+            // Clone the invoice
+            const clone = invoicePaper.cloneNode(true);
+            
+            // Remove the ID to avoid duplicates
+            clone.removeAttribute('id');
+            
+            // Clean up the clone for preview
+            clone.style.boxShadow = 'none';
+            clone.style.margin = '0';
+            clone.style.border = 'none';
+            
+            // Ensure inputs keep their values
+            const originalInputs = invoicePaper.querySelectorAll('input, textarea, select');
+            const clonedInputs = clone.querySelectorAll('input, textarea, select');
+            
+            originalInputs.forEach((input, index) => {
+                if (clonedInputs[index]) {
+                    if (input.tagName === 'SELECT') {
+                        clonedInputs[index].value = input.value;
+                    } else if (input.type === 'checkbox' || input.type === 'radio') {
+                        clonedInputs[index].checked = input.checked;
+                    } else {
+                        clonedInputs[index].value = input.value;
+                        // Replace input with text for cleaner preview
+                        const div = document.createElement('div');
+                        div.textContent = input.value;
+                        div.style.padding = '8px';
+                        div.style.fontFamily = 'inherit';
+                        div.style.minHeight = '1.5em';
+                        div.style.whiteSpace = 'pre-wrap';
+                        div.style.wordBreak = 'break-word';
+                        if (input.style.textAlign) {
+                            div.style.textAlign = input.style.textAlign;
+                        }
+                        clonedInputs[index].parentNode.replaceChild(div, clonedInputs[index]);
+                    }
+                }
+            });
+            
+            // Replace multi-selects for cleaner preview
+            const originalMultiSelects = invoicePaper.querySelectorAll('.multi-select');
+            const clonedMultiSelects = clone.querySelectorAll('.multi-select');
+            originalMultiSelects.forEach((ms, index) => {
+                if (clonedMultiSelects[index]) {
+                    const display = ms.querySelector('.multi-select-display');
+                    if (display) {
+                        const div = document.createElement('div');
+                        const tags = Array.from(display.querySelectorAll('.multi-select-tag'));
+                        if (tags.length > 0) {
+                            div.textContent = tags.map(t => t.textContent).join('، ');
+                        } else {
+                            div.textContent = display.textContent.trim();
+                        }
+                        div.style.padding = '8px';
+                        div.style.fontFamily = 'inherit';
+                        div.style.minHeight = '1.5em';
+                        div.style.whiteSpace = 'pre-wrap';
+                        div.style.wordBreak = 'break-word';
+                        clonedMultiSelects[index].parentNode.replaceChild(div, clonedMultiSelects[index]);
+                    }
+                }
+            });
+
+            // Remove elements that shouldn't be printed/previewed
+            clone.querySelectorAll('.no-print').forEach(el => el.remove());
+
+            // Scale preview to fit screen if needed
+            const scale = Math.min(1, (window.innerWidth * 0.8) / 800);
+            previewContainer.style.transform = `scale(${scale})`;
+            
+            previewContainer.innerHTML = '';
+            previewContainer.appendChild(clone);
+            
+            document.getElementById('pdfPreviewModal').style.display = 'flex';
+        }
+        
+        function closePreviewModal() {
+            document.getElementById('pdfPreviewModal').style.display = 'none';
+        }
+        
+        function executeNativePrint() {
+            closePreviewModal();
+            setTimeout(() => {
+                if (window.self !== window.top) {
+                    const currentUrl = new URL(window.location.href);
+                    currentUrl.searchParams.set('auto_print', '1');
+                    if (typeof showToast === 'function') {
+                        showToast("برای چاپ با کیفیت بالا، فاکتور در تب جدید مرورگر باز می‌شود...");
+                    } else {
+                        if(typeof window.showToast === 'function') window.showToast("برای چاپ فاکتور در تب جدید باز می‌شود.", "info"); else alert("برای چاپ فاکتور در تب جدید باز می‌شود.");
+                    }
+                    setTimeout(() => {
+                        window.open(currentUrl.toString(), '_blank');
+                    }, 1000);
+                } else {
+                    window.print();
+                }
+            }, 300);
+        }
+        
+        // Auto print if opened in new tab with auto_print parameter
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('auto_print') === '1') {
+                setTimeout(() => {
+                    window.print();
+                }, 1000);
+            }
+        });
+    
+        let selectedItems = new Set();
+        let lastCheckedIndex = null;
+        
+        function toggleSelectAll(checkbox) {
+            lastCheckedIndex = null;
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            if(checkbox.checked) {
+                checkboxes.forEach(cb => {
+                    cb.checked = true;
+                    selectedItems.add(parseInt(cb.getAttribute('data-index')));
+                });
+            } else {
+                checkboxes.forEach(cb => cb.checked = false);
+                selectedItems.clear();
+            }
+            updateSelectionUI();
+        }
+        
+        function handleCheckboxClick(event, index) {
+            const checkboxes = Array.from(document.querySelectorAll('.item-checkbox'));
+            
+            if (event.shiftKey && lastCheckedIndex !== null) {
+                const start = Math.min(index, lastCheckedIndex);
+                const end = Math.max(index, lastCheckedIndex);
+                
+                // Get current state of the clicked checkbox (since onclick fires before onchange, but wait, for checkboxes onclick fires when value changes too)
+                // Actually, the checkbox is already toggled when onclick fires.
+                const isChecked = event.target.checked;
+                
+                checkboxes.forEach((cb) => {
+                    const cbIndex = parseInt(cb.getAttribute('data-index'));
+                    if (cbIndex >= start && cbIndex <= end) {
+                        cb.checked = isChecked;
+                    }
+                });
+                
+                updateSelection();
+            }
+            
+            lastCheckedIndex = index;
+        }
+        
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            let allChecked = true;
+            selectedItems.clear();
+            checkboxes.forEach(cb => {
+                if(cb.checked) {
+                    selectedItems.add(parseInt(cb.getAttribute('data-index')));
+                } else {
+                    allChecked = false;
+                }
+            });
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = (checkboxes.length > 0 && allChecked);
+            updateSelectionUI();
+        }
+        
+        function updateSelectionUI() {
+            const bulkActions = document.getElementById('bulkActions');
+            const selectedCount = document.getElementById('selectedCount');
+            if(bulkActions && selectedCount) {
+                if(selectedItems.size > 0) {
+                    bulkActions.style.display = 'flex';
+                    selectedCount.innerText = toPersianDigits(selectedItems.size);
+                } else {
+                    bulkActions.style.display = 'none';
+                }
+            }
+        }
+        
+        async function deleteSelectedItems() {
+            const confirmed = typeof window.customConfirm === 'function' 
+                ? await window.customConfirm('آیا از حذف موارد انتخاب شده اطمینان دارید؟')
+                : confirm('آیا از حذف موارد انتخاب شده اطمینان دارید؟');
+            if(confirmed) {
+                const indices = Array.from(selectedItems).sort((a,b) => b-a);
+                indices.forEach(idx => {
+                    currentInvoiceData.items.splice(idx, 1);
+                });
+                selectedItems.clear();
+                const selectAll = document.getElementById('selectAll');
+                if (selectAll) selectAll.checked = false;
+                renderItems();
+                updateSelectionUI();
+                calculateTotals();
+            }
+        }
+        
+        function applyBulkEdit() {
+            if (selectedItems.size === 0) return;
+            const platform = document.getElementById('bulkPlatformValue').value;
+            const qty = document.getElementById('bulkQty').value;
+            const price = document.getElementById('bulkPrice').value;
+            
+            let updated = false;
+            
+            selectedItems.forEach(idx => {
+                if (platform.trim() !== '') {
+                    currentInvoiceData.items[idx].platform = platform;
+                    updated = true;
+                }
+                if (qty !== '') {
+                    currentInvoiceData.items[idx].qty = parseNumericInput(qty);
+                    updated = true;
+                }
+                if (price !== '') {
+                    currentInvoiceData.items[idx].unit_price = parseNumericInput(price);
+                    updated = true;
+                }
+            });
+            
+            if (updated) {
+                // Clear the inputs
+                document.getElementById('bulkPlatformValue').value = '';
+                document.querySelector('#bulkPlatformContainer .multi-select-display').innerHTML = '<span style="color:#9ca3af; font-size:0.85rem;">بدون تغییر</span>';
+                document.querySelectorAll('#bulkPlatformContainer input[type="checkbox"]').forEach(cb => cb.checked = false);
+                document.getElementById('bulkQty').value = '';
+                document.getElementById('bulkPrice').value = '';
+                
+                renderItems();
+                calculateTotals();
+                if (typeof showToast === 'function') {
+                    showToast('تغییرات با موفقیت اعمال شد', 'success');
+                }
+            }
+        }
+        
+        function clearSelection() {
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            selectedItems.clear();
+            lastCheckedIndex = null;
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = false;
+            updateSelectionUI();
+        }
+
+        function duplicateSelectedItems() {
+            const indices = Array.from(selectedItems).sort((a,b) => a-b);
+            const newItems = [];
+            indices.forEach(idx => {
+                newItems.push(JSON.parse(JSON.stringify(currentInvoiceData.items[idx])));
+            });
+            currentInvoiceData.items.push(...newItems);
+            
+            selectedItems.clear();
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = false;
+            renderItems();
+            updateSelectionUI();
+            calculateTotals();
+        }
+
+        // We need to inject these functions before the script tag closes
+
+    </script>
+</body>
+</html>

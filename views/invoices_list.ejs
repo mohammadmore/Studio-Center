@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | لیست فاکتور‌ها</title>
+    <link href="assets/css/style.css?v=6" rel="stylesheet">
+    <style>
+        .invoice-card { background: var(--card-bg); border-radius: 12px; padding: 20px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .badge { padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; }
+        .badge-draft { background: rgba(128, 128, 128, 0.1); color: var(--text-gray); }
+        .badge-issued { background: #e0f2fe; color: #0284c7; }
+        .badge-paid { background: rgba(16, 185, 129, 0.15); color: #16a34a; }
+        .badge-cancelled { background: rgba(239, 68, 68, 0.15); color: var(--error-color); }
+    </style>
+</head>
+<body>
+    <%- include('sidebar') %>
+
+    <main class="main-content">
+        
+
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-receipt"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 17V7" />
+  <path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8" />
+  <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" />
+</svg> <span>سیستم مدیریت فاکتور‌ها</span></h1>
+                <p class="page-subtitle">تاریخچه و پیگیری وضعیت فاکتور‌های مالی کارفرمایان</p>
+            </div>
+            <a href="invoice" class="btn-primary" style="text-decoration: none; padding: 10px 20px;">+ فاکتور جدید</a>
+        </div>
+
+        <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" class="flex-responsive">
+            <input type="text" class="global-search-input" data-target="#invoicesList" placeholder="جستجوی سریع (کلمه مورد نظر را تایپ کنید)..." style="flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit;">
+        </div>
+        <div id="invoicesList">
+    
+            <div class="skeleton searchable-item" style="height: 80px; width: 100%; margin-bottom: 15px;"></div><div class="skeleton searchable-item" style="height: 80px; width: 100%; margin-bottom: 15px;"></div><div class="skeleton searchable-item" style="height: 80px; width: 100%;"></div>
+        </div>
+    </main>
+
+    <script src="assets/js/app.js?v=4"></script>
+    <script>
+        function toPersianDigits(num) {
+            const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            return num.toString().replace(/\d/g, x => farsiDigits[x]);
+        }
+        function formatFarsiMoney(num) {
+            return toPersianDigits(num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+        }
+        
+        const statusMap = {
+            'draft': { text: 'پیشنویس', class: 'badge-draft' },
+            'issued': { text: 'صادر شده', class: 'badge-issued' },
+            'paid': { text: 'پرداخت شده', class: 'badge-paid' },
+            'cancelled': { text: 'لغو شده', class: 'badge-cancelled' }
+        };
+
+        async function loadInvoices() {
+            try {
+                const res = await fetch('/api/invoices');
+                const data = await res.json();
+                
+                const orgRes = await fetch('/api/get_orgs');
+                const orgData = await orgRes.json();
+                const orgs = orgData.data || [];
+                
+                const container = document.getElementById('invoicesList');
+                container.innerHTML = '';
+                
+                if (!data.data || data.data.length === 0) {
+                    container.innerHTML = `
+                    <div class="searchable-item" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--card-bg); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
+                        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </div>
+                        <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">هیچ فاکتوری ثبت نشده است!</h3>
+                        <p style="color: var(--text-gray); width: 100%; max-width: 450px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">فاکتور‌ها، پیش‌فاکتور‌ها و گزارش‌های مالی دوره‌ای که برای مشتریان صادر می‌کنید در این قسمت بایگانی خواهند شد.</p>
+                    </div>`;
+                    return;
+                }
+                
+                (data.data || []).slice().reverse().forEach(inv => {
+                    const org = orgs.find(o => o.id == inv.org_id);
+                    const orgName = org ? org.org_name : 'نامشخص';
+                    const st = statusMap[inv.status] || statusMap['draft'];
+                    
+                    const paidText = inv.paid_amount > 0 ? ` (پرداختی: ${formatFarsiMoney(inv.paid_amount)})` : '';
+                    
+                    const orgLogo = (org && org.logo_url) ? `<img src="${org.logo_url}" alt="${orgName}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color);">` : `<div style="width: 56px; height: 56px; border-radius: 50%; background: var(--bg-hover); color: var(--text-dark); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 1px solid var(--border-color);">${orgName ? orgName.charAt(0) : '?'}</div>`;
+
+                    container.innerHTML += `
+                        <div class="invoice-card searchable-item" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                ${orgLogo}
+                                <div>
+                                    <a href="invoice?id=${inv.id}" style="text-decoration: none; color: inherit; display: inline-block;">
+                                        <h3 style="margin-bottom: 5px; transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color=''">فاکتور شماره ${toPersianDigits(inv.invoice_number)} (${orgName})</h3>
+                                    </a>
+                                    <p style="color: var(--text-gray); font-size: 0.9rem;">
+                                        مبلغ کل: <strong>${formatFarsiMoney(inv.total)} تومان</strong> ${paidText}
+                                    </p>
+                                    <p style="color: var(--text-gray); font-size: 0.85rem; margin-top: 5px;">
+                                        تاریخ صدور: ${toPersianDigits(inv.issue_date || '---')} | سررسید: ${toPersianDigits(inv.due_date || '---')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;">
+                                <div style="width: 115px; display: flex; align-items: stretch;">
+                                    <span class="badge ${st.class}" style="flex: 1; text-align: center; box-sizing: border-box; justify-content: center; display: flex; align-items: center; font-size: 0.85rem; height: 42px; margin: 0; padding: 0 10px; white-space: nowrap;">${st.text}</span>
+                                </div>
+                                <button onclick="changeStatus(${inv.id}, '${inv.status}')" class="btn-outline" style="background: var(--card-bg); width: 115px; text-align: center; justify-content: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">تغییر وضعیت</button>
+                                <a href="invoice?id=${inv.id}" class="btn-outline" style="text-decoration: none; width: 115px; text-align: center; justify-content: center; display: inline-flex; align-items: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap; box-sizing: border-box;">نمایش / ویرایش</a>
+                                <button onclick="deleteInvoice(${inv.id})" class="btn-outline" style="border-color: var(--error-color); color: var(--error-color); background: var(--card-bg); width: 115px; text-align: center; justify-content: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">حذف</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) {
+                console.error(e);
+                document.getElementById('invoicesList').innerHTML = 'خطا در لود فاکتور‌ها';
+            }
+        }
+        
+        
+        function changeStatus(id, currentStatus) {
+            document.getElementById('statusInvId').value = id;
+            if(currentStatus) document.getElementById('newStatusSelect').value = currentStatus;
+            document.getElementById('statusModal').style.display = 'flex';
+        }
+        
+        async function saveStatus() {
+            const id = document.getElementById('statusInvId').value;
+            const newStatus = document.getElementById('newStatusSelect').value;
+            try {
+                const res = await fetch('/api/invoices', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'update_status', id: id, status: newStatus })
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    showToast('وضعیت فاکتور تغییر کرد', 'success');
+                    document.getElementById('statusModal').style.display = 'none';
+                    loadInvoices();
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch(e) { console.error(e); showToast('خطا در ارتباط با سرور', 'error'); }
+        }
+
+        function deleteInvoice(id) {
+            document.getElementById('deleteInvId').value = id;
+            document.getElementById('deleteModal').style.display = 'flex';
+        }
+
+        async function confirmDelete() {
+            const id = document.getElementById('deleteInvId').value;
+            try {
+                const res = await fetch('/api/invoices', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'delete', id: id })
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    showToast('فاکتور حذف شد', 'success');
+                    document.getElementById('deleteModal').style.display = 'none';
+                    loadInvoices();
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch(e) { console.error(e); showToast('خطا در ارتباط با سرور', 'error'); }
+        }
+
+
+        setTimeout( loadInvoices);
+    </script>
+
+    <!-- Status Modal -->
+    <div id="statusModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: var(--card-bg); padding: 20px; border-radius: 12px; min-width: 300px;">
+            <h3 style="margin-top: 0;">تغییر وضعیت فاکتور</h3>
+            <input type="hidden" id="statusInvId">
+            <select id="newStatusSelect" class="form-control" style="margin-bottom: 20px;">
+                <option value="draft">پیشنویس</option>
+                <option value="issued">صادر شده</option>
+                <option value="paid">پرداخت شده</option>
+                <option value="cancelled">لغو شده</option>
+            </select>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn-outline" onclick="document.getElementById('statusModal').style.display = 'none'">انصراف</button>
+                <button class="btn-primary" onclick="saveStatus()">ذخیره</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Modal -->
+    <div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: var(--card-bg); padding: 20px; border-radius: 12px; min-width: 300px;">
+            <h3 style="margin-top: 0; color: var(--error-color);">حذف فاکتور</h3>
+            <p>آیا از حذف این فاکتور اطمینان دارید؟</p>
+            <input type="hidden" id="deleteInvId">
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn-outline" onclick="document.getElementById('deleteModal').style.display = 'none'">انصراف</button>
+                <button class="btn-primary" style="background: var(--error-color);" onclick="confirmDelete()">حذف</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

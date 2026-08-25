@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | پروژه‌های من</title>
+    
+    <link href="assets/css/style.css?v=6" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    
+    <style>
+        .projects-container {
+            margin-top: 24px;
+        }
+        .org-group {
+            margin-bottom: 32px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        .org-header {
+            background: rgba(128, 128, 128, 0.05);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .org-header img {
+            width: 40px; height: 40px; border-radius: 8px; object-fit: cover;
+        }
+        .org-header h3 { margin: 0; font-size: 1.2rem; }
+        
+        .project-list {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+        .project-item {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .project-item:hover { background: rgba(128, 128, 128, 0.05); }
+        .project-item:last-child { border-bottom: none; }
+        
+        .project-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .project-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-gray);
+        }
+        .project-meta {
+            font-size: 0.85rem;
+            color: var(--text-gray);
+            display: flex;
+            gap: 16px;
+        }
+        .project-meta span { display: inline-flex; align-items: center; gap: 4px; }
+        
+        .project-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .badge {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--primary-color);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+        
+    </style>
+</head>
+<body>
+
+<%- include('sidebar') %>
+
+<main class="main-content">
+    <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-folder-kanban"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+  <path d="M8 10v4" />
+  <path d="M12 10v2" />
+  <path d="M16 10v6" />
+</svg> <span>پروژه‌های من</span></h1>
+                <p class="page-subtitle">مشاهده لیست پروژه‌ها و وظایف تخصیص یافته به شما</p>
+            </div>
+        </div>
+
+    <div id="projectsContainer" class="projects-container">
+        <div style="text-align: center; padding: 40px; color: #94a3b8;">در حال بارگذاری پروژه‌ها...</div>
+    </div>
+</main>
+
+<!-- Modal for Project Details -->
+
+
+
+<script>
+
+    function toPersianDigits(str) {
+        if (!str) return str;
+        const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        return str.toString().replace(/\d/g, x => persianDigits[x]);
+    }
+
+    let allProjects = [];
+    window.allSettings = {};
+    function translateStatus(s) {
+        if(s === 'raw' || s === 'raw_event') return 'ورودی خام';
+        if(s === 'todo') return 'در صف انتظار';
+        if(s === 'in_progress' || s === 'doing') return 'در حال تولید';
+        if(s === 'review') return 'ارزیابی استودیو';
+        if(s === 'client_review') return 'ارزیابی کارفرما';
+        if(s === 'needs_revision') return 'نیاز به اصلاح';
+        if(s === 'done') return 'تکمیل شده';
+        if(s === 'approved_by_client') return 'تایید کارفرما';
+        if(s === 'ready_to_publish') return 'آماده انتشار';
+        if(s === 'published') return 'منتشر شده 🌟';
+        if(s === 'archived') return 'آرشیو شده';
+        return s || 'ورودی خام';
+    }
+
+    async function loadMyProjects() {
+        try {
+            try {
+                const setRes = await fetch('/api/manage_settings');
+                window.allOrgs = (await (await fetch('/api/get_orgs')).json()).data || [];
+                window.allColleagues = (await (await fetch('/api/get_colleagues')).json()).users || [];
+                window.allCollections = (await (await fetch('/api/get_collections')).json()).data || [];
+                window.allSettings = (await setRes.json()).data || {};
+            } catch(e) {}
+            const res = await fetch('/api/get_my_projects');
+            const data = await res.json();
+            
+            const container = document.getElementById('projectsContainer');
+            if (data.status !== 'success') {
+                container.innerHTML = '<div style="color:red; text-align:center;">خطا در دریافت اطلاعات.</div>';
+                return;
+            }
+            
+            const projects = data.data;
+            allProjects = projects; window.allDepotItems = projects;
+            if (projects.length === 0) {
+                container.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--card-bg); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
+                        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                        </div>
+                        <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">پروژه‌ای برای شما یافت نشد!</h3>
+                        <p style="color: var(--text-gray); width: 100%; max-width: 400px; box-sizing: border-box; margin-bottom: 0; line-height: 1.6;">در حال حاضر هیچ پروژه‌ای به شما ارجاع داده نشده است. به محض تخصیص پروژه جدید، در اینجا نمایش داده خواهد شد.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Group by organization
+            const orgGroups = {};
+            projects.forEach(p => {
+                const orgId = p.org_id || 'بدون سازمان';
+                if (!orgGroups[orgId]) {
+                    orgGroups[orgId] = {
+                        name: p.org_name || 'بدون سازمان',
+                        color: p.org_color || 'var(--primary-color)',
+                        logo: p.org_logo || '',
+                        projects: []
+                    };
+                }
+                orgGroups[orgId].projects.push(p);
+            });
+            
+            let html = '';
+            
+            for (const orgId in orgGroups) {
+                const org = orgGroups[orgId];
+                
+                html += `
+                    <div class="org-group" style="border-top: 4px solid ${org.color}; background: color-mix(in srgb, ${org.color} 10%, transparent);">
+                        <div class="org-header">
+                            ${org.logo ? `<img src="${org.logo}" alt="${org.name}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" loading="lazy">` : `<div style="width:40px; height:40px; border-radius:8px; background:${org.color}; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">${org.name.substring(0,1)}</div>`}
+                            <h3>${org.name}</h3>
+                            <span class="badge" style="background:color-mix(in srgb, ${org.color} 12%, transparent); color:${org.color}">${org.projects.length} پروژه</span>
+                        </div>
+                        <ul class="project-list">
+                `;
+                
+                org.projects.forEach(p => {
+                    let statusLabel = translateStatus(p.status);
+                    let statusHtml = '';
+                    if (p.status === 'done' || p.status === 'approved_by_client' || p.status === 'ready_to_publish' || p.status === 'published') {
+                        statusHtml = `<span class="project-status" style="background:rgba(16, 185, 129, 0.15); color:#166534">${statusLabel}</span>`;
+                    } else if (p.status === 'in_progress' || p.status === 'review' || p.status === 'client_review' || p.status === 'needs_revision' || (p.stages && p.stages.length > 0)) {
+                        statusHtml = `<span class="project-status" style="background:#fef9c3; color:#854d0e">${statusLabel}</span>`;
+                    } else {
+                        statusHtml = `<span class="project-status" style="background: rgba(128, 128, 128, 0.1); color: var(--text-gray)">${statusLabel}</span>`;
+                    }
+                    
+                    html += `
+                        <li class="project-item" style="cursor:pointer;" onclick="window.openContentDetails(${p.id})">
+                            <div class="project-info">
+                                <div class="project-title">${p.title}</div>
+                                <div class="project-meta">
+                                    <span>نوع محتوا: ${p.content_type || 'نامشخص'}</span>
+                                    ${p.publish_date ? `<span>تاریخ انتشار: ${toPersianDigits(p.publish_date)}</span>` : ''}
+                                </div>
+                            </div>
+                            <div>
+                                ${statusHtml}
+                            </div>
+                        </li>
+                    `;
+                });
+                
+                html += `
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+            
+        } catch(e) {
+            console.error(e);
+            document.getElementById('projectsContainer').innerHTML = '<div style="color:red; text-align:center;">خطا در ارتباط با سرور.</div>';
+        }
+    }
+    
+    setTimeout( loadMyProjects);
+
+    
+    
+    
+
+</script>
+    <%- include('partials/content-identity') %>
+</body>
+</html>

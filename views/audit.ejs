@@ -1,0 +1,639 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | تاریخچه فعالیت‌ها (Audit Trail)</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <style>
+        .audit-controls {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;
+            background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);
+        }
+        
+        /* استایل اختصاصی تایملاین (خط زمانی) */
+        .timeline-container {
+            position: relative; padding: 20px 0;
+        }
+        .timeline-container::before {
+            content: ''; position: absolute; top: 0; bottom: 0; right: 20px; width: 4px;
+            background: var(--border-color); border-radius: 2px;
+        }
+        .timeline-item {
+            position: relative; padding-right: 50px; margin-bottom: 25px;
+        }
+        .timeline-badge {
+            position: absolute; right: 10px; top: 0; width: 24px; height: 24px;
+            border-radius: 50%;  border: 4px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center;
+        }
+        .timeline-card {
+            background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);
+            box-shadow: 0 2px 15px -3px rgba(0,0,0,0.04); transition: box-shadow 0.3s ease, transform 0.3s ease; transition: 0.2s; display: flex; justify-content: space-between; align-items: center;
+        }
+        .timeline-card:hover { border-color: var(--primary-color); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transform: translateX(-5px); }
+        
+        .log-meta { font-size: 0.85rem; color: var(--text-gray); margin-bottom: 8px; font-weight: bold; }
+        .log-desc { color: var(--text-dark); font-size: 1rem; line-height: 1.6; }
+        .log-time { background: rgba(128, 128, 128, 0.1); padding: 5px 12px; border-radius: 8px; font-size: 0.85rem; color: var(--text-gray); font-weight: bold; text-align: left; min-width: 120px; }
+        
+        /* رنگ‌بندی داینامیک بج‌ها */
+        .badge-system { background: #94a3b8; }
+        .badge-upload {  }
+        .badge-status { background: var(--success-color); }
+        .badge-danger { background: var(--error-color); }
+    </style>
+
+<style>
+.batch-desc-cell {
+    position: relative;
+    cursor: help;
+}
+.batch-tooltip-content {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    white-space: normal;
+    z-index: 10;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    min-width: 250px;
+    text-align: right;
+    margin-bottom: 8px;
+}
+.batch-desc-cell:hover .batch-tooltip-content {
+    display: block;
+}
+</style>
+</head>
+<body>
+    <%- include('sidebar') %>
+
+    
+
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-activity"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />
+</svg> <span>تاریخچه فعالیت‌ها (Audit Trail)</span></h1>
+                                <p class="page-subtitle">جعبه سیاه استودیو؛ ردیابی دقیق تمامی اقدامات کاربران استودیو</p>
+            </div>
+        </div>
+
+        
+<div style="margin-bottom: 20px; border-bottom: 2px solid var(--border-color); display: flex; gap: 20px;">
+    <button onclick="switchTab('logs')" id="tab-logs" style="background: none; border: none; padding: 10px 20px; cursor: pointer; font-family: inherit; font-size: 1rem; font-weight: bold; color: var(--primary-color); border-bottom: 3px solid var(--primary-color);">لاگ سیستم</button>
+    <button onclick="switchTab('recycle')" id="tab-recycle" style="background: none; border: none; padding: 10px 20px; cursor: pointer; font-family: inherit; font-size: 1rem; font-weight: bold; color: var(--text-gray); border-bottom: 3px solid transparent;">سطل زباله (حذفیات)</button>
+    <button onclick="switchTab('batch')" id="tab-batch" style="background: none; border: none; padding: 10px 20px; cursor: pointer; font-family: inherit; font-size: 1rem; font-weight: bold; color: var(--text-gray); border-bottom: 3px solid transparent;">تاریخچه فعالیت‌های من (Undo)</button>
+</div>
+
+<div id="logs-panel">
+
+<div class="audit-controls" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; margin-bottom: 30px; background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);">
+            <div style="flex: 1; min-width: 150px;">
+                <input type="text" class="form-control" id="searchInput" placeholder="جستجو در گزارش‌ها..." onkeyup="filterLogs()">
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+                <select class="form-control" id="userFilter" onchange="filterLogs()">
+                    <option value="">همه کاربران</option>
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 130px; display: flex; align-items: center; gap: 5px;">
+                <label style="font-size: 0.85rem; color: var(--text-gray); white-space: nowrap;">از:</label>
+                <input type="date" class="form-control" id="startDate" onchange="filterLogs()">
+            </div>
+            <div style="flex: 1; min-width: 130px; display: flex; align-items: center; gap: 5px;">
+                <label style="font-size: 0.85rem; color: var(--text-gray); white-space: nowrap;">تا:</label>
+                <input type="date" class="form-control" id="endDate" onchange="filterLogs()">
+            </div>
+            <div style="flex: 0; min-width: 100px;">
+                <button type="button" onclick="clearFilters()" style="width: 100%; padding: 10px; border: none; border-radius: 8px; background: var(--border-color); color: var(--text-gray); font-weight: bold; cursor: pointer;">حذف فیلتر‌ها</button>
+            </div>
+        </div>
+
+
+        <div class="timeline-container" id="logsContainer">
+            <div style="text-align:center; padding: 50px; color: var(--text-gray);"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg> در حال استخراج اطلاعات از جعبه سیاه...</div>
+</div>
+</div> <!-- End logs-panel -->
+
+<div id="recycle-panel" style="display: none;">
+    <div class="elegant-card" style="padding: 20px;">
+        <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
+            <select id="recycleTypeFilter" class="form-control" onchange="filterRecycleBin()" style="max-width: 250px;">
+                <option value="all">همه بخش‌ها</option>
+                <option value="contents">محتوا (میز کار)</option>
+                <option value="collections">مجموعه‌ها</option>
+                <option value="organizations">سازمان‌ها</option>
+                <option value="smartEventsBank">مناسبت‌ها</option>
+                <option value="contentTemplates">قالب‌های محتوا</option>
+            </select>
+            <input type="text" id="recycleSearchInput" class="form-control" placeholder="جستجو در سطل زباله..." onkeyup="filterRecycleBin()" style="max-width: 300px;">
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>بخش (جدول)</th>
+                        <th>عنوان آیتم</th>
+                        <th>حذف‌کننده</th>
+                        <th>تاریخ حذف</th>
+                        <th style="text-align: left;">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody id="recycle-table-body">
+                    <tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--text-gray);">در حال بارگذاری...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<div id="batch-panel" style="display: none;">
+    <div class="elegant-card" style="padding: 20px;">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>نوع عملیات</th>
+                        <th>توضیحات</th>
+                        <th>تاریخ و زمان</th>
+                        <th>وضعیت</th>
+                        <th>عملیات (Undo)</th>
+                    </tr>
+                </thead>
+                <tbody id="batch-table-body">
+                    <tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--text-gray);">در حال بارگذاری...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</main>
+
+    <script src="assets/js/app.js?v=4"></script>
+<script>
+    async function loadBatchOperations() {
+        const tbody = document.getElementById('batch-table-body');
+        try {
+            const res = await fetch('/api/get_batch_operations?t=' + Date.now(), { cache: 'no-store' });
+            const result = await res.json();
+            if (result.status === 'success') {
+                const items = result.data || [];
+                if (items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-gray);">هیچ فعالیتی یافت نشد</td></tr>';
+                    return;
+                }
+                
+                let html = '';
+                items.forEach(item => {
+                    const date = item.timestamp ? new Date(item.timestamp).toLocaleString('fa-IR') : 'نامشخص';
+                    let statusHtml = item.is_undone 
+                        ? '<span style="background: rgba(128,128,128,0.1); color: var(--text-gray); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">لغو شده</span>'
+                        : '<span style="background: rgba(16, 185, 129, 0.1); color: var(--success-color); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">انجام شده</span>';
+                        
+                    html += `<tr>
+                        <td style="font-weight: bold;">${item.title}</td>
+                                                <td class="batch-desc-cell">
+                            ${item.description}
+                            ${(() => {
+                                let titles = [];
+                                if (item.previous_states && Array.isArray(item.previous_states)) {
+                                    titles = item.previous_states.map(s => s.title || s.item_title || s.invoice_number || s.id).filter(Boolean);
+                                } else if (item.item_titles && Array.isArray(item.item_titles)) {
+                                    titles = item.item_titles;
+                                }
+                                if (titles.length > 0) {
+                                    return '<div class="batch-tooltip-content">' + titles.map(t => '<div>• ' + String(t).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>').join('') + '</div>';
+                                }
+                                return '';
+                            })()}
+                        </td>
+                        <td style="direction: ltr; text-align: right;">${date}</td>
+                        <td >${statusHtml}</td>
+                                                <td style="text-align: left;">
+                            ${!item.is_undone ? `<button onclick="undoBatch('${item.id}')" style="width: 155px; justify-content: center; display: inline-flex; background: var(--error-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">لغو عملیات (Undo)</button>` : `<button onclick="redoBatch('${item.id}')" style="width: 155px; justify-content: center; display: inline-flex; background: var(--primary-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">بازگردانی عملیات (Redo)</button>`}
+                        </td>
+                    </tr>`;
+                });
+                tbody.innerHTML = html;
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">${result.message || 'خطا در دریافت اطلاعات'}</td></tr>`;
+            }
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">خطا در دریافت اطلاعات</td></tr>';
+        }
+    }
+    
+    async function redoBatch(batchId) {
+        if (!(await window.customConfirm('آیا از بازگردانی (Redo) این عملیات اطمینان دارید؟ تغییرات مجدداً اعمال خواهند شد.'))) return;
+        try {
+            const res = await fetch('/api/redo_batch_operation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ batch_id: batchId })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                if(typeof showToast === 'function') showToast(result.message, 'success'); else alert(result.message);
+                loadBatchOperations();
+            } else {
+                if(typeof showToast === 'function') showToast(result.message || 'خطا در بازگردانی عملیات', 'error'); else alert(result.message || 'خطا در بازگردانی عملیات');
+            }
+        } catch (e) {
+            if(typeof showToast === 'function') showToast('خطا در ارتباط با سرور', 'error'); else alert('خطا در ارتباط با سرور');
+        }
+    }
+
+    async function undoBatch(batchId) {
+        if (!(await window.customConfirm('آیا از لغو این عملیات اطمینان دارید؟ تغییرات اعمال شده بازگردانی خواهند شد.'))) return;
+        try {
+            const res = await fetch('/api/undo_batch_operation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ batch_id: batchId })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                if(typeof showToast === 'function') showToast(result.message, 'success'); else alert(result.message);
+                loadBatchOperations();
+            } else {
+                if(typeof showToast === 'function') showToast(result.message || 'خطا در لغو عملیات', 'error'); else alert(result.message || 'خطا در لغو عملیات');
+            }
+        } catch (e) {
+            if(typeof showToast === 'function') showToast('خطا در ارتباط با سرور', 'error'); else alert('خطا در ارتباط با سرور');
+        }
+    }
+
+</script>
+    <script src="assets/js/jalaali.min.js?v=2"></script>
+    <script>
+        let allLogs = [];
+
+        setTimeout( async () => {
+            loadLogs();
+        });
+
+        async function loadLogs() {
+            try {
+                const res = await fetch('/api/get_logs');
+                const data = await res.json();
+                const container = document.getElementById('logsContainer');
+                container.innerHTML = '';
+
+                allLogs = data.data || [];
+
+                if(allLogs.length === 0) {
+                    container.innerHTML = '<div style="text-align:center; padding: 50px; color: gray;">هیچ فعالیتی ثبت نشده است.</div>';
+                    return;
+                }
+
+                // Populate user filter
+                const users = [...new Set(allLogs.map(l => l.username))];
+                const userSelect = document.getElementById('userFilter');
+                users.forEach(u => {
+                    if (u) {
+                        const opt = document.createElement('option');
+                        opt.value = u;
+                        opt.textContent = u;
+                        userSelect.appendChild(opt);
+                    }
+                });
+
+                renderLogs(allLogs);
+            } catch(e) {
+                document.getElementById('logsContainer').innerHTML = '<div style="color:red; text-align:center;">خطا در ارتباط با سرور پایگاه داده</div>';
+            }
+        }
+
+                function renderLogs(logsArray) {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '';
+            if (logsArray.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding: 50px; color: gray;">فعالیتی یافت نشد.</div>';
+                return;
+            }
+            logsArray.forEach(log => {
+                let badgeClass = 'badge-system';
+                const actionName = log.action || '';
+                if(actionName.includes('آپلود')) badgeClass = 'badge-upload';
+                if(actionName.includes('وضعیت') || actionName.includes('موفق')) badgeClass = 'badge-status';
+                if(actionName.includes('رد') || actionName.includes('حذف') || actionName.includes('خطا')) badgeClass = 'badge-danger';
+                
+                const dateObj = new Date(log.created_at);
+                const timeStr = isNaN(dateObj.getTime()) ? (log.created_at.split(' ')[1] || '') : dateObj.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+                const dateStr = isNaN(dateObj.getTime()) ? (log.created_at.split(' ')[0] || '') : dateObj.toLocaleDateString('fa-IR');
+                
+                const rawDate = log.created_at.split(' ')[0];
+                
+                let jDate = '';
+                if (!isNaN(dateObj.getTime()) && typeof jalaali !== 'undefined') {
+                    const j = jalaali.toJalaali(dateObj);
+                    jDate = j.jy + '/' + String(j.jm).padStart(2, '0') + '/' + String(j.jd).padStart(2, '0');
+                }
+                
+                
+                    let logUser = 'نامشخص';
+                    if (typeof log.username === 'object' && log.username !== null) {
+                        logUser = log.username.username || log.username.full_name || 'سیستم';
+                    } else if (log.username) {
+                        logUser = log.username;
+                    }
+container.innerHTML += `
+                    <div class="timeline-item log-entry" data-username="${log.username || ''}" data-date="${rawDate}" data-jdate="${jDate}">
+                        <div class="timeline-badge ${badgeClass}"></div>
+                        <div class="timeline-card">
+                            <div>
+                                <div class="log-meta">کاربر: ${logUser} | آیپی: ${log.ip || '127.0.0.1'}</div>
+                                <div class="log-desc">${actionName}</div>
+                            </div>
+                            <div class="log-time" style="direction: ltr; text-align: right;">
+                                ${dateStr} <span style="opacity:0.6;">|</span> ${timeStr}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('userFilter').value = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            filterLogs();
+        }
+
+                        function p2e(s) {
+            return s ? s.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)) : '';
+        }
+
+        function normalizeJDate(s) {
+            let str = p2e(s);
+            if (!str) return '';
+            let parts = str.split('/');
+            if (parts.length === 3) {
+                return parts[0] + '/' + parts[1].padStart(2, '0') + '/' + parts[2].padStart(2, '0');
+            }
+            return str;
+        }
+
+        function filterLogs() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const userFilter = document.getElementById('userFilter').value;
+            
+            const startDate = normalizeJDate(document.getElementById('startDate').value);
+            const endDate = normalizeJDate(document.getElementById('endDate').value);
+            
+            const logs = document.querySelectorAll('.log-entry');
+            logs.forEach(log => {
+                const text = log.innerText.toLowerCase();
+                const username = log.getAttribute('data-username');
+                const jDate = log.getAttribute('data-jdate'); // format YYYY/MM/DD
+                
+                let textMatch = text.includes(query);
+                let userMatch = userFilter === '' || (username || '').trim() === userFilter.trim();
+                
+                let dateMatch = true;
+                if (startDate) {
+                    dateMatch = dateMatch && (jDate >= startDate);
+                }
+                if (endDate) {
+                    dateMatch = dateMatch && (jDate <= endDate);
+                }
+                
+                if (textMatch && userMatch && dateMatch) {
+                    log.style.display = 'block';
+                } else {
+                    log.style.display = 'none';
+                }
+            });
+        }
+    
+    function switchTab(tab) {
+        document.getElementById('logs-panel').style.display = tab === 'logs' ? 'block' : 'none';
+        document.getElementById('recycle-panel').style.display = tab === 'recycle' ? 'block' : 'none';
+        document.getElementById('batch-panel').style.display = tab === 'batch' ? 'block' : 'none';
+        
+        document.getElementById('tab-logs').style.color = tab === 'logs' ? 'var(--primary-color)' : '#64748b';
+        document.getElementById('tab-logs').style.borderBottomColor = tab === 'logs' ? 'var(--primary-color)' : 'transparent';
+        
+        document.getElementById('tab-recycle').style.color = tab === 'recycle' ? 'var(--primary-color)' : '#64748b';
+        document.getElementById('tab-recycle').style.borderBottomColor = tab === 'recycle' ? 'var(--primary-color)' : 'transparent';
+        
+        document.getElementById('tab-batch').style.color = tab === 'batch' ? 'var(--primary-color)' : '#64748b';
+        document.getElementById('tab-batch').style.borderBottomColor = tab === 'batch' ? 'var(--primary-color)' : 'transparent';
+        
+        if (tab === 'recycle') {
+            loadRecycleBin();
+        }
+        if (tab === 'batch') {
+            loadBatchOperations();
+        }
+    }
+    
+    async function loadRecycleBin() {
+        const tbody = document.getElementById('recycle-table-body');
+        try {
+            const res = await fetch('/api/recycle_bin?t=' + Date.now(), { cache: 'no-store' });
+            const result = await res.json();
+            if (result.status === 'success') {
+                const items = result.data || [];
+                if (items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-gray);">سطل زباله خالی است</td></tr>';
+                    return;
+                }
+                
+                const tableNames = {
+                    'contents': 'محتوا (میز کار)',
+                    'organizations': 'سازمان‌ها',
+                    'smartEventsBank': 'مناسبت‌ها',
+                    'contentTemplates': 'قالب‌های محتوا',
+                    'collections': 'مجموعه محتوا',
+                    'invoices': 'فاکتور مالی'
+                };
+                
+                let html = '';
+                items.forEach(item => {
+                    const date = item.deleted_at ? new Date(item.deleted_at).toLocaleString('fa-IR') : 'نامشخص';
+                    const tName = tableNames[item.table] || item.table;
+                    
+                    let delBy = 'نامشخص';
+                    if (typeof item.deleted_by === 'object' && item.deleted_by !== null) {
+                        delBy = item.deleted_by.username || item.deleted_by.full_name || 'سیستم';
+                    } else if (item.deleted_by) {
+                        delBy = item.deleted_by;
+                    }
+                    html += `<tr class="recycle-row" data-table="${item.table}">
+                        <td >${tName}</td>
+                        <td style="font-weight: bold;">${item.item_title}</td>
+                        <td >${delBy}</td>
+                        <td style="direction: ltr; text-align: right;">${date}</td>
+                                                <td style="text-align: left;">
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center;">
+                            ${item.restored ? 
+                              '<button disabled style="width: 105px; justify-content: center; display: inline-flex; background: #ccc; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: not-allowed; font-size: 0.85rem;">بازیابی شد</button>' : 
+                              `<button onclick="restoreItem(${item.id})" style="width: 105px; justify-content: center; display: inline-flex; background: var(--success-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">بازیابی <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg></button>`}
+                            ${item.restored ? 
+                              `<button onclick="deleteAgain(${item.id})" style="width: 105px; justify-content: center; display: inline-flex; background: var(--error-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">حذف مجدد <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 6h18'/><path d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/><path d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg></button>` : 
+                              `<button onclick="deletePermanent(${item.id})" style="width: 105px; justify-content: center; display: inline-flex; background: var(--error-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">حذف دائم <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 6h18'/><path d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/><path d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg></button>`}
+                            </div>
+                        </td>
+                    </tr>`;
+                });
+                tbody.innerHTML = html;
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">${result.message || 'خطا در دریافت اطلاعات'}</td></tr>`;
+            }
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">خطا در دریافت اطلاعات</td></tr>';
+        }
+    }
+    
+    function filterRecycleBin() {
+        const typeFilter = document.getElementById('recycleTypeFilter').value;
+        const searchQuery = document.getElementById('recycleSearchInput').value.toLowerCase();
+        
+        const rows = document.querySelectorAll('.recycle-row');
+        rows.forEach(row => {
+            const table = row.getAttribute('data-table');
+            const text = row.innerText.toLowerCase();
+            
+            const typeMatch = (typeFilter === 'all') || (table === typeFilter);
+            const searchMatch = text.includes(searchQuery);
+            
+            if (typeMatch && searchMatch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    
+    async function restoreItem(id) {
+        if (!(await window.customConfirm('آیا از بازیابی این آیتم مطمئن هستید؟'))) return;
+        try {
+            const res = await fetch('/api/recycle_bin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'restore', bin_id: id })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                if(typeof showToast === 'function') showToast(result.message, 'success'); else showToast(result.message);
+                loadRecycleBin();
+            } else {
+                if(typeof showToast === 'function') showToast(result.message || 'خطا در بازیابی', 'error'); else showToast(result.message || 'خطا در بازیابی');
+            }
+        } catch (e) {
+            if(typeof showToast === 'function') showToast('خطا در ارتباط با سرور', 'error'); else showToast('خطا در ارتباط با سرور');
+        }
+    }
+    
+    async function deleteAgain(id) {
+        if (!(await window.customConfirm('آیا مطمئن هستید که می‌خواهید این آیتم را مجدداً حذف کنید (به سطل زباله برگردانید)؟'))) return;
+        try {
+            const res = await fetch('/api/recycle_bin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete_again', bin_id: id })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                if(typeof showToast === 'function') showToast(result.message, 'success'); else showToast(result.message);
+                loadRecycleBin();
+            } else {
+                if(typeof showToast === 'function') showToast(result.message || 'خطا در حذف مجدد', 'error'); else showToast(result.message || 'خطا در حذف مجدد');
+            }
+        } catch (e) {
+            if(typeof showToast === 'function') showToast('خطا در ارتباط با سرور', 'error'); else showToast('خطا در ارتباط با سرور');
+        }
+    }
+    
+    async function deleteAgain(id) {
+        if (!(await window.customConfirm('آیا مطمئن هستید که می‌خواهید این آیتم را مجدداً حذف کنید (به سطل زباله برگردانید)؟'))) return;
+        try {
+            const res = await fetch('/api/recycle_bin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete_again', bin_id: id })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                if(typeof showToast === 'function') showToast(result.message, 'success'); else showToast(result.message);
+                loadRecycleBin();
+                if(typeof loadBatchOperations === 'function') loadBatchOperations();
+            } else {
+                if(typeof showToast === 'function') showToast(result.message || 'خطا در حذف مجدد', 'error'); else showToast(result.message || 'خطا در حذف مجدد');
+            }
+        } catch (e) {
+            if(typeof showToast === 'function') showToast('خطا در ارتباط با سرور', 'error'); else showToast('خطا در ارتباط با سرور');
+        }
+    }
+    
+    async function deletePermanent(id) {
+        if (!(await window.customConfirm('توجه: این عملیات غیرقابل بازگشت است! آیا مطمئن هستید؟'))) return;
+        try {
+            const res = await fetch('/api/recycle_bin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete_permanent', bin_id: id })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                if(typeof showToast === 'function') showToast(result.message, 'success'); else showToast(result.message);
+                loadRecycleBin();
+            } else {
+                if(typeof showToast === 'function') showToast(result.message || 'خطا در حذف', 'error'); else showToast(result.message || 'خطا در حذف');
+            }
+        } catch (e) {
+            if(typeof showToast === 'function') showToast('خطا در ارتباط با سرور', 'error'); else showToast('خطا در ارتباط با سرور');
+        }
+    }
+    
+</script>
+</body>
+</html>

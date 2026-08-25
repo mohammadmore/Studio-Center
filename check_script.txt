@@ -1,0 +1,17 @@
+----CALENDAR SCRIPT 1----
+
+    window.selectedBatchIds = [];
+    
+    function toggleBatchSelect(id, isChecked) {
+        id = parseInt(id);
+        if (isChecked) {
+            if (!window.selectedBatchIds.includes(id)) window.selectedBatchIds.push(id);
+        } else {
+            window.selectedBatchIds = window.selectedBatchIds.filter(x => x !== id);
+        }
+        updateBatchUI();
+    }
+    
+    function updateBatchUI() {
+        const bar = document.getElementById('batchActionsBar');
+        const count = docume

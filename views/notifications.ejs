@@ -1,0 +1,165 @@
+
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>صندوق پیام‌ها - <%= STUDIO_NAME %></title>
+    <link href="assets/css/style.css?v=6" rel="stylesheet" type="text/css" />
+    <style>
+        /* کد جدید و اصلاح شده: */
+body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; padding: 20px; padding-right: 280px; }
+        .notif-container { width: 100%; max-width: 900px; box-sizing: border-box; margin: 0 auto; background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 25px; }
+        .notif-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ecf0f1; padding-bottom: 15px; margin-bottom: 25px; }
+        .notif-header h1 { margin: 0; color: #2c3e50; font-size: 22px; }
+        .btn-read-all { background-color: #3498db; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; transition: 0.3s; }
+        .btn-read-all:hover { background-color: #2980b9; }
+        .notif-card { padding: 18px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 15px; transition: 0.2s; }
+        .notif-unread { background-color: rgba(231, 76, 60, 0.1); border-color: #f5b7b1; border-right: 4px solid #e74c3c; }
+        .notif-title { font-weight: bold; color: #2c3e50; font-size: 17px; margin-bottom: 8px; }
+        .notif-msg { color: #555; font-size: 14.5px; line-height: 1.6; margin-bottom: 15px; }
+        .notif-footer { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #95a5a6; }
+        .notif-actions a { text-decoration: none; font-weight: bold; padding: 5px 10px; border-radius: 4px; margin-right: 10px; }
+        .action-link { background: rgba(128, 128, 128, 0.1); color: var(--text-dark); }
+        .action-read { background: #e74c3c; color: #fff; }
+        .action-task { background: #2ecc71; color: #fff; }
+        .empty-box { text-align: center; color: #95a5a6; padding: 40px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <%- include('sidebar') %>
+    
+    
+    <div class="notif-container">
+        <div class="notif-header">
+            <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-bell"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+  <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
+</svg> <span>صندوق پیام‌ها و اعلانات</span></h1>
+                <p class="page-subtitle">مشاهده آخرین اعلان‌ها، هشدار‌ها و رویداد‌های سیستمی</p>
+            </div>
+        </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="dashboard" class="btn-read-all" style="background-color: #95a5a6;">بازگشت به داشبورد</a>
+                <a href="#" onclick="markAllRead()" class="btn-read-all">✓ همه را خواندم</a>
+            </div>
+        </div>
+
+        <div id="notifList">
+            <div class="empty-box" style="display: none;" id="emptyNotif">
+                <span style="font-size: 40px; display: block; margin-bottom: 15px;">📭</span>
+                هیچ پیامی در صندوق شما نیست!
+            </div>
+        </div>
+    </div>
+    
+    <script src="assets/js/app.js?v=4"></script>
+    <script>
+        setTimeout( () => {
+            loadNotifications();
+        });
+
+        async function loadNotifications() {
+            try {
+                const res = await fetch('/api/get_notifications');
+                const data = await res.json();
+                
+                const list = document.getElementById('notifList');
+                const emptyBox = document.getElementById('emptyNotif');
+                
+                Array.from(list.children).forEach(child => {
+                    if (child.id !== 'emptyNotif') child.remove();
+                });
+
+                if (data.notifications.length === 0) {
+                    emptyBox.style.display = 'block';
+                    return;
+                }
+                
+                emptyBox.style.display = 'none';
+
+                (data.notifications || []).forEach(n => {
+                    const isUnread = n.status === 'unread';
+                    const html = `
+                        <div class="notif-card ${isUnread ? 'notif-unread' : ''}">
+                            <div class="notif-title">
+                                ${isUnread ? '🔴 ' : '⚫ '} 
+                                ${window.toPersianDigits ? window.toPersianDigits(n.title) : n.title}
+                            </div>
+                            <div class="notif-msg">
+                                ${window.toPersianDigits ? window.toPersianDigits(n.description) : n.description}
+                            </div>
+                            <div class="notif-footer">
+                                <span>🕒 ثبت شده در: ${window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at}</span>
+                                <div class="notif-actions">
+                                    ${isUnread ? `<a href="#" onclick="markRead(${n.id})" class="action-read">✓ متوجه شدم</a>` : ''}
+                                    ${(() => {
+                                        if (n.type === 'calendar_approved') {
+                                            return `<a href="calendar" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده تقویم ➔</a>`;
+                                        } else if (n.type === 'content_reviewed' || n.type === 'content_assigned') {
+                                            let link = '/depot';
+                                            if (n.target_id) link += `?open=${n.target_id}`;
+                                            return `<a href="${link}" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده در دپو ➔</a>`;
+                                        } else if (n.link) {
+                                            return `<a href="${n.link}" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده ➔</a>`;
+                                        }
+                                        return '';
+                                    })()}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    list.insertAdjacentHTML('beforeend', html);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        async function markRead(id) {
+            showToast('پیام نشانهگذاری شد.');
+        }
+
+        async function markAllRead() {
+            showToast('همه پیام‌ها نشانهگذاری شدند.');
+        }
+    </script>
+</body>
+</html>

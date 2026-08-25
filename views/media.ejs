@@ -1,0 +1,419 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | کتابخانه دارایی‌های دیجیتال</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <style>
+        .media-controls {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;
+            background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);
+        }
+        .media-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;
+        }
+        .media-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px;
+            display: flex; flex-direction: column; align-items: center; text-align: center; transition: 0.2s;
+        }
+        .media-card:hover { border-color: var(--primary-color); transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .media-icon { font-size: 3rem; margin-bottom: 15px; }
+        .media-title { font-weight: bold; color: var(--text-dark); margin-bottom: 5px; font-size: 1.1rem; }
+        .media-org { font-size: 0.85rem; color: var(--text-gray); margin-bottom: 15px; background: rgba(128, 128, 128, 0.1); padding: 4px 10px; border-radius: 15px; }
+        .btn-download { width: 100%; background: rgba(128, 128, 128, 0.05); color: var(--primary-color); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; }
+        .btn-download:hover {  color: white; }
+        
+        /* پاپ‌آپ */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: var(--card-bg); width: 90%; width: 100%; max-width: 500px; box-sizing: border-box; padding: 30px; border-radius: 15px; }
+    </style>
+</head>
+<body>
+    <%- include('sidebar') %>
+
+    
+
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-image"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+  <circle cx="9" cy="9" r="2" />
+  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+</svg> <span>دارایی‌های دیجیتال (Media Library)</span></h1>
+                <p class="page-subtitle">دسترسی سریع تیم تولید به لوگو‌ها، فونت‌ها و منابع پایه کارفرماها.</p>
+            </div>
+        </div>
+
+        <div class="media-controls flex-responsive">
+            <div style="flex: 1; max-width: 300px;">
+                <input type="text" class="form-control" id="searchInput" placeholder="جستجوی نام فایل یا برند..." onkeyup="filterMedia()">
+            </div>
+            <div style="display: flex; gap: 8px;"><input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelImport(event)"><button class="btn-outline" style="border: 1px solid var(--primary-color); color: var(--primary-color); padding: 8px 16px; border-radius: 8px; cursor: pointer;" onclick="openExcelGuideModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> ورود گروهی با اکسل</button><button class="btn-primary" onclick="openMediaModal()">+ افزودن فایل جدید</button></div>
+        </div>
+
+        <div class="media-grid" id="mediaContainer">
+            <div style="grid-column: 1/-1; text-align:center; padding: 50px; color: var(--text-gray);"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg> در حال لود اطلاعات...</div>
+        </div>
+    </main>
+
+    <div class="modal-overlay" id="addMediaModal">
+        <div class="modal-box">
+            <h3 style="margin-bottom: 20px; color: var(--primary-color);">+ افزودن فایل به کتابخانه</h3>
+            <form onsubmit="saveMedia(event)">
+                <div class="form-group">
+                    <label>سازمان/برند مرتبط:</label>
+                    <select id="orgSelector" class="form-control" required>
+                        <option value="">در حال لود...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>نام و توضیح فایل:</label>
+                    <input type="text" id="assetName" class="form-control" placeholder="مثلاً: فایل لایهباز لوگو (AI)" required>
+                </div>
+                <div class="form-group">
+                    <label>نوع فایل:</label>
+                    <select id="assetType" class="form-control">
+                        <option value="تصویر / لوگو 🖼️">تصویر / لوگو 🖼️</option>
+                        <option value="فایل لایهباز / وکتور 🎨">فایل لایهباز / وکتور 🎨</option>
+                        <option value="فونت سازمانی 🔤">فونت سازمانی 🔤</option>
+                        <option value="سند / راهنمای برند 📄">سند / راهنمای برند 📄</option>
+                        <option value="صدا / موشن 🎵">صدا / موشن 🎵</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>لینک مستقیم / فضای ابری (درایو):</label>
+                    <input type="text" id="fileUrl" class="form-control" placeholder="https://drive.google.com/... یا آدرس فایل" required>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" id="saveBtn" class="btn-primary" style="flex: 1;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره در کتابخانه</button>
+                    <button type="button" class="btn-outline"  onclick="closeMediaModal()" style="flex: 1;">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="assets/js/app.js?v=4"></script>
+    <script>
+        // لود اولیه
+        setTimeout( async () => {
+            loadOrganizations();
+            loadMedia();
+        });
+
+        // لود کارفرماها برای لیست کشویی
+        async function loadOrganizations() {
+            try {
+                const res = await fetch('/api/get_orgs', { cache: 'no-store' });
+                const orgData = await res.json();
+                const orgs = orgData.data || [];
+                const select = document.getElementById('orgSelector');
+                select.innerHTML = '<option value="">-- انتخاب کنید --</option>';
+                (orgs || []).forEach(org => {
+                    select.innerHTML += `<option value="${org.id}">${org.org_name}</option>`;
+                });
+            } catch(e) { console.error(e); }
+        }
+
+        // لود فایل‌ها در گرید
+        async function loadMedia() {
+            try {
+                const res = await fetch('/api/get_media');
+                const data = await res.json();
+                const container = document.getElementById('mediaContainer');
+                container.innerHTML = '';
+
+                if(data.assets.length === 0) {
+                    container.innerHTML = `
+                    <div style="grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--card-bg); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
+                        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        </div>
+                        <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">کتابخانه رسانه‌های شما خالی است!</h3>
+                        <p style="color: var(--text-gray); width: 100%; max-width: 450px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">فایل‌های لایه باز، لوگو‌ها، فونت‌ها و تصاویر سازمانی را در اینجا آپلود کنید تا همیشه و در همه پروژه‌ها به سرعت به آن‌ها دسترسی داشته باشید.</p>
+                        <button class="btn-primary"  onclick="document.getElementById('uploadModal').style.display='flex'" style=""  >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            آپلود اولین فایل
+                        </button>
+                    </div>`;
+                    return;
+                }
+
+                (data.assets || []).forEach(asset => {
+                    // تعیین آیکون بر اساس نوع فایل
+                    let icon = '📁';
+                    if(asset.asset_type.includes('تصویر')) icon = '🖼️';
+                    if(asset.asset_type.includes('فونت')) icon = '🔤';
+                    if(asset.asset_type.includes('سند')) icon = '📄';
+                    if(asset.asset_type.includes('وکتور')) icon = '🎨';
+
+                    container.innerHTML += `
+                        <div class="media-card" data-title="${asset.asset_name}" data-org="${asset.org_name}" style="border-right: 4px solid ${asset.org_color}; background: color-mix(in srgb, ${asset.org_color} 10%, transparent);">
+                            <div class="media-icon">${icon}</div>
+                            <div class="media-title">${asset.asset_name}</div>
+                            <div class="media-org" style="background: color-mix(in srgb, ${asset.org_color} 15%, transparent); color: ${asset.org_color}; border: 1px solid color-mix(in srgb, ${asset.org_color} 30%, transparent); display: inline-flex; align-items: center; gap: 6px;">${asset.org_logo ? `<img alt="" src="${asset.org_logo}" style="width:24px; height:24px; border-radius:50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); object-fit:cover;" loading="lazy">` : `🏢`} ${asset.org_name}</div>
+                            <span style="font-size: 0.8rem; color: gray; margin-bottom: 15px;">${asset.asset_type}</span>
+                            <a href="${asset.file_url}" class="btn-download">⬇️ دریافت فایل</a>
+                        </div>
+                    `;
+                });
+            } catch(e) {
+                document.getElementById('mediaContainer').innerHTML = '<div style="color:red; grid-column:1/-1; text-align:center;">خطا در ارتباط با دیتابیس</div>';
+            }
+        }
+
+        // جستجوی زنده (فیلتر)
+        function filterMedia() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const cards = document.querySelectorAll('.media-card');
+            cards.forEach(card => {
+                const title = card.getAttribute('data-title').toLowerCase();
+                const org = card.getAttribute('data-org').toLowerCase();
+                if(title.includes(query) || org.includes(query)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // مدیریت پاپ‌آپ و فرم
+        function openMediaModal() { document.getElementById('addMediaModal').style.display = 'flex'; }
+        function closeMediaModal() { document.getElementById('addMediaModal').style.display = 'none'; }
+
+        async function saveMedia(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveBtn');
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg> در حال پردازش...`;
+            btn.disabled = true;
+
+            const payload = {
+                org_id: document.getElementById('orgSelector').value,
+                asset_name: document.getElementById('assetName').value,
+                asset_type: document.getElementById('assetType').value,
+                file_url: document.getElementById('fileUrl').value
+            };
+
+            try {
+                const res = await fetch('/api/save_media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                
+                if(result.status === 'success') {
+                    showToast(`<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg> ` + result.message);
+                    closeMediaModal();
+                    document.querySelector('form').reset();
+                    loadMedia(); // لود مجدد کارت‌ها به صورت زنده
+                } else {
+                    showToast(`<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> خطا: ` + result.message);
+                }
+            } catch(e) {
+                showToast('خطا در ارتباط با سرور', 'error');
+            } finally {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> ذخیره در کتابخانه`;
+                btn.disabled = false;
+            }
+        }
+    </script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Excel Guide Modal -->
+<div class="modal-overlay" id="excelGuideModal">
+    <div class="modal-box" style="width: 100%; max-width: 600px; box-sizing: border-box;">
+        <h3 style="margin-bottom: 15px; color: var(--text-dark);">راهنمای اکسل دارایی‌های دیجیتال</h3>
+        <p style="color: var(--text-gray); margin-bottom: 15px; line-height: 1.6;">
+            برای وارد کردن رسانه‌ها از طریق اکسل، فایل شما باید دارای ستون‌های زیر در ردیف اول (Header) باشد:
+        </p>
+        <table style="width: 100%; text-align: right; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+                <tr style="background: rgba(128,128,128,0.05);">
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نام فایل</th>
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نوع فایل</th>
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">لینک مستقیم</th>
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نام کاربری سازمان (اختیاری)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">فایل لایه باز لوگو</td>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">فایل لایه‌باز / وکتور 🎨</td>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">https://...</td>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">asva</td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 20px;">
+            نکته: نام کاربری سازمان مربوط به کارفرمای مورد نظر است که هنگام تعریف سازمان ثبت کرده‌اید. در صورت خالی بودن، رسانه بدون سازمان ثبت می‌شود.
+        </p>
+        <div style="display: flex; gap: 10px;"><button class="btn-primary" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'; document.getElementById('excelInput').click();">متوجه شدم، انتخاب فایل اکسل</button><button class="btn-outline" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'">بستن</button></div>
+    </div>
+</div>
+
+<!-- Excel Preview Modal -->
+<div class="modal-overlay" id="excelPreviewModal">
+    <div class="modal-box" style="width: 100%; max-width: 800px; box-sizing: border-box; max-height: 90vh; display: flex; flex-direction: column;">
+        <h3 style="margin-bottom: 15px; color: var(--text-dark);">پیش‌نمایش دارایی‌های اکسل</h3>
+        <div id="excelPreviewContainer" style="overflow-y: auto; flex: 1; margin-bottom: 20px;">
+            <!-- Preview items here -->
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-primary" style="flex: 1; font-size: 1.1rem; padding: 12px;" onclick="saveExcelMedia()">ذخیره همه رسانه‌ها</button>
+            <button type="button" class="btn-outline"  onclick="document.getElementById('excelPreviewModal').style.display='none'" style="flex: 1;">انصراف</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let pendingExcelMedia = [];
+
+    function openExcelGuideModal() {
+        document.getElementById('excelGuideModal').style.display = 'flex';
+    }
+
+    function handleExcelImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            if (json.length < 2) {
+                showToast('فایل اکسل خالی است یا فرمت نامعتبر است', 'error');
+                return;
+            }
+
+            // parse columns
+            const headers = json[0].map(h => typeof h === 'string' ? h.trim() : h);
+            const nameIdx = headers.indexOf('نام فایل');
+            const typeIdx = headers.indexOf('نوع فایل');
+            const urlIdx = headers.indexOf('لینک مستقیم');
+            const orgIdx = headers.indexOf('نام کاربری سازمان (اختیاری)');
+
+            if (nameIdx === -1 || urlIdx === -1 || typeIdx === -1) {
+                showToast('ستون‌های نام فایل، نوع فایل یا لینک مستقیم یافت نشدند.', 'error');
+                return;
+            }
+
+            pendingExcelMedia = [];
+            
+            for (let i = 1; i < json.length; i++) {
+                const row = json[i];
+                if (!row || row.length === 0 || !row[nameIdx]) continue;
+                
+                const asset_name = String(row[nameIdx]).trim();
+                const asset_type = String(row[typeIdx]).trim();
+                const file_url = String(row[urlIdx]).trim();
+                const org_username = orgIdx !== -1 && row[orgIdx] ? String(row[orgIdx]).trim() : '';
+
+                pendingExcelMedia.push({
+                    asset_name, asset_type, file_url, org_username
+                });
+            }
+
+            if (pendingExcelMedia.length === 0) {
+                showToast('هیچ رسانه‌ای در فایل یافت نشد', 'error');
+                return;
+            }
+
+            showExcelPreview();
+        };
+        reader.readAsArrayBuffer(file);
+        event.target.value = ''; // reset
+    }
+
+    function showExcelPreview() {
+        const container = document.getElementById('excelPreviewContainer');
+        container.innerHTML = '';
+        
+        pendingExcelMedia.forEach((media, index) => {
+            container.innerHTML += `
+                <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
+                    <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
+                        <div>نام فایل: <span style="font-weight:bold;">${media.asset_name}</span></div>
+                        <div>نوع فایل: <span style="font-weight:bold;">${media.asset_type}</span></div>
+                        <div style="grid-column: 1/-1;">لینک: <a href="${media.file_url}" target="_blank" style="color:var(--primary-color)">${media.file_url.substring(0,40)}...</a></div>
+                        <div>نام کاربری سازمان: <span style="font-weight:bold;">${media.org_username || 'بدون سازمان'}</span></div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        document.getElementById('excelPreviewModal').style.display = 'flex';
+    }
+
+    async function saveExcelMedia() {
+        if (pendingExcelMedia.length === 0) return;
+        
+        if (window.showLoading) window.showLoading('در حال ذخیره...');
+        try {
+            const payload = {
+                action: 'batch_add',
+                media: pendingExcelMedia
+            };
+            
+            const res = await fetch('/api/save_media', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            
+            if (window.hideLoading) window.hideLoading();
+            
+            if (result.status === 'success') {
+                showToast('رسانه‌های اکسل با موفقیت ذخیره شدند', 'success');
+                document.getElementById('excelPreviewModal').style.display = 'none';
+                loadMedia();
+            } else {
+                showToast(result.message || 'خطا در ذخیره رسانه‌ها', 'error');
+            }
+        } catch(e) {
+            if (window.hideLoading) window.hideLoading();
+            showToast('خطا در ارتباط با سرور', 'error');
+        }
+    }
+</script>
+</body>
+</html>

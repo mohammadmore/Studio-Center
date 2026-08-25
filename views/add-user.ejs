@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | افزودن همکار جدید</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+        <link href="assets/css/cropper.min.css" rel="stylesheet">
+    <script src="assets/js/cropper.min.js" defer></script>
+    <style>
+                .upload-trigger { border: 2px dashed #ddd; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; color: #666; margin-bottom: 10px; }
+        .upload-trigger:hover { border-color: var(--primary-color); background: rgba(128, 128, 128, 0.05); }
+        .img-container { width: 100%; max-height: 300px; display: none; margin-bottom: 15px; }
+        .img-container img { max-width: 100%; }
+        .form-section { background: var(--card-bg); border-radius: 12px; padding: 25px; margin-bottom: 25px; border: 1px solid var(--border-color); box-shadow: 0 2px 8px -1px rgba(0,0,0,0.03); }
+        .section-title { font-size: 1.1rem; font-weight: 800; color: var(--primary-color); margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .roles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .role-checkbox-card { background: rgba(128, 128, 128, 0.05); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; display: flex; align-items: center; cursor: pointer; transition: 0.2s; }
+        .role-checkbox-card:hover { border-color: var(--primary-color); }
+        .role-checkbox-card input[type="checkbox"] { margin-left: 15px; transform: scale(1.3); cursor: pointer; }
+        .role-title { font-weight: bold; color: var(--text-dark); display: block; }
+        .role-desc { font-size: 0.8rem; color: var(--text-gray); }
+    </style>
+</head>
+
+<body>
+    <%- include('sidebar') %>
+
+    
+
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-user-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+  <circle cx="9" cy="7" r="4" />
+  <line x1="19" x2="19" y1="8" y2="14" />
+  <line x1="22" x2="16" y1="11" y2="11" />
+</svg> <span>ثبت و افزودن همکار جدید</span></h1>
+                <p class="page-subtitle">اطلاعات فردی، مالی و سطح دسترسی همکاران را مشخص کنید.</p>
+            </div>
+            <button class="btn-outline" onclick="window.location.href='team'" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path></svg> <span>مشاهده لیست همکاران</span></button>
+        </div>
+
+        <div id="successAlert" class="alert-success" style="display:none; text-align:center;">
+            </div>
+
+        <form id="colleagueForm" onsubmit="submitColleague(event)">
+            
+                            <div class="form-section" style="grid-column: 1/-1;">
+                    <div class="section-title" style="display: flex; align-items: center; gap: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-camera"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg> <span>عکس پروفایل (اختیاری)</span></div>
+                    <div class="upload-trigger" onclick="document.getElementById('imageInput').click()" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image-plus"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path><line x1="16" x2="22" y1="5" y2="5"></line><line x1="19" x2="19" y1="2" y2="8"></line><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
+                        <span>انتخاب و برش عکس پروفایل</span>
+                    </div>
+                    <input type="file" id="imageInput" accept="image/png, image/jpeg, image/webp" style="display: none;" onchange="initCropper(this)">
+                    <div class="img-container" id="cropperContainer">
+                        <img alt="" id="imageToCrop" src="" loading="lazy">
+                    </div>
+                </div>
+                <div class="form-section">
+                <div class="section-title">۱. اطلاعات هویتی و تماس</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>نام و نام خانوادگی:</label>
+                        <input type="text" id="colleagueName" class="form-control" placeholder="مثلاً: سارا احمدی" required>
+                    </div>
+                    <div class="form-group">
+                        <label>شماره موبایل سازمانی:</label>
+                        <input type="text" id="phone" class="form-control" placeholder="09..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>ایمیل کاری:</label>
+                        <input type="email" id="email" class="form-control" placeholder="name@studio.com">
+                    </div>
+                    <div class="form-group">
+                        <label>لینک پورتفولیو / رزومه:</label>
+                        <input type="text" id="portfolio" class="form-control" placeholder="https://...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="section-title">۲. وضعیت همکاری و مالی</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>نوع همکاری:</label>
+                        <select id="workType" class="form-control">
+                            <option value="تماموقت (حضوری)">تماموقت (حضوری)</option>
+                            <option value="پارهوقت / ریموت">پارهوقت / ریموت</option>
+                            <option value="فریلنسر (پروژه‌ای)">فریلنسر (پروژه‌ای)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ظرفیت کاری در ماه (ساعت یا تعداد تسک): <span class="tooltip-icon" tabindex="0" data-tooltip="برای مدیریت بهتر تقسیم تسک‌ها در تیم استفاده می‌شود">?</span></label>
+                        <input type="text" inputmode="numeric" id="capacity" class="form-control" placeholder="مثلاً: 120" required>
+                    </div>
+                    <div class="form-group">
+                        <label>تاریخ شروع همکاری (شمسی):</label>
+                        <input type="text" id="startDate" class="form-control" placeholder="1403/05/01">
+                    </div>
+                    <div class="form-group">
+                        <label>شماره شبا (برای تسویه‌حساب): <span class="tooltip-icon" tabindex="0" data-tooltip="شماره شبا برای پرداخت‌های مالی ثبت می‌شود">?</span></label>
+                        <input type="text" id="shaba" class="form-control" placeholder="IR...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="section-title">۳. تعیین سطوح دسترسی و نقش‌ها (RBAC)</div>
+                <p style="margin-bottom: 15px; font-size: 0.9rem; color: var(--text-gray);">می‌توانید یک یا چند نقش را انتخاب کنید تا ترکیب دسترسی‌ها ایجاد شود.</p>
+                
+                
+                <div class="form-group" style="width: 100%; max-width: 400px; box-sizing: border-box;">
+                    <label>نقش اصلی کاربر:</label>
+                    <select id="roleId" class="form-control" required>
+                        <option value="">در حال لود نقش‌ها...</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div style="text-align: left; margin-bottom: 50px;">
+                <button type="submit" id="submitBtn" class="btn-primary" style="padding: 15px 40px; font-size: 1.1rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره اطلاعات در دیتابیس</button>
+            </div>
+        </form>
+    </main>
+
+    <script src="assets/js/app.js?v=4"></script>
+    
+    <script>
+        let cropper = null;
+        function initCropper(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const img = document.getElementById('imageToCrop');
+                    img.src = e.target.result;
+                    document.getElementById('cropperContainer').style.display = 'block';
+                    
+                    if (cropper) cropper.destroy();
+                    cropper = new Cropper(img, { aspectRatio: 1, viewMode: 1 });
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        setTimeout( async () => {
+            try {
+                const res = await fetch('/api/get_roles');
+                const data = await res.json();
+                const sel = document.getElementById('roleId');
+                sel.innerHTML = '';
+                (data.roles || []).forEach(r => {
+                    sel.innerHTML += `<option value="${r.id}">${r.role_name}</option>`;
+                });
+            } catch(e) { console.error(e); }
+        });
+        
+        async function submitColleague(event) {
+            event.preventDefault(); 
+            
+            const role_id = document.getElementById('roleId').value;
+            if(!role_id) {
+                showToast("لطفاً حداقل یک نقش برای همکار انتخاب کنید!");
+                return;
+            }
+
+            const btn = document.getElementById('submitBtn');
+            btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/></svg> در حال پردازش...`;
+            btn.disabled = true;
+
+            let finalAvatarUrl = '';
+            if (cropper) {
+                btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/></svg> در حال آپلود عکس...`;
+                const canvas = cropper.getCroppedCanvas({ width: 200, height: 200 });
+                const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+                
+                try {
+                    const uploadRes = await fetch('/api/upload_image', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ image: base64Image })
+                    });
+                    const uploadData = await uploadRes.json();
+                    if (uploadData.status === 'success') {
+                        finalAvatarUrl = uploadData.url;
+                    } else {
+                        showToast("خطا در آپلود تصویر پروفایل.", 'error');
+                        btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg> ذخیره اطلاعات در دیتابیس`; btn.disabled = false;
+                        return;
+                    }
+                } catch(err) {
+                    showToast("خطای شبکه در آپلود تصویر.", 'error');
+                    btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg> ذخیره اطلاعات در دیتابیس`; btn.disabled = false;
+                    return;
+                }
+            }
+            
+            btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/></svg> در حال ذخیره اطلاعات...`;
+            const payload = {
+                fullName: document.getElementById('colleagueName').value,
+                phone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                portfolio: document.getElementById('portfolio').value,
+                workType: document.getElementById('workType').value,
+                capacity: document.getElementById('capacity').value,
+                startDate: document.getElementById('startDate').value,
+                shaba: document.getElementById('shaba').value,
+                role_id: role_id,
+                avatar_url: finalAvatarUrl
+            };
+
+            try {
+                const response = await fetch('/api/save_user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if(result.status === 'success') {
+                    const alertBox = document.getElementById('successAlert');
+                    alertBox.style.display = 'block';
+                    document.getElementById('colleagueForm').reset();
+                    if (cropper) {
+                        cropper.destroy();
+                        cropper = null;
+                        document.getElementById('cropperContainer').style.display = 'none';
+                    }
+                    setTimeout(() => {
+                        window.location.href = 'team';
+                    }, 2000);
+                } else {
+                    showToast("خطا در ثبت اطلاعات: " + result.message);
+                }
+            } catch(e) {
+                showToast("خطا در ارتباط با سرور", 'error');
+            } finally {
+                btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg> ذخیره اطلاعات در دیتابیس`;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | آرشیو محتوا</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <style>
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+        .content-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; position: relative; transition: 0.2s; }
+        .content-card:hover { border-color: var(--primary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.05); transform: translateY(-3px); }
+        .btn-restore { background: rgba(16, 185, 129, 0.15); color: #16a34a; border: 1px solid #bbf7d0; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; margin-top: 15px; text-align: center; }
+        .collection-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; cursor: pointer; transition: 0.2s; position: relative; }
+        .collection-card:hover { border-color: var(--primary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.05); transform: translateY(-3px); }
+        .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-gray); margin-bottom: 20px; cursor: pointer; }
+        .breadcrumb-item:hover { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <%- include('sidebar') %>
+    <div class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><svg class="lucide lucide-archive" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1" /><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" /><path d="M10 12h4" /></svg> <span>آرشیو محتوا‌های آماده</span></h1>
+                <p class="page-subtitle">محتوا‌های تکمیل شده و آماده انتشار که فعلاً بایگانی شده‌اند</p>
+            </div>
+        </div>
+
+        <div class="filter-container" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+            <input type="text" id="searchInput" placeholder="جستجو در عنوان محتوا..." 
+                style="flex: 1; min-width: 280px; padding: 14px; border:1px solid var(--border-color); border-radius:8px;" 
+                onkeyup="renderArchive()">
+            <select id="orgFilter" onchange="renderArchive()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
+                <option value="">همه کارفرماها</option>
+            </select>
+            <select id="platformFilter" onchange="renderArchive()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
+                <option value="">همه پلتفرم‌ها</option>
+            </select>
+            <select id="typeFilter" onchange="renderArchive()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
+                <option value="">همه انواع محتوا</option>
+            </select>
+        </div>
+        
+        <div id="breadcrumbContainer" class="breadcrumb" style="display: none;">
+            <span class="breadcrumb-item" onclick="navigateUp(null)">آرشیو</span>
+            <span id="breadcrumbPath"></span>
+        </div>
+
+        <div class="cards-grid" id="archiveGrid">
+            <!-- Loading -->
+            <div class="skeleton" style="height: 60px; width: 100%; margin-bottom: 10px; border-radius: 8px;"></div>
+            <div class="skeleton" style="height: 60px; width: 100%; border-radius: 8px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let allContents = [];
+        let allCollections = [];
+        let allOrgs = [];
+        let allSettings = {};
+        let currentParentId = null;
+
+        async function loadData() {
+            try {
+                const [res, orgsRes, setRes, colRes] = await Promise.all([
+                    fetch('/api/get_depot_contents'),
+                    fetch('/api/get_orgs', { cache: 'no-store' }),
+                    fetch('/api/manage_settings', { cache: 'no-store' }),
+                    fetch('/api/get_collections', { cache: 'no-store' })
+                ]);
+                
+                const result = await res.json();
+                const orgsResult = await orgsRes.json();
+                const setResult = await setRes.json();
+                const colResult = await colRes.json();
+                
+                allContents = result.data || [];
+                allOrgs = orgsResult.data || [];
+                allSettings = setResult.data || {};
+                allCollections = colResult.data || [];
+                
+                populateOrgDropdown();
+                populatePlatformDropdown();
+                populateTypeDropdown();
+                
+                renderArchive();
+            } catch (err) {
+                console.error(err);
+                showToast('خطا در دریافت اطلاعات', 'error');
+            }
+        }
+        
+        function populateOrgDropdown() {
+            const select = document.getElementById('orgFilter');
+            while (select.options.length > 1) { select.remove(1); }
+            allOrgs.forEach(org => {
+                const option = document.createElement('option');
+                option.value = org.org_name;
+                option.textContent = org.org_name;
+                select.appendChild(option);
+            });
+        }
+        
+        function populatePlatformDropdown() {
+            const select = document.getElementById('platformFilter');
+            while (select.options.length > 1) { select.remove(1); }
+            (allSettings.platforms || []).filter(p => p.is_active !== 0).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.setting_key;
+                opt.textContent = p.setting_key;
+                select.appendChild(opt);
+            });
+        }
+        
+        function populateTypeDropdown() {
+            const select = document.getElementById('typeFilter');
+            while (select.options.length > 1) { select.remove(1); }
+            (allSettings.content_type || []).filter(t => t.is_active !== 0).forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.setting_key;
+                opt.textContent = t.setting_key;
+                select.appendChild(opt);
+            });
+        }
+        
+        function getCollectionIdsRecursive(colId) {
+            let ids = [colId];
+            const children = allCollections.filter(c => c.parent_id === colId);
+            for (const child of children) {
+                ids = ids.concat(getCollectionIdsRecursive(child.id));
+            }
+            return ids;
+        }
+
+        function isCollectionExplicitlyArchived(col) {
+            if (!col) return false;
+            if (col.status === 'archived') return true;
+            let current = allCollections.find(c => c.id === col.parent_id);
+            while (current) {
+                if (current.status === 'archived') return true;
+                current = allCollections.find(c => c.id === current.parent_id);
+            }
+            return false;
+        }
+
+        function isCollectionArchived(col) {
+            if (isCollectionExplicitlyArchived(col)) return true;
+            
+            const allSubColIds = getCollectionIdsRecursive(col.id);
+            const hasArchivedCollection = allCollections.some(c => allSubColIds.includes(c.id) && c.status === 'archived');
+            if (hasArchivedCollection) return true;
+            
+            const hasArchivedContent = allContents.some(c => allSubColIds.includes(c.collection_id) && c.status === 'archived');
+            if (hasArchivedContent) return true;
+            
+            return false;
+        }
+        
+        function updateBreadcrumb() {
+            const bcContainer = document.getElementById('breadcrumbContainer');
+            const bcPath = document.getElementById('breadcrumbPath');
+            if (!currentParentId) {
+                bcContainer.style.display = 'none';
+                return;
+            }
+            bcContainer.style.display = 'flex';
+            
+            let pathHtml = '';
+            let current = allCollections.find(c => c.id === currentParentId);
+            const path = [];
+            while(current) {
+                path.unshift(current);
+                current = allCollections.find(c => c.id === current.parent_id);
+            }
+            
+            path.forEach((col, idx) => {
+                pathHtml += `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 4px;"><path d="m15 18-6-6 6-6"/></svg>`;
+                pathHtml += `<span class="breadcrumb-item" onclick="navigateUp(${col.id})">${col.title}</span>`;
+            });
+            bcPath.innerHTML = pathHtml;
+        }
+        
+        window.navigateUp = function(id) {
+            currentParentId = id;
+            renderArchive();
+        }
+
+        window.renderArchive = function() {
+            updateBreadcrumb();
+            
+            const term = (document.getElementById('searchInput').value || '').toLowerCase();
+            const orgFilter = (document.getElementById('orgFilter').value || '').toLowerCase();
+            const typeFilter = (document.getElementById('typeFilter').value || '');
+            const platformFilter = (document.getElementById('platformFilter').value || '');
+            
+            const grid = document.getElementById('archiveGrid');
+            grid.innerHTML = '';
+            
+            // If searching, flatten everything
+            if (term || orgFilter || typeFilter || platformFilter) {
+                let archivedContents = allContents.filter(c => c.status === 'archived' || (c.collection_id && allCollections.find(col => col.id === c.collection_id && col.status === 'archived')));
+                
+                const filtered = archivedContents.filter(item => {
+                    const text = (item.title + ' ' + (item.org_name || '')).toLowerCase();
+                    let matchesTerm = text.includes(term);
+                    let matchesOrg = orgFilter === "" || (item.org_name && item.org_name.toLowerCase() === orgFilter);
+                    let matchesType = typeFilter === "" || (item.content_type || '') === typeFilter;
+                    let matchesPlatform = platformFilter === "" || (item.publish_platforms || []).includes(platformFilter);
+                    return matchesTerm && matchesOrg && matchesType && matchesPlatform;
+                });
+                
+                if (filtered.length === 0) {
+                    grid.innerHTML = '<p style="color: var(--text-gray); grid-column: 1/-1; text-align: center;">هیچ محتوایی یافت نشد.</p>';
+                    return;
+                }
+                
+                renderContentsList(filtered, grid);
+                return;
+            }
+            
+            // Hierarchy view
+            const colsToShow = allCollections.filter(c => c.parent_id === currentParentId && isCollectionArchived(c));
+            
+            // If the collection itself is archived, ALL its contents are effectively archived. 
+            // If it's not archived, we only show contents that are explicitly archived.
+            let contentsToShow = [];
+            const currentCol = allCollections.find(c => c.id === currentParentId);
+            if (currentCol && isCollectionExplicitlyArchived(currentCol)) {
+                contentsToShow = allContents.filter(c => c.collection_id === currentParentId);
+            } else {
+                contentsToShow = allContents.filter(c => c.collection_id === currentParentId && c.status === 'archived');
+            }
+            
+            if (colsToShow.length === 0 && contentsToShow.length === 0) {
+                grid.innerHTML = '<p style="color: var(--text-gray); grid-column: 1/-1; text-align: center;">هیچ مورد آرشیو شده‌ای در اینجا وجود ندارد.</p>';
+                return;
+            }
+            
+            // Render subcollections
+            colsToShow.forEach(col => {
+                const card = document.createElement('div');
+                card.className = 'collection-card';
+                card.style.borderRight = '4px solid var(--primary-color)';
+                card.onclick = () => navigateUp(col.id);
+                
+                let isFullArchived = col.status === 'archived';
+                
+                card.innerHTML = `
+                    <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-dark); display:flex; align-items:center; gap:8px;">
+                        <svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>
+                            <path d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/>
+                        </svg> ${col.title}
+                        ${isFullArchived ? '<span style="background: rgba(239, 68, 68, 0.1); color: var(--error-color); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">آرشیو شده</span>' : ''}
+                    </div>
+                    ${col.org_name ? `<div style="font-size:0.85rem; color:var(--text-gray); margin-top:10px;">سازمان: ${col.org_name}</div>` : ''}
+                    ${isFullArchived ? `<div style="display:flex; gap:10px; margin-top:15px;">
+                        <button class="btn-restore" style="flex:1; margin-top:0;" onclick="event.stopPropagation(); restoreCol(${col.id})">بازگردانی مجموعه</button>
+                    </div>` : ''}
+                `;
+                grid.appendChild(card);
+            });
+            
+            // Render contents
+            renderContentsList(contentsToShow, grid);
+        }
+        
+        function renderContentsList(items, grid) {
+            Array.from(items).forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'content-card';
+                
+                let isImplicitlyArchived = false;
+                if (item.status !== 'archived') {
+                     // Check if parent collection is archived
+                     const col = allCollections.find(c => c.id === item.collection_id);
+                     if (col && isCollectionExplicitlyArchived(col)) {
+                         isImplicitlyArchived = true;
+                     }
+                }
+                
+                card.innerHTML = `
+                    <h3 style="margin: 0 0 10px 0; font-size: 1.1rem; color: var(--text-gray); display:flex; justify-content:space-between;">
+                        <span>${item.title || 'بدون عنوان'}</span>
+                    </h3>
+                    <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px;">
+                        🏢 سازمان: ${item.org_name || 'نامشخص'}
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px;">
+                        📌 نوع: <span style="background: rgba(99, 102, 241, 0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px;">${item.content_type || 'نامشخص'}</span>
+                    </div>
+                    ${isImplicitlyArchived ? `<div style="font-size:0.8rem; color:var(--error-color); margin-top:5px; background:rgba(239, 68, 68, 0.1); padding: 4px 8px; border-radius: 4px;">بخشی از مجموعه آرشیو شده</div>` : ''}
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button class="btn-restore" style="flex:1; margin-top:0;" onclick="restoreContent(${item.id})">بازگردانی محتوا</button>
+                        <button onclick="deleteContent(${item.id})" style="background:rgba(239, 68, 68, 0.15); color:var(--error-color); border:1px solid rgba(239, 68, 68, 0.3); padding:5px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:bold; flex:1;">حذف کامل</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+        
+        window.restoreCol = async function(id) {
+            if(!(await window.customConfirm('آیا مایلید این مجموعه را به همراه تمام محتویاتش بازگردانی کنید؟'))) return;
+            try {
+                const res = await fetch('/api/manage_collections', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'restore', id: parseInt(id) })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    showToast('مجموعه بازگردانی شد', 'success');
+                    loadData();
+                } else {
+                    showToast(result.message);
+                }
+            } catch(e) {
+                showToast('خطا در ارتباط با سرور', 'error');
+            }
+        }
+
+        window.restoreContent = async function(id) {
+            if(!(await window.customConfirm('آیا مایلید این محتوا را به دپو (وضعیت تکمیل شده) بازگردانید؟'))) return;
+            try {
+                const res = await fetch('/api/add_content', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'update_status', id: parseInt(id), status: 'done' })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    loadData();
+                } else {
+                    showToast(result.message);
+                }
+            } catch(e) {
+                showToast('خطا در ارتباط با سرور', 'error');
+            }
+        }
+
+        window.deleteContent = async function(id) {
+            if(!(await window.customConfirm('آیا از حذف کامل این محتوا اطمینان دارید؟ این عمل غیرقابل بازگشت است.'))) return;
+            try {
+                const res = await fetch('/api/add_content', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'delete', id: parseInt(id) })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    loadData();
+                } else {
+                    showToast(result.message);
+                }
+            } catch(e) {
+                showToast('خطا در ارتباط با سرور', 'error');
+            }
+        }
+
+        loadData();
+    </script>
+<script src="assets/js/app.js?v=4"></script>
+</body>
+</html>

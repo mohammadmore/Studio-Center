@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | میز کار دپو</title>
+    
+    <!-- فونت Vazirmatn و کتابخانه‌ها -->
+    <link href="assets/css/style.css?v=6" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <script src="assets/js/jalaali.min.js?v=2"></script>
+<script>
+
+    function handleHeaderClick(event, headerElem) {
+        if (event.target.closest('button')) return; 
+        const col = headerElem.closest('.kanban-column');
+        if (col.classList.contains('column-collapsed')) return;
+        
+        // Prevent event bubbling so the column's onclick doesn't immediately reverse this!
+        event.stopPropagation();
+        
+        if (col.classList.contains('column-expanded')) {
+            const expandBtn = col.querySelector('.col-expand-btn');
+            if (expandBtn) toggleColumnExpand(expandBtn);
+        } else {
+            const toggleBtn = col.querySelector('.col-toggle-btn');
+            if (toggleBtn) toggleColumnCollapse(toggleBtn);
+        }
+    }
+
+
+    function toggleColumnCollapse(btn) {
+        const col = btn.closest('.kanban-column');
+        const board = btn.closest('.kanban-board');
+        if (col.classList.contains('column-expanded')) {
+            col.classList.remove('column-expanded');
+            board.classList.remove('board-has-expanded');
+            const expandBtn = col.querySelector('.col-expand-btn');
+            if (expandBtn) {
+                expandBtn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>`;
+                expandBtn.title = "تمام صفحه";
+            }
+        }
+        col.classList.toggle('column-collapsed');
+    }
+
+    function toggleColumnExpand(btn) {
+        const col = btn.closest('.kanban-column');
+        const board = btn.closest('.kanban-board');
+        
+        if (col.classList.contains('column-expanded')) {
+            col.classList.remove('column-expanded');
+            board.classList.remove('board-has-expanded');
+            btn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>`;
+            btn.title = "تمام صفحه";
+        } else {
+            const doExpand = () => {
+                // Collapse any other expanded column first to prevent multiple fullscreens
+                board.querySelectorAll('.column-expanded').forEach(c => {
+                    c.classList.remove('column-expanded');
+                    const expandBtn = c.querySelector('.col-expand-btn');
+                    if(expandBtn) {
+                        expandBtn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>`;
+                        expandBtn.title = "تمام صفحه";
+                    }
+                });
+                
+                col.classList.add('column-expanded');
+                board.classList.add('board-has-expanded');
+                btn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>`;
+                btn.title = "خروج از تمام صفحه";
+            };
+            
+            if (col.classList.contains('column-collapsed')) {
+                col.classList.remove('column-collapsed');
+            }
+            doExpand();
+        }
+    }
+
+function openAddContentModal() {
+    document.getElementById('addModal').style.display = 'flex';
+}
+function openFormModal() {
+    openAddContentModal();
+}
+function closeModal() {
+    document.getElementById('addModal').style.display = 'none';
+}
+
+async function saveNewContent() {
+    const title = document.getElementById('newTitle').value;
+    const org_id = document.getElementById('newOrg').value;
+    const type = document.getElementById('newType').value;
+    const project_manager = document.getElementById('newManager').value;
+    
+    const assigned_colleagues = Array.from(document.querySelectorAll('input[name="new_team_cb"]:checked')).map(cb => cb.value);
+    const stages = Array.from(document.querySelectorAll('#newStages input[type="checkbox"]:checked')).map(cb => cb.value);
+    
+    let components_count = {};
+    document.querySelectorAll('#newComponentsCount .comp-count').forEach(inp => {
+        let val = parseInt(inp.value);
+        if (val > 0) {
+            components_count[inp.dataset.name] = val;
+        }
+    });
+
+    const res = await fetch('/api/add_content', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            title,
+            org_id,
+            type,
+            project_manager,
+            assigned_colleagues,
+            stages,
+            components_count
+        })
+    });
+    const result = await res.json();
+    if (result.status === 'success') {
+        closeModal();
+        if (typeof showToast === 'function') showToast(result.message);
+        if (typeof loadDepot === 'function') loadDepot();
+    } else {
+        showToast(result.message);
+    }
+}
+let selectedBatchIds = [];
+
+let lastCheckedCheckboxValue = null;
+
+function toggleBatchSelect(event, id, isChecked) {
+    id = parseInt(id);
+    
+    // Fallback if event is not passed correctly or isn't a mouse event (e.g. called from somewhere else)
+    if (!event || !event.shiftKey) {
+        if (isChecked) {
+            if (!selectedBatchIds.includes(id)) selectedBatchIds.push(id);
+        } else {
+            selectedBatchIds = selectedBatchIds.filter(i => i !== id);
+        }
+        lastCheckedCheckboxValue = id;
+    } else {
+        // Shift key is pressed
+        const checkboxes = Array.from(document.querySelectorAll('.batch-checkbox'));
+        let start = -1;
+        let end = -1;
+        
+        for (let i = 0; i < checkboxes.length; i++) {
+            const cbId = parseInt(checkboxes[i].value);
+            if (cbId === lastCheckedCheckboxValue) start = i;
+            if (cbId === id) end = i;
+        }
+        
+        if (start !== -1 && end !== -1) {
+            const min = Math.min(start, end);
+            const max = Math.max(start, end);
+            
+            for (let i = min; i <= max; i++) {
+                const cb = checkboxes[i];
+                const cbId = parseInt(cb.value);
+                cb.checked = isChecked;
+                if (isChecked) {
+                    if (!selectedBatchIds.includes(cbId)) selectedBatchIds.push(cbId);
+                } else {
+                    selectedBatchIds = selectedBatchIds.filter(val => val !== cbId);
+                }
+            }
+        } else {
+            // Fallback if lastChecked isn't found
+            if (isChecked) {
+                if (!selectedBatchIds.includes(id)) selectedBatchIds.push(id);
+            } else {
+                selectedBatchIds = selectedBatchIds.filter(i => i !== id);
+            }
+        }
+        lastCheckedCheckboxValue = id;
+    }
+    if (event && event.shiftKey) {
+        if (window.getSelection) {
+            window.getSelection().removeAllRanges();
+        }
+    }
+    updateBatchUI();
+}
+
+function handleCardClick(event, id) {
+    if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'checkbox') {
+        return;
+    }
+    openContentDetails(id);
+}
+
+
+    // Auto-collapse columns on mobile initially
+    function applyMobileAccordion() {
+        if (window.innerWidth <= 768) {
+            document.querySelectorAll('.kanban-column').forEach((col, idx) => {
+                // Keep the first column open, collapse the rest
+                if (idx > 0) {
+                    col.classList.add('column-collapsed');
+                } else {
+                    col.classList.remove('column-collapsed');
+                }
+            });
+        }
+    }
+    
+    const origRenderKanban = renderKanban;
+    renderKanban = function(items) {
+        origRenderKanban(items);
+        
+    };
+
+function updateBatchUI() {
+    const bar = document.getElementById('batchActionsBar');
+    const count = document.getElementById('batchCount');
+    
+    // Sync checkboxes
+    document.querySelectorAll('.batch-checkbox').forEach(cb => {
+        cb.checked = selectedBatchIds.includes(parseInt(cb.value));
+    });
+
+    if (selectedBatchIds.length > 0) {
+        bar.style.display = 'flex';
+        count.innerText = selectedBatchIds.length + ' محتوا انتخاب شده';
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
+function clearBatchSelection() {
+    selectedBatchIds = [];
+    updateBatchUI();
+}
+
+// Ensure batch UI is updated after renderKanban
+const oldRenderKanban = renderKanban;
+renderKanban = function(items) {
+    oldRenderKanban(items);
+    updateBatchUI();
+};
+
+function openBatchEditModal() {
+    if (selectedBatchIds.length === 0) return;
+    document.getElementById('batchEditCountLabel').innerText = selectedBatchIds.length;
+    document.getElementById('batchAction').value = '';
+    toggleBatchFields();
+    document.getElementById('batchEditModal').style.display = 'flex';
+}
+
+function toggleBatchFields() {
+    const action = document.getElementById('batchAction').value;
+    const container = document.getElementById('batchFieldsContainer');
+    const submitBtn = document.getElementById('batchSubmitBtn');
+    
+    container.innerHTML = '';
+    submitBtn.disabled = !action;
+    
+    if (action === 'delete') {
+        container.innerHTML = `<div style="color: var(--error-color); font-weight: bold; margin-top: 10px;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/><path d='M12 9v4'/><path d='M12 17h.01'/></svg> آیا از حذف این ` + selectedBatchIds.length + ` محتوا اطمینان دارید؟ محتوا‌ها به سطل زباله منتقل خواهند شد.</div>`;
+    } else if (action === 'archive') {
+        container.innerHTML = '<div style="color: #d97706; font-weight: bold; margin-top: 10px;">📦 محتوا‌های انتخاب شده به بایگانی منتقل خواهند شد.</div>';
+    } else if (action === 'shift_dates') {
+            payload.shift_days = document.getElementById('batchShiftDaysInput').value;
+        } else if (action === 'status') {
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">وضعیت جدید</label>
+            <select id="batchStatusValue" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;">
+                <option value="raw">ورودی خام</option>
+                <option value="todo">در صف انتظار</option>
+                <option value="in_progress">در حال تولید</option>
+                <option value="review">ارزیابی استودیو</option>
+                <option value="client_review">ارزیابی کارفرما</option>
+                <option value="needs_revision">نیاز به اصلاح</option>
+                <option value="done">تکمیل شده</option>
+                <option value="approved_by_client">تایید کارفرما <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></option>
+                <option value="ready_to_publish">آماده انتشار <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg></option>
+                <option value="published">منتشر شده</option>
+            </select>
+        `;
+    } else if (action === 'org') {
+        const orgOptions = (window.allOrgs || []).map(o => `<option value="${o.id}">${o.org_name}</option>`).join('');
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">سازمان جدید</label>
+            <select id="batchOrgValue" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;">
+                ${orgOptions}
+            </select>
+        `;
+    } else if (action === 'collection') {
+        const colOptions = Array.from(new Set((window.allCollections || []).map(c => c.title)))
+            .map(t => `<option value="${t}"></option>`).join('');
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">نام مجموعه جدید یا انتخاب از لیست</label>
+            <input type="text" id="batchCollectionValue" list="batchCollectionList" placeholder="انتخاب یا تایپ نام جدید..." style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;">
+            <datalist id="batchCollectionList">
+                ${colOptions}
+            </datalist>
+        `;
+    } else if (action === 'type') {
+        const typeOptions = (window.allSettings?.content_type ? window.allSettings.content_type.map(x=>x.setting_key) : ['پست گرافیکی']).map(t => `<option value="${t}">${t}</option>`).join('');
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">نوع محتوا جدید</label>
+            <select id="batchTypeValue" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;">
+                ${typeOptions}
+            </select>
+        `;
+    } else if (action === 'manager') {
+        const mgrOptions = (window.allColleagues || []).map(c => `<option value="${c.full_name}">${c.full_name}</option>`).join('');
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">مدیر پروژه جدید</label>
+            <select id="batchManagerValue" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;">
+                <option value="">-- بدون مدیر --</option>
+                ${mgrOptions}
+            </select>
+        `;
+    } else if (action === 'team') {
+        const teamCheckboxes = (window.allColleagues || []).map(c => `
+            <label style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <input type="checkbox" class="batch-team-cb" value="${c.id}" style="accent-color:var(--primary-color);"> ${c.full_name}
+            </label>
+        `).join('');
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">همکاران تیم جدید</label>
+            <div style="max-height:150px; overflow-y:auto; background: var(--card-bg); padding:10px; border:1px solid #ddd; border-radius:6px;">
+                ${teamCheckboxes}
+            </div>
+        `;
+    } else if (action === 'platforms') {
+        const plats = window.allSettings?.platforms ? window.allSettings.platforms.map(x=>x.setting_key) : ['اینستاگرام'];
+        const platsCheckboxes = plats.map(p => `
+            <label style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <input type="checkbox" class="batch-plat-cb" value="${p}" style="accent-color:var(--primary-color);"> ${p}
+            </label>
+        `).join('');
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">پلتفرم‌های انتشار جدید</label>
+            <div style="max-height:150px; overflow-y:auto; background: var(--card-bg); padding:10px; border:1px solid #ddd; border-radius:6px;">
+                ${platsCheckboxes}
+            </div>
+        `;
+    } else if (action === 'stages') {
+        const stagesList = window.allSettings?.stages ? window.allSettings.stages.map(x=>x.setting_key) : ['طراحی گرافیکی'];
+        const stagesCheckboxes = stagesList.map(s => `
+            <label style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <input type="checkbox" class="batch-stage-cb" value="${s}" style="accent-color:var(--primary-color);"> ${s}
+            </label>
+        `).join('');
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">مراحل تولید جدید</label>
+            <div style="max-height:150px; overflow-y:auto; background: var(--card-bg); padding:10px; border:1px solid #ddd; border-radius:6px;">
+                ${stagesCheckboxes}
+            </div>
+        `;
+    } else if (action === 'components') {
+        container.innerHTML = `
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">تعداد اجزای جدید</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--card-bg); padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
+                ${(window.allSettings?.content_type ? window.allSettings.content_type.map(x=>x.setting_key) : ['ویدئو', 'پوستر گرافیکی']).map(ct => 
+                    `<div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="batch-comp-count" data-name="${ct}" style="width:50px; padding:6px; border:1px solid #ccc; border-radius:4px; text-align:center;"> ${ct}</div>`
+                ).join('')}
+            </div>
+        `;
+    }
+}
+
+async function submitBatchEdit() {
+    const action = document.getElementById('batchAction').value;
+    if (!action || selectedBatchIds.length === 0) return;
+    
+    if (action === 'delete') {
+        if (!(await window.customConfirm('آیا از حذف گروهی این محتوا‌ها اطمینان دارید؟'))) return;
+    }
+    
+    let payload = {
+        ids: selectedBatchIds,
+        action: action
+    };
+    
+    if (action === 'status') {
+        payload.status = document.getElementById('batchStatusValue').value;
+    } else if (action === 'org') {
+        payload.org_id = document.getElementById('batchOrgValue').value;
+    } else if (action === 'collection') {
+        payload.collection_title = document.getElementById('batchCollectionValue').value;
+    } else if (action === 'type') {
+        payload.content_type = document.getElementById('batchTypeValue').value;
+    } else if (action === 'manager') {
+        payload.project_manager = document.getElementById('batchManagerValue').value;
+    } else if (action === 'team') {
+        payload.team = Array.from(document.querySelectorAll('.batch-team-cb:checked')).map(cb => cb.value);
+    } else if (action === 'platforms') {
+        payload.platforms = Array.from(document.querySelectorAll('.batch-plat-cb:checked')).map(cb => cb.value);
+    } else if (action === 'stages') {
+        payload.stages = Array.from(document.querySelectorAll('.batch-stage-cb:checked')).map(cb => cb.value);
+    } else if (action === 'components') {
+        
+        const counts = {};
+        document.querySelectorAll('.batch-comp-count').forEach(el => {
+
+            const val = parseInt(el.value);
+            if (val > 0) counts[el.dataset.name] = val;
+        });
+        payload.components = counts;
+    }
+    
+    const btn = document.getElementById('batchSubmitBtn');
+    const oldText = btn.innerText;
+    btn.innerText = 'در حال انجام...';
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch('/api/batch_edit_contents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            document.getElementById('batchEditModal').style.display = 'none';
+            if(window.showToast) {
+                if (action === 'delete' && data.bin_ids && data.bin_ids.length > 0) {
+                    window.showToast(data.message, 'success', {
+                        text: 'بازگردانی',
+                        callback: async () => {
+                            for (let bin_id of data.bin_ids) {
+                                await fetch('/api/recycle_bin', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({ action: 'restore', bin_id: bin_id })
+                                });
+                            }
+                            window.showToast('محتوا‌های حذف شده بازگردانی شدند', 'success');
+                            loadDepot();
+                        }
+                    });
+                } else {
+                    window.showToast('عملیات با موفقیت انجام شد', 'success');
+                }
+            }
+            clearBatchSelection();
+            loadDepot();
+        } else {
+            if(window.showToast) window.showToast(data.message || 'خطا در انجام عملیات', 'error');
+        }
+    } catch(err) {
+        if(window.showToast) window.showToast('خطا در ارتباط با سرور', 'error');
+    }
+    btn.innerText = oldText;
+    btn.disabled = false;
+}
+
+</script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <link rel="stylesheet" href="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
+    <script src="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js" defer></script>
+    
+    <style>
+        .kanban-board { display: flex; gap: 24px; padding: 24px 0; overflow-x: auto; height: calc(100vh - 180px); }
+        
+        /* حالت گسترده ستون‌ها (تمام صفحه) */
+        .kanban-board {
+            transition: gap 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .kanban-column {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        .board-has-expanded {
+            gap: 0 !important;
+        }
+        .board-has-expanded .kanban-column:not(.column-expanded) {
+            opacity: 0 !important;
+            min-width: 0 !important;
+            width: 0 !important;
+            flex: 0 0 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            overflow: hidden !important;
+            transform: scale(0.9);
+            pointer-events: none;
+        }
+        .column-expanded {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            background: var(--bg-color) !important;
+            z-index: 10;
+        }
+        .column-expanded .column-body {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            align-items: start;
+            align-content: start;
+        }
+        .column-expanded .task-card {
+            margin-bottom: 0 !important;
+            height: 100%;
+        }
+
+        .kanban-column { background: rgba(128, 128, 128, 0.05); border-radius: 16px; min-width: 340px; width: 340px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid var(--border-color); }
+        .column-header { padding: 20px; font-weight: 700; font-size: 1.15rem; border-bottom: 2px solid var(--border-color); }
+        .task-card { 
+            margin: 12px; padding: 18px; border-radius: 12px; background: var(--card-bg); 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s; cursor: grab; 
+        }
+        .task-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        
+        /* پاپ‌آپ */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2147483647 !important; justify-content: center; align-items: center; }
+        .modal-content { background: var(--card-bg); padding: 32px; border-radius: 16px; width: 90%; width: 100%; max-width: 480px; box-sizing: border-box; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        jdp-container, .jdp-container, .jdp-overlay { z-index: 2147483647 !important; }
+    
+        .kanban-column { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
+        .column-collapsed { min-width: 60px !important; width: 60px !important; overflow: hidden; background: rgba(128, 128, 128, 0.02) !important; }
+        .column-collapsed .column-body { display: none !important; }
+        .col-toggle-btn svg { transition: transform 0.3s; transform: rotate(180deg); }
+        .column-collapsed:not(.column-expanded) .col-toggle-btn svg { transform: rotate(0deg); }
+        .column-collapsed .column-header .col-title-text { display: none !important; }
+        .column-collapsed .column-header > div { 
+            display: flex !important; 
+            flex-direction: column !important; 
+            align-items: center !important; 
+            gap: 16px !important; 
+            justify-content: center !important;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .column-collapsed .column-header { padding: 20px 0 !important; justify-content: center !important; border-bottom: none !important; }
+        .column-collapsed .col-collapsed-icon { display: flex !important; margin-bottom: 12px; margin-top: 0; justify-content: center; align-items: center; }
+        .column-collapsed .col-actions {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 4px !important;
+        }
+        .column-collapsed .col-expand-btn, .column-collapsed .col-toggle-btn {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 44px !important;
+            height: 44px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        .column-collapsed::after {
+            content: attr(data-title);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-90deg);
+            white-space: nowrap;
+            font-weight: bold;
+            color: var(--text-gray);
+            font-size: 1.1rem;
+        }
+
+    
+        /* Mobile Kanban (Accordion) */
+        @media (max-width: 768px) {
+            .kanban-board, .swimlane-content { 
+                display: flex !important;
+                flex-direction: column !important; 
+                height: auto !important; 
+                overflow-x: hidden !important; 
+                overflow-y: visible !important;
+                padding: 10px 0 !important;
+                gap: 12px !important;
+                width: 100% !important;
+                align-items: stretch !important;
+            }
+            .kanban-column { 
+                min-width: 100% !important; 
+                max-width: 100% !important;
+                width: 100% !important; 
+                height: auto !important; 
+                display: flex !important;
+                flex-direction: column !important;
+                margin: 0 !important;
+                box-sizing: border-box !important;
+                flex: none !important;
+            }
+            .column-collapsed::after { content: none !important; display: none !important; }
+            .column-collapsed .col-collapsed-icon { display: none !important; }
+            
+            .column-collapsed { 
+                min-width: 100% !important; 
+                max-width: 100% !important;
+                width: 100% !important; 
+                height: auto !important; 
+                min-height: 70px !important; 
+                overflow: hidden !important; 
+                margin: 0 !important;
+                box-sizing: border-box !important;
+                flex: none !important;
+            }
+            .column-collapsed .column-body { display: none !important; }
+            
+            /* Keep header items visible on mobile, unlike desktop */
+            .column-collapsed .column-header .col-title-text { 
+                display: inline-flex !important; 
+                align-items: center; 
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                flex-shrink: 1;
+            }
+            
+            .column-collapsed .column-header { 
+                padding: 12px 16px !important; 
+                justify-content: space-between !important; 
+                align-items: center !important;
+                border-bottom: none !important; 
+                display: flex !important;
+                flex-direction: row !important;
+            }
+            .column-collapsed .column-header > div {
+                display: flex !important;
+                flex-direction: row !important;
+                width: auto !important;
+                margin: 0 !important;
+                align-items: center !important;
+                gap: 8px !important;
+                justify-content: flex-end !important;
+                flex-shrink: 0;
+            }
+            
+            /* Make the purple badge smaller on mobile if it's too big */
+            span[id^="col-count"] {
+                width: 32px !important;
+                height: 32px !important;
+                min-width: 32px !important;
+                font-size: 0.95rem !important;
+            }
+            
+            /* Toggle icon directions: open = up, closed = down */
+            .col-toggle-btn svg { transition: transform 0.3s; transform: rotate(90deg) !important; }
+            .column-collapsed .col-toggle-btn svg { transform: rotate(-90deg) !important; }
+       
+            
+            
+            
+            
+
+        }
+    </style>
+</head>
+<body>
+    <%- include('sidebar') %>
+
+
+<main class="main-content">
+    <div class="page-header-container flex-responsive">
+        <div>
+            <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-inbox"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+  <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+</svg> <span>دپوی محتوا (میز کار استودیو)</span></h1>
+            <p class="page-subtitle">مدیریت، ایده‌پردازی و بررسی وضعیت تمامی کارت‌های محتوایی</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn-primary" style=" display: inline-flex; align-items: center; gap: 6px;" onclick="openExcelModal()"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> ورود با اکسل</button>
+            <button class="btn-primary" onclick="openAddContentModal()">+ افزودن محتوای جدید</button>
+        </div>
+    </div>
+
+    <!-- جستجوی پیشرفته -->
+    <div class="filter-container">
+        <input type="text" id="searchInput" placeholder="جستجو در عنوان محتوا..." 
+               style="flex: 1; min-width: 280px; padding: 14px; border:1px solid var(--border-color); border-radius:8px;" 
+               onkeyup="filterCards()">
+        
+        <select id="orgFilter" onchange="filterCards()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
+            <option value="">همه کارفرماها</option>
+        </select>
+        <select id="statusFilter" onchange="filterCards()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
+            <option value="">همه وضعیت‌ها</option>
+            <option value="raw">ورودی خام</option>
+            <option value="todo">در صف انتظار</option>
+            <option value="in_progress">در حال تولید</option>
+            <option value="review">ارزیابی استودیو</option>
+            <option value="client_review">ارزیابی کارفرما</option>
+            <option value="needs_revision">نیاز به اصلاح</option>
+            <option value="done">تکمیل شده</option>
+            <option value="approved_by_client">تایید کارفرما <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></option>
+            <option value="ready_to_publish">آماده انتشار <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg></option>
+            <option value="published">منتشر شده</option>
+        </select>
+        <select id="platformFilter" onchange="filterCards()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
+            <option value="">همه پلتفرم‌ها</option>
+            <!-- Options populated by JS later, or we can just leave it empty and let JS do it, or hardcode it since it might not be strictly static -->
+        </select>
+        <select id="typeFilter" onchange="filterCards()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
+            <option value="">همه انواع محتوا</option>
+        </select>
+
+        <button id="myTasksBtn" onclick="toggleMyTasks()" style="background: var(--card-bg); color: var(--primary-color); border: 1px solid var(--primary-color); padding: 14px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            کار‌های من
+        </button>
+        
+            </div>
+
+    <!-- Batch Actions UI -->
+    <div id="batchActionsBar" style="display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 2147483647;  color: white; padding: 14px 28px; border-radius: 100px; align-items: center; justify-content: space-between; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.4); min-width: 100%; max-width: 450px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.2);">
+        <div>
+            <span id="batchCount" style="font-weight: bold; font-size: 1.1rem; margin-left: 12px;">0 محتوا انتخاب شده</span>
+            <button onclick="clearBatchSelection()" style="background: transparent; border: 1px solid white; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">لغو انتخاب</button>
+        </div>
+        <div>
+            <button onclick="openBatchEditModal()" style="background: var(--card-bg); color: var(--primary-color); border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><path d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'/><path d='m15 5 4 4'/></svg> ویرایش گروهی</button>
+        </div>
+    </div>
+
+    <div class="kanban-board" id="kanbanBoard"></div>
+</main>
+
+
+<!-- Batch Edit Modal -->
+<div class="modal" id="batchEditModal">
+    <div class="modal-content" style="max-height: 85vh; overflow-y: auto; width: 100%; max-width: 800px; box-sizing: border-box; width: 95%;">
+        <h3 style="margin-bottom: 20px; color: var(--text-gray); border-bottom: 2px solid var(--border-color); padding-bottom: 10px;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><path d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'/><path d='m15 5 4 4'/></svg> ویرایش گروهی محتوا‌ها</h3>
+        
+        <div style="background: rgba(128,128,128,0.05); color: #1e40af; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: bold;">
+            تعداد محتوا‌های انتخاب شده: <span id="batchEditCountLabel">0</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <label style="font-weight: bold; display: block; margin-bottom: 8px;">عملکرد (Action)</label>
+                <select id="batchAction" onchange="toggleBatchFields()" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; background: var(--card-bg);">
+                    <option value="">-- انتخاب کنید --</option>
+                    <option value="delete"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 6h18'/><path d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/><path d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/><line x1='10' x2='10' y1='11' y2='17'/><line x1='14' x2='14' y1='11' y2='17'/></svg> حذف گروهی</option>
+                    <option value="archive">📦 آرشیو گروهی (بایگانی)</option>
+                    <option value="status"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg> تغییر وضعیت</option>
+                    <option value="components">🧩 ویرایش تعداد اجزا</option>
+                    <option value="org">🏢 تغییر سازمان/کارفرما</option>
+                    <option value="collection">📁 تغییر مجموعه</option>
+                    <option value="type">🏷️ تغییر نوع محتوا</option>
+                    <option value="manager"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> تغییر مدیر پروژه</option>
+                    <option value="team">👥 تغییر همکاران تیم</option>
+                    <option value="platforms">📱 تغییر پلتفرم‌های انتشار</option>
+                    <option value="stages">⚙️ تغییر مراحل تولید</option>
+                </select>
+            </div>
+
+            <!-- Dynamic Fields -->
+            <div id="batchFieldsContainer" style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px dashed var(--border-color);">
+                <div style="color: var(--text-gray); text-align: center; margin-top: 10px;">ابتدا یک عملکرد انتخاب کنید</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: flex-end; border-top: 2px solid var(--border-color); padding-top: 20px;">
+            <button type="button" class="btn-outline"  onclick="document.getElementById('batchEditModal').style.display='none'" >انصراف</button>
+            <button class="btn-primary" onclick="submitBatchEdit()" id="batchSubmitBtn" disabled>اعمال تغییرات</button>
+        </div>
+    </div>
+</div>
+
+<!-- پاپ‌آپ -->
+<div class="modal" id="addModal">
+    <div class="modal-content" style="max-height: 85vh; overflow-y: auto;">
+        <h3 style="margin-bottom: 20px;">افزودن محتوای جدید</h3>
+            
+        <label style="font-weight: bold; margin-top: 10px; display: block;">عنوان محتوا</label>
+        <input type="text" id="newTitle" placeholder="مثال: ویدیوی معرفی محصول" style="width:100%; padding:14px; margin:8px 0 16px; border:1px solid #ddd; border-radius:8px;">
+            
+        <label style="font-weight: bold; margin-top: 10px; display: block;">نام سازمان (کارفرما)</label>
+        <select id="newOrg" style="width:100%; padding:14px; margin:8px 0 16px; border:1px solid #ddd; border-radius:8px;">
+            <option value="">-- انتخاب سازمان --</option>
+        </select>
+            
+        <label style="font-weight: bold; margin-top: 10px; display: block;">نوع محتوا</label>
+        <select id="newType" style="width:100%; padding:14px; margin:8px 0 16px; border:1px solid #ddd; border-radius:8px;"></select>
+
+        <label style="font-weight: bold; margin-top: 10px; display: block;">تعداد اجزای محتوا (اختیاری)</label>
+        <div id="newComponentsCount" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="ویدئو" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> ویدئو</div>
+            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="پوستر گرافیکی" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> پوستر گرافیکی</div>
+            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="فایل صوتی" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> فایل صوتی</div>
+            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="متن/کپشن" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> متن/کپشن</div>
+            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="استوری" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> استوری</div>
+        </div>
+            
+        <label style="font-weight: bold; margin-top: 10px; display: block;">مدیر پروژه</label>
+        <select id="newManager" onchange="updateTeamCheckboxes()" style="width:100%; padding:14px; margin:8px 0 16px; border:1px solid #ddd; border-radius:8px;">
+            <option value="">-- انتخاب مدیر پروژه --</option>
+        </select>
+
+        <label style="font-weight: bold; margin-top: 10px; display: block;">همکاران تیم (چند انتخاب)</label>
+        <div id="newTeamCheckboxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);"></div>
+
+        <label style="font-weight: bold; margin-top: 10px; display: block;">مراحل لازم تولید</label>
+        <div id="newStages" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <label><input type="checkbox" value="پژوهش و سناریو"> پژوهش و سناریو</label>
+            <label><input type="checkbox" value="فیلمبرداری"> فیلمبرداری</label>
+            <label><input type="checkbox" value="عکاسی"> عکاسی</label>
+            <label><input type="checkbox" value="طراحی گرافیک"> طراحی گرافیک</label>
+            <label><input type="checkbox" value="تدوین"> تدوین</label>
+            <label><input type="checkbox" value="گویندگی"> گویندگی</label>
+        </div>
+
+        <div style="margin-top:24px; display:flex; gap:12px;">
+            <button onclick="saveNewContent()" class="btn-primary" style="flex:1;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره و ارسال به میز کار</button>
+            <button type="button" class="btn-outline"  onclick="closeModal()" style="flex: 1;">انصراف</button>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- پاپ‌آپ ورود گروهی با اکسل -->
+<div class="modal" id="excelModal">
+    <div class="modal-content" style="max-height: 90vh; overflow-y: auto; width: 100%; max-width: 780px; box-sizing: border-box; max-width: 95%;">
+        <div class="flex-responsive" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: var(--text-gray); display: flex; align-items: center; gap: 8px;">
+                <span><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg></span> تزریق و ورود گروهی محتوا از اکسل
+            </h3>
+            <button onclick="closeExcelModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-gray);">&times;</button>
+        </div>
+
+        <!-- باکس راهنمای استاندارد -->
+        <div style="background: rgba(128, 128, 128, 0.05); border: 1px solid var(--border-color); border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+                <h4 style="margin: 0; color: var(--text-gray); font-size: 1rem;">📌 راهنمای فرمت استاندارد فایل اکسل:</h4>
+                <button type="button" onclick="downloadExcelTemplate()" class="btn-outline" style="display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; color: #166534; border: 1px solid #86efac; cursor: pointer; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.88rem; transition: all 0.2s;">
+                    <span>📄</span> دریافت نمونه فایل اکسل استاندارد (.xlsx)
+                </button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0 0 10px; line-height: 1.6;">
+                شما می‌توانید لیست محتوا‌های استودیو را به صورت یکجا با اکسل وارد سیستم نمایید. لطفاً توجه داشته باشید:
+            </p>
+            <ul style="font-size: 0.82rem; color: var(--text-gray); margin: 0; padding-right: 18px; line-height: 1.7;">
+                <li><b>عنوان محتوا:</b> اجباری می‌باشد. ردیف‌های بدون عنوان نادیده گرفته می‌شوند.</li>
+                <li><b>سازمان / برند:</b> نام سازمان‌های فعال در سیستم (مانند کیان تیم). در صورت عدم تطابق، به سازمان پیشفرض تخصیص داده می‌شود.</li>
+                <li><b>نوع محتوا:</b> مانند <code>پوستر گرافیکی</code>، <code>پست ویدیویی</code>، <code>مقاله سئو</code> و ...</li>
+                <li><b>مراحل تولید:</b> با کاما جدا شوند (مثلاً: <code>پژوهش و سناریو, فیلمبرداری, تدوین</code>).</li>
+                <li><b>وضعیت:</b> شامل <code>ورودی خام</code>، <code>در صف</code>، <code>در حال انجام</code>، <code>تکمیل شده</code>.</li>
+                <li><b>تاریخ انتشار:</b> به فرمت تاریخ شمسی (مثلاً: <code>1405/02/15</code>).</li>
+            </ul>
+        </div>
+
+        <!-- منطقه آپلود فایل -->
+        <div id="excelDropZone" style="border: 2px dashed var(--border-color); background: rgba(128,128,128,0.05); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 20px;" onclick="document.getElementById('excelFileInput').click()">
+            <div style="font-size: 2.5rem; margin-bottom: 8px;">📊</div>
+            <div style="font-weight: 700; color: var(--primary-color); font-size: 1rem; margin-bottom: 4px;">انتخاب یا رها کردن فایل اکسل (Excel)</div>
+            <div style="font-size: 0.82rem; color: var(--text-gray);">فرمت‌های پشتیبانی شده: .xlsx, .xls, .csv</div>
+            <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelSelect(event)">
+        </div>
+
+        <!-- پیش‌نمایش داده‌های خوانده شده -->
+        <div id="excelPreviewArea" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; color: var(--text-gray); font-size: 0.95rem;">👁️ پیش‌نمایش محتوا‌های شناساییشده (<span id="parsedCount">0</span> مورد)</h4>
+                <button onclick="resetExcelImport()" style="background: none; border: none; color: var(--error-color); cursor: pointer; font-size: 0.82rem;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> تغییر فایل</button>
+            </div>
+            
+            <div style="max-height: 240px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: right;">
+                    <thead style="background: rgba(128, 128, 128, 0.1); position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 8px 12px; border-bottom: 1px solid var(--border-color);">#</th>
+                            <th style="padding: 8px 12px; border-bottom: 1px solid var(--border-color);">عنوان محتوا</th>
+                            <th style="padding: 8px 12px; border-bottom: 1px solid var(--border-color);">سازمان</th>
+                            <th style="padding: 8px 12px; border-bottom: 1px solid var(--border-color);">نوع</th>
+                            <th style="padding: 8px 12px; border-bottom: 1px solid var(--border-color);">مدیر پروژه</th>
+                            <th style="padding: 8px 12px; border-bottom: 1px solid var(--border-color);">وضعیت</th>
+                            <th style="padding: 8px 12px; border-bottom: 1px solid var(--border-color);">تاریخ انتشار</th>
+                        </tr>
+                    </thead>
+                    <tbody id="excelPreviewTbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+            <button id="btnSubmitExcel" class="btn-primary" style="flex: 2; padding: 12px;" onclick="submitExcelImport()" disabled><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg> تزریق و افزودن به دپوی محتوا</button>
+            <button type="button" class="btn-outline"  onclick="closeExcelModal()" style="flex: 1;">انصراف</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let checkJdpInterval = setInterval(function() {
+        if (typeof jalaliDatepicker !== 'undefined') {
+            clearInterval(checkJdpInterval);
+            jalaliDatepicker.startWatch({ persianDigits: true, minDate: "attr", maxDate: "attr", time: false, hideAfterChange: true, autoHide: true, showTodayBtn: true, showEmptyBtn: true });
+            loadDepot().then(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const openId = urlParams.get('open');
+                const filterStatus = urlParams.get('status');
+                const filterOrg = urlParams.get('org');
+                const filterPlatform = urlParams.get('platform');
+                const filterType = urlParams.get('type');
+                
+                if (filterStatus) {
+                    const statusSelect = document.getElementById('statusFilter');
+                    if (statusSelect) {
+                        statusSelect.value = filterStatus;
+                    }
+                }
+                if (filterOrg) {
+                    const orgSelect = document.getElementById('orgFilter');
+                    if (orgSelect) {
+                        // find matching org by name or id?
+                        // Usually options are org_name or similar, assuming orgName
+                        Array.from(orgSelect.options).forEach(opt => {
+                            if (opt.value === filterOrg || opt.text === filterOrg) {
+                                orgSelect.value = opt.value;
+                            }
+                if (filterPlatform) {
+                    const platSelect = document.getElementById('platformFilter');
+                    if (platSelect) {
+                        Array.from(platSelect.options).forEach(opt => {
+                            if (opt.value === filterPlatform || opt.text === filterPlatform) {
+                                platSelect.value = opt.value;
+                            }
+                if (filterType) {
+                    const tSelect = document.getElementById('typeFilter');
+                    if (tSelect) {
+                        Array.from(tSelect.options).forEach(opt => {
+                            if (opt.value === filterType || opt.text === filterType) {
+                                tSelect.value = opt.value;
+                            }
+                        });
+                    }
+                }
+                        });
+                    }
+                }
+                        });
+                    }
+                }
+                
+                if (filterStatus || filterOrg || filterPlatform || filterType) {
+                    if (typeof filterCards === 'function') filterCards();
+                }
+
+                if (openId) {
+                    setTimeout(() => openContentDetails(openId), 500);
+                }
+            });
+        }
+    }, 50);
+
+async function loadDepot(silent = false) {
+    const board = document.getElementById('kanbanBoard');
+    if(!silent) board.innerHTML = '<div style="padding:120px; text-align:center; color: var(--text-gray);">در حال لود...</div>';
+    
+    try {
+        if (!window.allOrgs) {
+            const [orgRes, colRes, setRes, collectionsRes] = await Promise.all([
+                fetch('/api/get_orgs', { cache: 'no-store' }),
+                fetch('/api/get_colleagues'),
+                fetch('/api/manage_settings', { cache: 'no-store' }),
+                fetch('/api/get_collections', { cache: 'no-store' })
+            ]);
+            window.allOrgs = (await orgRes.json()).data || [];
+            window.allColleagues = (await colRes.json()).users || [];
+            window.allSettings = (await setRes.json()).data || {};
+            window.allCollections = (await collectionsRes.json()).data || [];
+        } else {
+            const collectionsRes = await fetch('/api/get_collections', { cache: 'no-store' });
+            window.allCollections = (await collectionsRes.json()).data || [];
+        }
+        const res = await fetch('/api/get_depot_contents', { cache: 'no-store' });
+        const result = await res.json();
+        const items = result.data || [];
+        window.allDepotItems = items;
+        
+        // Populate type filter
+        const typeSelect = document.getElementById('typeFilter');
+        if (typeSelect && typeSelect.options.length <= 1) {
+            (window.allSettings?.content_type || []).filter(t => t.is_active !== 0).forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.setting_key;
+                opt.text = t.setting_key;
+                typeSelect.appendChild(opt);
+            });
+        }
+        // Populate platform filter
+        const platformSelect = document.getElementById('platformFilter');
+        if (platformSelect && platformSelect.options.length <= 1) {
+            (window.allSettings?.platform || []).filter(p => p.is_active !== 0).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.setting_key;
+                opt.text = p.setting_key;
+                platformSelect.appendChild(opt);
+            });
+        }
+        // Populate org filter
+        const orgSelect = document.getElementById('orgFilter');
+        const orgs = new Set();
+        Array.from(items).forEach(i => { if(i.org_name) orgs.add(i.org_name); });
+        
+        let orgHtml = '<option value="">همه کارفرماها</option>';
+        Array.from(orgs).sort().forEach(o => {
+            orgHtml += `<option value="${o}">${o}</option>`;
+        });
+        orgSelect.innerHTML = orgHtml;
+
+        renderKanban(items);
+    } catch(e) {
+        board.innerHTML = '<div style="color:red; text-align:center;">خطا در لود</div>';
+    }
+}
+
+
+function allowDrop(ev) {
+    ev.preventDefault();
+}
+
+function drag(ev) {
+    ev.dataTransfer.setData("text", ev.currentTarget.dataset.id);
+}
+
+const statusNames = {
+    'raw': 'ورودی خام',
+    'todo': 'در صف انتظار',
+    'in_progress': 'در حال تولید',
+    'review': 'ارزیابی استودیو',
+    'client_review': 'ارزیابی کارفرما',
+    'needs_revision': 'نیاز به اصلاح',
+    'done': 'آماده انتشار'
+};
+
+async function drop(ev, newStatus) {
+    ev.preventDefault();
+    const id = ev.dataTransfer.getData("text");
+    if (!id) return;
+    
+    const item = (window.allDepotItems || []).find(i => i.id == id);
+    if (!item) return;
+    if (item.status === newStatus) return; // Dropped in the same column
+
+    const typeStr = item.content_type || 'محتوا';
+    const titleStr = item.title || 'بدون عنوان';
+    const stageStr = statusNames[newStatus] || newStatus;
+    
+    if (!(await window.customConfirm(`${typeStr} «${titleStr}» به مرحله «${stageStr}» منتقل شود!؟`))) {
+        return;
+    }
+    
+    // update local state optimistically
+    let oldStatus = item.status || 'raw';
+    item.status = newStatus;
+    
+    const cardEl = document.querySelector(`[data-id="${id}"]`);
+    // Find the correct new column body
+    let newColBody = null;
+    let oldColBody = null;
+    if (window.isGroupedByOrg) {
+        const groupEl = cardEl ? cardEl.closest('.kanban-group') : null;
+        if (groupEl) {
+            newColBody = Array.from(groupEl.querySelectorAll('.column-body')).find(el => el.id.startsWith('col-body-' + newStatus + '-'));
+            oldColBody = Array.from(groupEl.querySelectorAll('.column-body')).find(el => el.id.startsWith('col-body-' + oldStatus + '-'));
+        }
+    } else {
+        newColBody = document.getElementById(`col-body-${newStatus}`);
+        oldColBody = document.getElementById(`col-body-${oldStatus}`);
+    }
+
+    if (cardEl && newColBody) {
+        const emptyMsg = newColBody.querySelector('.empty-state');
+        if (emptyMsg) emptyMsg.remove();
+        
+        newColBody.appendChild(cardEl);
+        
+        // Find counts
+        let container = window.isGroupedByOrg ? cardEl.closest('.kanban-group') : document;
+        if (container) {
+            const oldBadge = Array.from(container.querySelectorAll('span[id^="col-count-"]')).find(el => el.id.startsWith('col-count-' + oldStatus));
+            if (oldBadge) {
+                let currentVal = parseInt(window.toEnglishDigits ? window.toEnglishDigits(oldBadge.innerText) : oldBadge.innerText);
+                if (isNaN(currentVal)) currentVal = 1;
+                oldBadge.innerText = (window.toPersianDigits ? window.toPersianDigits(Math.max(0, currentVal - 1)) : Math.max(0, currentVal - 1));
+            }
+            const newBadge = Array.from(container.querySelectorAll('span[id^="col-count-"]')).find(el => el.id.startsWith('col-count-' + newStatus));
+            if (newBadge) {
+                let currentVal = parseInt(window.toEnglishDigits ? window.toEnglishDigits(newBadge.innerText) : newBadge.innerText);
+                if (isNaN(currentVal)) currentVal = 0;
+                newBadge.innerText = (window.toPersianDigits ? window.toPersianDigits(currentVal + 1) : currentVal + 1);
+            }
+        }
+    } else {
+        if (typeof renderKanban === 'function') renderKanban(window.allDepotItems);
+    }
+    
+    try {
+        const res = await fetch('/api/update_content_details', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                id: id,
+                status: newStatus
+            })
+        });
+        const data = await res.json();
+        if(data.status !== 'success') {
+            if(window.showToast) window.showToast(data.message || 'خطا در ذخیرهسازی', 'error');
+        } else {
+            if(window.showToast) {
+                window.showToast('وضعیت محتوا تغییر یافت', 'success', {
+                    text: 'بازگردانی',
+                    callback: async () => {
+                        if (item) {
+                            item.status = oldStatus;
+                            if (typeof renderKanban === 'function') renderKanban(window.allDepotItems);
+                        }
+                        await fetch('/api/update_content_details', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ id: id, status: oldStatus })
+                        });
+                        window.showToast('تغییر وضعیت لغو شد', 'info');
+                    }
+                });
+            }
+        }
+    } catch(e) {
+        console.error(e);
+        if(window.showToast) window.showToast('خطا در ارتباط با سرور', 'error');
+    }
+}
+
+function renderKanban(allItems) {
+    const term = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const orgFilter = (document.getElementById('orgFilter')?.value || '').toLowerCase();
+    const statusFilter = (document.getElementById('statusFilter')?.value || '');
+    const platformFilter = (document.getElementById('platformFilter')?.value || '');
+    const typeFilter = (document.getElementById('typeFilter')?.value || '');
+    
+    let items = (allItems || []).filter(item => {
+        const text = (item.title + ' ' + (item.org_name || '') + ' ' + (item.project_manager || '') + ' ' + (item.assigned_colleagues ? (Array.isArray(item.assigned_colleagues) ? item.assigned_colleagues.join(' ') : item.assigned_colleagues) : '')).toLowerCase();
+        
+        let matchesTerm = text.includes(term);
+        let matchesOrg = orgFilter === "" || (item.org_name || "").toLowerCase() === orgFilter;
+        let matchesStatus = statusFilter === "" || (item.status || 'raw') === statusFilter;
+        let matchesPlatform = platformFilter === "" || (item.publish_platforms || []).includes(platformFilter);
+        let matchesType = typeFilter === "" || (item.content_type || '') === typeFilter;
+        
+        let matchesMyTasks = true;
+        if (window.showMyTasks && window.currentUserFullName) {
+            const isPM = item.project_manager === window.currentUserFullName;
+            const isAssigned = item.assigned_colleagues && item.assigned_colleagues.includes(window.currentUserFullName);
+            matchesMyTasks = isPM || isAssigned;
+        }
+        
+        return matchesTerm && matchesOrg && matchesStatus && matchesPlatform && matchesType && matchesMyTasks;
+    });
+
+    const board = document.getElementById('kanbanBoard');
+    board.innerHTML = '';
+
+    const statusesConfig = [
+        { id: 'raw', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg> <span>ورودی خام</span></div>` },
+        { id: 'todo', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> <span>در صف انتظار</span></div>` },
+        { id: 'in_progress', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> <span>در حال تولید</span></div>` },
+        { id: 'review', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h6"></path><path d="M22 12h-6"></path><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m19.07 4.93-1.41 1.41"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path></svg> <span>ارزیابی استودیو</span></div>` },
+        { id: 'client_review', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><circle cx="12" cy="10" r="2"></circle></svg> <span>ارزیابی کارفرما</span></div>` },
+        { id: 'needs_revision', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> <span>نیاز به اصلاح</span></div>` },
+        { id: 'done', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></svg> <span>تکمیل شده</span></div>` },
+        { id: 'approved_by_client', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg> <span>تایید کارفرما</span></div>` },
+        { id: 'ready_to_publish', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> <span>آماده انتشار</span></div>` },
+        { id: 'published', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> <span>منتشر شده</span></div>` }
+    ];
+
+    function renderCards(colItems, statusKey) {
+        let cardsHtml = '';
+        if (colItems.length === 0 && statusKey === 'raw' && !window.isGroupedByOrg) {
+            cardsHtml = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 10px; text-align: center; margin-top: 10px;">
+                <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5; margin-bottom:10px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <div style="color: var(--text-gray); font-size: 0.9rem; font-weight:bold; margin-bottom:6px;">دپوی محتوا خالی است</div>
+                <div style="color: #94a3b8; font-size: 0.8rem; line-height: 1.5; margin-bottom: 15px;">برای شروع، محتوا‌های خود را به صورت تکی یا گروهی تزریق کنید.</div>
+                <button class="btn-primary"  onclick="openExcelModal()" style="">
+                    <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    تزریق گروهی
+                </button>
+                <button onclick="openFormModal()" style="background: var(--card-bg); color: var(--primary-color); border: 1px solid var(--primary-color); padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    افزودن دستی
+                </button>
+            </div>`;
+        } else if (colItems.length === 0) {
+            cardsHtml = '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;" class="empty-state">خالی</div>';
+        } else {
+            colItems.forEach(item => {
+                let stagesHtml = '';
+                if (item.stages && item.stages.length > 0) {
+                    let completed = item.completed_stages || [];
+                    let remaining = item.stages.filter(s => !completed.includes(s));
+                    if (remaining.length === 0) {
+                        stagesHtml = `<div style="margin-top:8px; color: #16a34a; font-weight: bold; font-size: 0.85rem;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg> آماده انتشار</div>`;
+                    } else {
+                        stagesHtml = '<div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;">' + 
+                             remaining.map(s => `<span style="background: rgba(128, 128, 128, 0.1); color: var(--text-gray); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;">${s}</span>`).join('') +
+                            '</div>';
+                    }
+                }
+                
+                let mgrDisplay = '<span style="color:#94a3b8">تعیین نشده</span>';
+                if (item.project_manager) {
+                    const mgr = (window.allColleagues || []).find(c => c.full_name === item.project_manager);
+                    const mAvatar = mgr && mgr.avatar_url ? mgr.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+                    mgrDisplay = `<span style="display:inline-flex; align-items:center; gap:4px;"><img alt="" src="${mAvatar}" style="width:20px; height:20px; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${item.project_manager}</span>`;
+                }
+                
+                let teamHtml = '';
+                if (item.assigned_colleagues && item.assigned_colleagues.length > 0) {
+                    teamHtml = `<div style="margin-top: 4px; font-size: 0.75rem; color: var(--text-gray);">👥 تیم: ${Array.isArray(item.assigned_colleagues) ? item.assigned_colleagues.join('، ') : item.assigned_colleagues}</div>`;
+                }
+
+                const isEvent = item.title && item.title.includes('پست مناسبتی');
+                const cardColor = item.org_color || 'var(--primary-color)';
+                const originalStatus = item.status || 'raw';
+                const bgStyle = isEvent 
+                    ? `background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%); border-right: 4px solid #d946ef; box-shadow: 0 4px 6px -1px rgba(217, 70, 239, 0.2); border-left: 1px solid #f0abfc; border-top: 1px solid #f0abfc; border-bottom: 1px solid #f0abfc;` 
+                    : `border-right: 4px solid ${cardColor}; background: color-mix(in srgb, ${cardColor} 10%, transparent); border-left: 1px solid color-mix(in srgb, ${cardColor} 20%, transparent); border-top: 1px solid color-mix(in srgb, ${cardColor} 20%, transparent); border-bottom: 1px solid color-mix(in srgb, ${cardColor} 20%, transparent);`;
+                const orgBadgeStyle = `background: color-mix(in srgb, ${cardColor} 8%, transparent); color: ${cardColor}; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold; display:inline-block; margin-bottom:8px;`;
+
+                let isChecked = selectedBatchIds.includes(parseInt(item.id)) ? 'checked' : '';
+
+                cardsHtml += `
+                    <div class="task-card" draggable="true" ondragstart="drag(event)" data-id="${item.id}" data-original-status="${originalStatus}" onclick="handleCardClick(event, ${item.id})" style="cursor: pointer; position:relative; ${bgStyle} transition: transform 0.2s, box-shadow 0.2s; border-radius: 12px; margin-bottom: 12px; padding: 16px;">
+                        <div class="batch-checkbox-container" style="position: absolute; top: 10px; left: 10px; z-index: 10;">
+                            <input type="checkbox" class="batch-checkbox" value="${item.id}" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleBatchSelect(event, this.value, this.checked)" style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary-color);">
+                        </div>
+                        ${isEvent ? `<span style="position:absolute; top:-10px; right:-10px; background:linear-gradient(135deg, #d946ef, #a855f7); color:white; font-size:0.7rem; padding:4px 10px; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.15); font-weight:bold;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5.8 11.3 2 22l10.7-3.79'/><path d='M4 3h.01'/><path d='M22 8h.01'/><path d='M15 2h.01'/><path d='M22 20h.01'/><path d='m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10'/><path d='m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17'/><path d='m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7'/><path d='M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z'/></svg> مناسبت تقویمی</span>` : ''}
+                        <div style="${orgBadgeStyle}; display:inline-flex; align-items:center; gap:6px;">
+                            ${item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:24px; height:24px; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} 
+                            <span>${item.org_name || 'بدون سازمان'}</span>
+                        </div>
+                        <div style="font-size:1rem; font-weight:bold; color: var(--text-gray); line-height:1.4;">${item.title}</div>
+                        ${stagesHtml}
+                        <div style="margin-top: 8px; font-size: 0.75rem; color: var(--text-gray); display:flex; align-items:center; gap:4px;">
+                            <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> مدیر: ${mgrDisplay}
+                        </div>
+                        ${teamHtml}
+                        ${(()=>{
+                            let warningHtml = '';
+                            if (statusKey === 'done') {
+                                const isVideo = item.content_type && (item.content_type.includes('ویدئو') || item.content_type.includes('ویدیو') || item.content_type.includes('ریلز'));
+                                
+                                const getBadge = (hasItem, label, icon) => {
+                                    const bg = hasItem ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+                                    const text = hasItem ? '#166534' : 'var(--error-color)';
+                                    const border = hasItem ? '#bbf7d0' : 'rgba(239, 68, 68, 0.3)';
+                                    return `<div style="display:flex; align-items:center; gap:4px; padding:4px 8px; border-radius:6px; background:${bg}; color:${text}; border:1px solid ${border}; font-size:0.75rem; font-weight:bold;" title="${label}">${icon} ${hasItem ? '✓' : '✗'}</div>`;
+                                };
+                                let badges = getBadge(!!item.caption, 'کپشن', '📝');
+                                if (isVideo) {
+                                    badges += getBadge(!!item.video_link, 'ویدئو', '🎬');
+                                    badges += getBadge(!!item.cover_link, 'کاور', '🖼️');
+                                }
+                                
+                                warningHtml = `<div style="margin-top:12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                    ${badges}
+                                </div>`;
+                            }
+                            return warningHtml;
+                        })()}
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                            <small style="background:rgba(99, 102, 241, 0.15); color:var(--primary-color); padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">${item.content_type || 'نامشخص'}</small>
+                            <span style="font-size:0.75rem; color:#94a3b8; font-weight:bold;">کد #${window.toPersianDigits(item.id)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        return cardsHtml;
+    }
+
+    if (window.isGroupedByOrg) {
+        let orgsSet = new Set();
+        items.forEach(item => {
+            if (item.org_name) orgsSet.add(item.org_name);
+            else orgsSet.add('بدون سازمان');
+        });
+        let orgsList = Array.from(orgsSet).sort();
+        
+        let html = `
+            <style>
+                .swimlane-container { border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px; background: var(--bg-color); overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+                .swimlane-header { background: var(--card-bg); padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; transition: background 0.2s; }
+                .swimlane-header:hover { background: rgba(128,128,128,0.02); }
+                .swimlane-title { display: flex; align-items: center; gap: 12px; font-size: 1.2rem; font-weight: bold; color: var(--text-dark); }
+                .swimlane-badge {  color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
+                .swimlane-toggle { transition: transform 0.3s; color: var(--text-gray); }
+                .swimlane-collapsed .swimlane-toggle { transform: rotate(-90deg); }
+                .swimlane-content { display: flex; overflow-x: auto; padding: 12px; gap: 12px; background: rgba(128,128,128,0.01); min-height: 200px; }
+                .swimlane-collapsed .swimlane-content { display: none; }
+                .swimlane-content .kanban-column { flex: 0 0 320px; background: var(--card-bg); border-radius: 10px; border: 1px solid var(--border-color); padding-bottom: 10px;}
+            </style>
+        `;
+        
+        if (orgsList.length === 0) {
+            html += `<div style="text-align: center; padding: 50px; color: var(--text-gray);">هیچ محتوایی با این فیلتر‌ها یافت نشد</div>`;
+        }
+
+        orgsList.forEach((orgName, index) => {
+            const orgItems = items.filter(i => (i.org_name || 'بدون سازمان') === orgName);
+            if(orgItems.length === 0) return;
+            
+            const sampleItem = orgItems.find(i => i.org_name === orgName) || {};
+            const orgLogo = sampleItem.org_logo ? `<img alt="" src="${sampleItem.org_logo}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">` : '🏢';
+            const orgColor = sampleItem.org_color || 'var(--primary-color)';
+            
+            html += `
+                <div class="swimlane-container swimlane-collapsed" id="swimlane-${index}">
+                    <div class="swimlane-header" onclick="document.getElementById('swimlane-${index}').classList.toggle('swimlane-collapsed')">
+                        <div class="swimlane-title">
+                            <span style="display:inline-flex; padding: 4px; border-radius: 8px; background: color-mix(in srgb, ${orgColor} 15%, transparent);">${orgLogo}</span>
+                            ${orgName}
+                            <span class="swimlane-badge" style="background: ${orgColor};">${window.toPersianDigits(orgItems.length)} محتوا</span>
+                        </div>
+                        <div class="swimlane-toggle">
+                            <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                    </div>
+                    <div class="swimlane-content">
+            `;
+            
+            statusesConfig.forEach(sConfig => {
+                const statusKey = sConfig.id;
+                let colItems = [];
+                if (statusKey === 'raw') {
+                    colItems = orgItems.filter(i => !i.status || i.status === 'raw' || i.status === 'raw_event');
+                } else if (statusKey === 'in_progress') {
+                    colItems = orgItems.filter(i => i.status === 'in_progress' || i.status === 'doing');
+                } else {
+                    colItems = orgItems.filter(i => i.status === statusKey);
+                }
+                
+                let iconMatch = sConfig.title.match(/<svg[\s\S]*?<\/svg>/);
+                let iconHtml = iconMatch ? iconMatch[0] : "";
+                let textStr = sConfig.title.replace(/<[^>]+>/g, '').trim();
+                
+                html += `
+                    <div class="kanban-column column-collapsed" style="display:flex; flex-direction:column; overflow:hidden; cursor:pointer;" data-title="${textStr}" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)" onclick="if(this.classList.contains('column-collapsed') && !event.target.closest('button')) toggleColumnCollapse(this.querySelector('.col-toggle-btn'))">
+                        <div class="column-header" onclick="handleHeaderClick(event, this)" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: rgba(128,128,128,0.02);">
+                            <span class="col-title-text">${sConfig.title}</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div class="col-collapsed-icon" style="display:none; color: var(--text-gray);">${iconHtml}</div>
+                                <span id="col-count-${statusKey}-${index}" style="background: var(--text-gray); color: #ffffff; border-radius: 12px; padding: 2px 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold;">${window.toPersianDigits(colItems.length)}</span>
+                                
+                                <div class="col-actions" style="display: inline-flex; align-items: center; gap: 2px;">
+                                    <button class="col-expand-btn" onclick="toggleColumnExpand(this)" style="background: none; border: none; cursor: pointer; color: var(--text-gray); padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='none'" title="تمام صفحه">
+                                        <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+                                    </button>
+                                    <button class="col-toggle-btn" onclick="toggleColumnCollapse(this)" style="background: none; border: none; cursor: pointer; color: var(--text-gray); padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='none'" title="جمع کردن ستون">
+                                        <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                                    </button>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        <div id="col-body-${statusKey}-${index}" class="column-body" style="flex:1; overflow-y:auto; padding:8px; min-height: 150px;" >
+                            ${renderCards(colItems, statusKey)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        board.innerHTML = html;
+        board.style.display = 'block'; // Ensure block display for swimlanes
+        
+    } else {
+        board.style.display = ''; // default flex
+        let html = '';
+        statusesConfig.forEach(sConfig => {
+            const statusKey = sConfig.id;
+            let colItems = [];
+            if (statusKey === 'raw') {
+                colItems = items.filter(i => !i.status || i.status === 'raw' || i.status === 'raw_event');
+            } else if (statusKey === 'in_progress') {
+                colItems = items.filter(i => i.status === 'in_progress' || i.status === 'doing');
+            } else {
+                colItems = items.filter(i => i.status === statusKey);
+            }
+            
+            let iconMatch = sConfig.title.match(/<svg[\s\S]*?<\/svg>/);
+            let iconHtml = iconMatch ? iconMatch[0] : "";
+            let textStr = sConfig.title.replace(/<[^>]+>/g, '').trim();
+            
+            html += `
+                <div class="kanban-column column-collapsed" style="display:flex; flex-direction:column; overflow:hidden; cursor:pointer;" data-title="${textStr}" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)" onclick="if(this.classList.contains('column-collapsed') && !event.target.closest('button')) toggleColumnCollapse(this.querySelector('.col-toggle-btn'))">
+                    <div class="column-header" onclick="handleHeaderClick(event, this)" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                            <span class="col-title-text">${sConfig.title}</span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="col-collapsed-icon" style="display:none; color: var(--text-gray);">${iconHtml}</div>
+                            <span id="col-count-${statusKey}" style="background: var(--primary-color, var(--primary-color)); color: #ffffff; border-radius: 50%; width: 44px; height: 44px; min-width: 44px; border: 2px solid var(--card-bg, #ffffff); box-shadow: 0 4px 10px rgba(0,0,0,0.18); display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 800;">${window.toPersianDigits(colItems.length)}</span>
+                            <div class="col-actions" style="display: inline-flex; align-items: center; gap: 2px;">
+                                <button class="col-expand-btn" onclick="toggleColumnExpand(this)" style="background: none; border: none; cursor: pointer; color: var(--text-gray); padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='none'" title="تمام صفحه">
+                                    <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+                                </button>
+                                <button class="col-toggle-btn" onclick="toggleColumnCollapse(this)" style="background: none; border: none; cursor: pointer; color: var(--text-gray); padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='none'" title="جمع کردن ستون">
+                                    <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                                </button>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    <div id="col-body-${statusKey}" class="column-body" style="flex:1; overflow-y:auto; padding:8px;" >
+                            ${renderCards(colItems, statusKey)}
+                    </div>
+                </div>
+            `;
+        });
+        board.innerHTML = html;
+    }
+}
+
+function filterCards() {
+    renderKanban(window.allDepotItems);
+}
+
+window.isGroupedByOrg = false;
+window.showMyTasks = false;
+
+window.toggleGroupByOrg = function() {
+    window.isGroupedByOrg = !window.isGroupedByOrg;
+    const btn = document.getElementById('groupByOrgBtn');
+    if (window.isGroupedByOrg) {
+        btn.style.background = 'var(--primary-color)';
+        btn.style.color = 'white';
+        btn.style.borderColor = 'var(--primary-color)';
+    } else {
+        btn.style.background = 'var(--card-bg)';
+        btn.style.color = 'var(--primary-color)';
+        btn.style.borderColor = 'var(--primary-color)';
+    }
+    filterCards();
+};
+
+window.toggleMyTasks = function() {
+    window.showMyTasks = !window.showMyTasks;
+    const btn = document.getElementById('myTasksBtn');
+    if (window.showMyTasks) {
+        btn.style.background = 'var(--primary-color)';
+        btn.style.color = 'white';
+        btn.style.borderColor = 'var(--primary-color)';
+    } else {
+        btn.style.background = 'var(--card-bg)';
+        btn.style.color = 'var(--primary-color)';
+        btn.style.borderColor = 'var(--primary-color)';
+    }
+    filterCards();
+};
+
+document.filterCards = filterCards;
+
+
+async function confirmStageTransition(id, newStatusId, newStatusName) {
+    if (!newStatusId) return;
+    const item = (window.allDepotItems || []).find(i => i.id == id);
+    const itemName = item ? (item.title || 'بدون عنوان') : 'بدون عنوان';
+    const itemType = item ? (item.content_type || 'محتوای') : 'محتوای';
+    if (await window.customConfirm(`${itemType} «${itemName}» به مرحله ${newStatusName} منتقل شود!؟`)) {
+        try {
+            const res = await fetch('/api/add_content', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'update_status', id: parseInt(id), status: newStatusId })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                const item = (window.allDepotItems || []).find(i => i.id == id);
+                if (item) {
+                    const oldStatus = item.status || 'raw';
+                    item.status = newStatusId;
+                    // Optimistic UI update without full reload
+                    const cardEl = document.querySelector(`[data-id="${id}"]`);
+                    const newColBody = document.getElementById(`col-body-${newStatusId}`);
+                    const oldColBody = document.getElementById(`col-body-${oldStatus}`);
+                    if (cardEl && newColBody) {
+                        // Remove 'خالی' from destination if it exists
+                        const emptyMsg = newColBody.querySelector('.empty-state');
+                        if (emptyMsg) emptyMsg.remove();
+
+                        newColBody.appendChild(cardEl);
+
+                        // Add 'خالی' to source if empty
+                        if (oldColBody && oldColBody.querySelectorAll('.task-card').length === 0) {
+                            oldColBody.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;" class="empty-state">خالی</div>';
+                        }
+
+                        const oldCountSpan = document.getElementById(`col-count-${oldStatus}`);
+                        const newCountSpan = document.getElementById(`col-count-${newStatusId}`);
+                        if(oldCountSpan) oldCountSpan.innerText = window.toPersianDigits(Math.max(0, parseInt(oldCountSpan.innerText.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) - 1));
+                        if(newCountSpan) newCountSpan.innerText = window.toPersianDigits(parseInt(newCountSpan.innerText.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) + 1);
+                    } else {
+                        filterCards();
+                    }
+                }
+                openContentDetails(id, false); // Reload modal details
+                if (window.showToast) window.showToast('وضعیت با موفقیت تغییر کرد', 'success');
+            } else {
+                if (window.showToast) window.showToast('خطا در انتقال کارت', 'error');
+            }
+        } catch(e) {
+            if (window.showToast) window.showToast('خطا در انتقال کارت', 'error');
+        }
+    }
+}
+
+
+
+
+
+window.filterTeam = function() {
+    const term = document.getElementById('team_filter').value.toLowerCase();
+    const items = document.querySelectorAll('.team-checkbox-item');
+    Array.from(items).forEach(item => {
+        const name = item.querySelector('.team-name').innerText.toLowerCase();
+        if (name.includes(term)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+};
+
+
+
+
+
+
+
+
+
+
+
+
+;
+
+const originalOpenContentDetails = window.openContentDetails;
+
+    ;
+
+    
+    
+    window.openContentDetails = function(id, editMode = false) {
+        originalOpenContentDetails(id, editMode);
+        if (editMode) {
+            setTimeout(() => {
+                if (window.handleManagerChange) window.handleManagerChange();
+            }, 50);
+        }
+    };
+
+    // Excel Import Logic
+    let parsedExcelRows = [];
+
+    function openExcelModal() {
+        document.getElementById('excelModal').style.display = 'flex';
+    }
+    window.openExcelModal = openExcelModal;
+
+    function closeExcelModal() {
+        document.getElementById('excelModal').style.display = 'none';
+        resetExcelImport();
+    }
+    window.closeExcelModal = closeExcelModal;
+
+    function resetExcelImport() {
+        parsedExcelRows = [];
+        const fileInput = document.getElementById('excelFileInput');
+        if (fileInput) fileInput.value = '';
+        document.getElementById('excelDropZone').style.display = 'block';
+        document.getElementById('excelPreviewArea').style.display = 'none';
+        const submitBtn = document.getElementById('btnSubmitExcel');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07"/><path d="m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07"/></svg> تزریق و افزودن به دپوی محتوا`;
+        }
+    }
+    window.resetExcelImport = resetExcelImport;
+
+    async function handleExcelSelect(event) {
+        const file = event.target.files ? event.target.files[0] : null;
+        if (!file) return;
+
+        if (typeof XLSX === 'undefined') {
+            if (window.showToast) window.showToast('کتابخانه پردازش اکسل بارگذاری نشده است. صفحه را رفرش کنید', 'error');
+            else showToast('کتابخانه پردازش اکسل بارگذاری نشده است');
+            return;
+        }
+
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const rows = XLSX.utils.sheet_to_json(worksheet);
+
+            if (!rows || rows.length === 0) {
+                if (window.showToast) window.showToast('هیچ داده‌ای در فایل اکسل یافت نشد', 'error');
+                return;
+            }
+
+            parsedExcelRows = rows.filter(r => {
+                const title = r['عنوان محتوا'] || r['عنوان'] || r['title'] || r['Title'] || r['نام محتوا'];
+                return title && title.toString().trim().length > 0;
+            });
+
+            if (parsedExcelRows.length === 0) {
+                if (window.showToast) window.showToast('هیچ ردیفی دارای ستون «عنوان محتوا» پیدا نشد', 'error');
+                return;
+            }
+
+            renderExcelPreview(parsedExcelRows);
+        } catch (e) {
+            console.error('Error reading excel file:', e);
+            if (window.showToast) window.showToast('خطا در خواندن و پردازش فایل اکسل', 'error');
+        }
+    }
+    window.handleExcelSelect = handleExcelSelect;
+
+    function renderExcelPreview(rows) {
+        const tbody = document.getElementById('excelPreviewTbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        document.getElementById('parsedCount').innerText = rows.length;
+
+        rows.forEach((r, idx) => {
+            const title = r['عنوان محتوا'] || r['عنوان'] || r['title'] || r['Title'] || r['نام محتوا'] || 'بدون عنوان';
+            const org = r['سازمان / برند'] || r['سازمان'] || r['کارفرما'] || r['org_name'] || 'پیشفرض سیستم';
+            const type = r['نوع محتوا'] || r['نوع'] || r['content_type'] || 'پوستر گرافیکی';
+            const pm = r['مدیر پروژه'] || r['project_manager'] || '-';
+            const status = r['وضعیت'] || r['status'] || 'ورودی خام';
+            const date = r['تاریخ انتشار'] || r['publish_date'] || '-';
+
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid rgba(128, 128, 128, 0.05)';
+            tr.innerHTML = `
+                <td style="padding: 8px 12px; font-weight: 600; color: var(--text-gray);">${idx + 1}</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: var(--text-gray);">${title}</td>
+                <td style="padding: 8px 12px;"><span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-size:0.78rem; font-weight:600;">${org}</span></td>
+                <td style="padding: 8px 12px;">${type}</td>
+                <td style="padding: 8px 12px;">${pm}</td>
+                <td style="padding: 8px 12px;"><span style="background: rgba(128, 128, 128, 0.1); padding:2px 8px; border-radius:4px; font-size:0.78rem;">${status}</span></td>
+                <td style="padding: 8px 12px; font-family: monospace;">${date}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('excelDropZone').style.display = 'none';
+        document.getElementById('excelPreviewArea').style.display = 'block';
+
+        const submitBtn = document.getElementById('btnSubmitExcel');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07"/><path d="m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07"/></svg> تزریق ${rows.length} محتوا به دپو`;
+    }
+
+    async function submitExcelImport() {
+        if (!parsedExcelRows || parsedExcelRows.length === 0) return;
+
+        const submitBtn = document.getElementById('btnSubmitExcel');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg> در حال تزریق محتوا‌ها...`;
+
+        try {
+            const res = await fetch('/api/bulk_import_contents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: parsedExcelRows })
+            });
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                if (window.showToast) window.showToast(result.message || 'محتوا‌ها با موفقیت وارد دپو شدند');
+                closeExcelModal();
+                loadDepot();
+            } else {
+                if (window.showToast) window.showToast(result.message || 'خطا در افزودن محتوا‌ها', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07"/><path d="m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07"/></svg> تزریق ${parsedExcelRows.length} محتوا به دپو`;
+            }
+        } catch (e) {
+            console.error('Error submitting excel import:', e);
+            if (window.showToast) window.showToast('خطا در ارتباط با سرور', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07"/><path d="m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07"/></svg> تزریق ${parsedExcelRows.length} محتوا به دپو`;
+        }
+    }
+    window.submitExcelImport = submitExcelImport;
+
+    function downloadExcelTemplate() {
+        if (typeof XLSX === 'undefined') {
+            if (window.showToast) window.showToast('کتابخانه اکسل هنوز آماده نشده است', 'error');
+            return;
+        }
+
+        try {
+            const wb = XLSX.utils.book_new();
+
+            let sampleOrg = 'کیان تیم';
+            if (window.allOrganizations && window.allOrganizations.length > 0) {
+                sampleOrg = window.allOrganizations[0].org_name;
+            }
+
+            let sampleManager = 'مدیر کل (Admin)';
+            if (window.allColleagues && window.allColleagues.length > 0) {
+                sampleManager = window.allColleagues[0].full_name || window.allColleagues[0].username;
+            }
+
+            // Sheet 1: Template Data
+            const templateData = [
+                {
+                    'عنوان محتوا': 'ویدیوی معرفی محصول جدید',
+                    'سازمان / برند': sampleOrg,
+                    'نوع محتوا': 'پست ویدیویی',
+                    'مدیر پروژه': sampleManager,
+                    'همکاران (با کاما)': 'تدوینگر, مدیر داخلی',
+                    'مراحل تولید (با کاما)': 'پژوهش و سناریو, فیلمبرداری, تدوین',
+                    'وضعیت': 'ورودی خام',
+                    'تاریخ انتشار': '1405/02/15',
+                    'ساعت انتشار': '18:00',
+                    'کپشن / توضیحات': 'سناریوی پیشنهادی برای ویدیوی معرفی محصول جدید...',
+                    'لینک کاور': 'https://example.com/cover1.jpg',
+                    'لینک ویدیو': 'https://example.com/video1.mp4'
+                },
+                {
+                    'عنوان محتوا': 'پوستر تخفیفات ویژه فصل',
+                    'سازمان / برند': sampleOrg,
+                    'نوع محتوا': 'پوستر گرافیکی',
+                    'مدیر پروژه': sampleManager,
+                    'همکاران (با کاما)': 'طراح گرافیک',
+                    'مراحل تولید (با کاما)': 'طراحی گرافیک',
+                    'وضعیت': 'در صف',
+                    'تاریخ انتشار': '1405/02/20',
+                    'ساعت انتشار': '12:00',
+                    'کپشن / توضیحات': 'طراحی بنر و پوستر تخفیفات...',
+                    'لینک کاور': '',
+                    'لینک ویدیو': ''
+                }
+            ];
+
+            const wsData = XLSX.utils.json_to_sheet(templateData);
+            XLSX.utils.book_append_sheet(wb, wsData, 'دپوی محتوا');
+
+            // Sheet 2: Guide
+            const availableOrgs = (window.allOrganizations || []).map(o => o.org_name).join(' | ');
+            const availableColleagues = (window.allColleagues || []).map(c => c.full_name || c.username).join(' | ');
+            const availableTypes = (window.allSettings && window.allSettings.content_type || []).map(t => t.setting_key).join(' | ');
+
+            const guideData = [
+                {
+                    'نام ستون': 'عنوان محتوا',
+                    'نوع': 'اجباری',
+                    'توضیحات و راهنما': 'نام یا تیتر اصلی کارت محتوا',
+                    'مقادیر معتبر / موجود در سیستم': 'هر عنوان دلخواه'
+                },
+                {
+                    'نام ستون': 'سازمان / برند',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'نام کارفرما یا برندی که محتوا متعلق به آن است',
+                    'مقادیر معتبر / موجود در سیستم': availableOrgs || 'نام سازمان‌های ثبت‌شده در سیستم'
+                },
+                {
+                    'نام ستون': 'نوع محتوا',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'فرمت و قالب محتوای تولیدی',
+                    'مقادیر معتبر / موجود در سیستم': availableTypes || 'پوستر گرافیکی | پست ویدیویی | مقاله سئو ...'
+                },
+                {
+                    'نام ستون': 'مدیر پروژه',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'نام یا نامکاربری مدیر پروژه مسئول',
+                    'مقادیر معتبر / موجود در سیستم': availableColleagues || 'نام پرسنل استودیو'
+                },
+                {
+                    'نام ستون': 'همکاران (با کاما)',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'اسامی همکاران درگیر که با کاما (,) یا | از هم جدا شده‌اند',
+                    'مقادیر معتبر / موجود در سیستم': availableColleagues
+                },
+                {
+                    'نام ستون': 'مراحل تولید (با کاما)',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'مراحل خط تولید محتوا که با کاما جدا می‌شوند',
+                    'مقادیر معتبر / موجود در سیستم': 'پژوهش و سناریو | فیلمبرداری | عکاسی | طراحی گرافیک | تدوین | گویندگی'
+                },
+                {
+                    'نام ستون': 'وضعیت',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'ستون کانبان محتوا',
+                    'مقادیر معتبر / موجود در سیستم': 'ورودی خام (raw) | در صف (todo) | در حال انجام (doing) | تکمیل شده (done)'
+                },
+                {
+                    'نام ستون': 'تاریخ انتشار',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'تاریخ برنامه‌ریزی انتشار (شمسی)',
+                    'مقادیر معتبر / موجود در سیستم': 'مثال: 1405/02/15'
+                },
+                {
+                    'نام ستون': 'ساعت انتشار',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'زمان انتشار',
+                    'مقادیر معتبر / موجود در سیستم': 'مثال: 18:00'
+                },
+                {
+                    'نام ستون': 'کپشن / توضیحات',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'متن کامل کپشن یا توضیحات تولید',
+                    'مقادیر معتبر / موجود در سیستم': 'متن آزاد'
+                },
+                {
+                    'نام ستون': 'لینک کاور',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'آدرس اینترنتی پوستر یا تصویر کاور',
+                    'مقادیر معتبر / موجود در سیستم': 'آدرس کامل HTTP/HTTPS'
+                },
+                {
+                    'نام ستون': 'لینک ویدیو',
+                    'نوع': 'اختیاری',
+                    'توضیحات و راهنما': 'آدرس اینترنتی فایل ویدیویی یا ضمیمه',
+                    'مقادیر معتبر / موجود در سیستم': 'آدرس کامل HTTP/HTTPS'
+                }
+            ];
+
+            const wsGuide = XLSX.utils.json_to_sheet(guideData);
+            XLSX.utils.book_append_sheet(wb, wsGuide, 'راهنمای فرمت');
+
+            XLSX.writeFile(wb, 'Asva_Content_Depot_Template.xlsx');
+            if (window.showToast) window.showToast('قالب اکسل با موفقیت دانلود شد');
+        } catch (err) {
+            console.error('Error downloading template:', err);
+            window.location.href = '/api/download_content_excel_template';
+        }
+    }
+    window.downloadExcelTemplate = downloadExcelTemplate;
+
+    // Drag and drop setup for excel dropzone
+    setTimeout( () => {
+        const dropZone = document.getElementById('excelDropZone');
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.style.background = '#dbeafe';
+                    dropZone.style.borderColor = '#2563eb';
+                }, false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.style.background = '#eff6ff';
+                    dropZone.style.borderColor = 'var(--primary-color)';
+                }, false);
+            });
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt ? dt.files : null;
+                if (files && files.length > 0) {
+                    const fileInput = document.getElementById('excelFileInput');
+                    if (fileInput) fileInput.files = files;
+                    handleExcelSelect({ target: { files: files } });
+                }
+            }, false);
+        }
+    });
+</script>
+
+
+<!-- Modal for Platform Metrics -->
+
+
+<script>
+;
+
+
+let cachedTokens = null;
+
+
+
+
+
+
+function autoFillPmDate() {
+    if (document.getElementById('pmAutoFill').checked) {
+        const dDate = document.getElementById('pmDefaultDate').value;
+        const dTime = document.getElementById('pmDefaultTime').value;
+        if (!dDate) {
+            if (window.showToast) window.showToast('تاریخ و زمانی روی این کارت تنظیم نشده است', 'error');
+            document.getElementById('pmAutoFill').checked = false;
+            return;
+        }
+        document.getElementById('pmDate').value = dDate;
+        if (document.getElementById('pmDate').dispatchEvent) document.getElementById('pmDate').dispatchEvent(new Event('change'));
+        document.getElementById('pmTime').value = dTime;
+        if (document.getElementById('pmTime').dispatchEvent) document.getElementById('pmTime').dispatchEvent(new Event('change'));
+    } else {
+        document.getElementById('pmDate').value = '';
+        if (document.getElementById('pmDate').dispatchEvent) document.getElementById('pmDate').dispatchEvent(new Event('change'));
+        document.getElementById('pmTime').value = '';
+        if (document.getElementById('pmTime').dispatchEvent) document.getElementById('pmTime').dispatchEvent(new Event('change'));
+    }
+}
+
+
+
+
+
+
+
+
+
+
+</script>
+
+
+<script src="assets/js/app.js?v=4"></script>
+    <%- include('partials/content-identity') %>
+
+<!-- Mobile specific overrides guaranteed to apply -->
+<style>
+@media (max-width: 768px) {
+    /* Hide expand button */
+    .kanban-board button.col-expand-btn,
+    .swimlane-content button.col-expand-btn,
+    .col-actions .col-expand-btn { 
+        display: none !important; 
+    }
+    
+    /* Ensure overflow is visible for sticky to work */
+    html, body, main.main-content, #kanbanBoard, .kanban-board, .swimlane-container, .swimlane-content, .kanban-column:not(.column-collapsed) {
+        overflow: visible !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+    }
+    
+    /* On mobile, column-collapsed needs hidden so it doesn't show content */
+    .kanban-column.column-collapsed {
+        overflow: hidden !important;
+    }
+    
+    /* Sticky header when opened */
+    div.kanban-column:not(.column-collapsed) > div.column-header {
+        position: -webkit-sticky !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 9999 !important;
+        background: var(--card-bg) !important;
+        border-bottom: 2px solid var(--border-color) !important;
+        margin: 0 !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+}
+</style>
+
+</body>
+</html>

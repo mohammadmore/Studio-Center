@@ -1,0 +1,2010 @@
+
+<svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<script>
+    var savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    
+    window.toggleTheme = function(event) {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const target = isDark ? 'light' : 'dark';
+
+        const performToggle = () => {
+            document.documentElement.setAttribute('data-theme', target);
+            localStorage.setItem('theme', target);
+            
+            // Update sidebar logo
+            const sidebarLogo = document.getElementById('sidebarStudioLogo');
+            if (sidebarLogo) {
+                const newSrc = target === 'dark' ? sidebarLogo.getAttribute('data-dark') : sidebarLogo.getAttribute('data-light');
+                if (newSrc) {
+                    sidebarLogo.src = newSrc;
+                }
+            }
+            
+            if (typeof Chart !== 'undefined') {
+                Chart.defaults.color = target === 'dark' ? 'var(--text-gray)' : '#64748b';
+                Chart.defaults.borderColor = target === 'dark' ? '#334155' : 'var(--border-color)';
+                for (let id in Chart.instances) {
+                    Chart.instances[id].update();
+                }
+            }
+            if(typeof updateThemeIcon !== 'undefined') updateThemeIcon(true);
+        };
+
+        if (!document.startViewTransition || !event) {
+            performToggle();
+            return;
+        }
+
+        const x = event.clientX || window.innerWidth / 2;
+        const y = event.clientY || window.innerHeight / 2;
+        
+        const endRadius = Math.hypot(
+            Math.max(x, innerWidth - x),
+            Math.max(y, innerHeight - y)
+        );
+
+        
+        document.documentElement.classList.add('theme-transition');
+        const transition = document.startViewTransition(performToggle);
+        
+        transition.ready.then(() => {
+            const clipPath = [
+                `circle(0px at ${x}px ${y}px)`,
+                `circle(${endRadius}px at ${x}px ${y}px)`
+            ];
+            
+            document.documentElement.animate(
+                {
+                    clipPath: clipPath
+                },
+                {
+                    duration: 500,
+                    easing: 'ease-in-out',
+                    pseudoElement: '::view-transition-new(root)'
+                }
+            );
+        });
+        transition.finished.then(() => {
+            document.documentElement.classList.remove('theme-transition');
+        });
+    }
+    setTimeout( () => {
+        if (typeof Chart !== 'undefined') {
+            const current = document.documentElement.getAttribute('data-theme');
+            Chart.defaults.color = current === 'dark' ? 'var(--text-gray)' : '#64748b';
+            Chart.defaults.borderColor = current === 'dark' ? '#334155' : 'var(--border-color)';
+            Chart.defaults.font.family = 'inherit';
+        }
+    });
+</script>
+<style>
+    #asva-pro-sidebar {
+        box-sizing: border-box; width: 260px; color: var(--text-dark); 
+        background: var(--glass-bg, rgba(30, 41, 59, 0.7)); 
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-left: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+        height: 100vh; position: fixed; right: 0; top: 0; overflow-y: auto; padding: 20px; 
+        box-shadow: var(--glass-shadow, -2px 0 15px rgba(0,0,0,0.2)); z-index: 990; direction: rtl;
+        transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 24px 0 0 24px;
+    }
+    #asva-floating-actions {
+        position: fixed; top: 15px; right: 15px; z-index: 995;
+        display: flex; flex-direction: column;
+        transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #asva-floating-actions .icon-wrapper,
+    #asva-floating-actions #theme-toggle-btn, #asva-floating-actions #search-toggle-btn {
+        position: absolute;
+        top: 0;
+        right: 0;
+        opacity: 0;
+        visibility: hidden;
+        transform: scale(0.5) translateY(-20px);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1;
+    }
+    #asva-sidebar-toggle-btn {
+        position: relative;
+        z-index: 2;
+    }
+    body.asva-sidebar-open #asva-floating-actions .icon-wrapper {
+        top: 50px;
+        opacity: 1;
+        visibility: visible;
+        transform: scale(1) translateY(0);
+    }
+    
+    body.asva-sidebar-open #asva-floating-actions #search-toggle-btn {
+        top: 100px;
+        opacity: 1;
+        visibility: visible;
+        transform: scale(1) translateY(0);
+        transition-delay: 0.05s;
+    }
+    body.asva-sidebar-open #asva-floating-actions #theme-toggle-btn {
+        top: 150px;
+        opacity: 1;
+        visibility: visible;
+        transform: scale(1) translateY(0);
+        transition-delay: 0.1s;
+    }
+    
+    #asva-floating-actions > button, #asva-floating-actions .icon-wrapper > a {
+        background: var(--card-bg) !important; color: var(--text-dark) !important; border: 1px solid var(--border-color) !important; 
+        width: 40px !important; height: 40px !important; border-radius: 50% !important; 
+        cursor: pointer !important; font-size: 20px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important; transition: all 0.3s ease !important;
+        display: inline-flex !important; align-items: center !important; justify-content: center !important;
+        text-decoration: none !important; padding: 0 !important;
+    }
+    #asva-floating-actions > button:hover, #asva-floating-actions .icon-wrapper > a:hover {
+        background: rgba(128, 128, 128, 0.1) !important;
+    }
+    #asva-floating-actions .icon-wrapper > a.active {
+        
+        color: white !important;
+        border-color: var(--primary-color) !important;
+    }
+    #asva-sidebar-toggle-btn {
+        /* any specific overrides if necessary */
+    }
+    #asva-sidebar-overlay { 
+        visibility: hidden; opacity: 0; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 980; 
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    body {
+        transition: padding-right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    body.asva-sidebar-open { padding-right: 260px !important; }
+    body.asva-sidebar-open #asva-pro-sidebar { transform: translateX(0); }
+    body.asva-sidebar-open #asva-floating-actions { right: 275px; }
+    @media (max-width: 768px) {
+        body.asva-sidebar-open { padding-right: 0 !important; }
+        body.asva-sidebar-open #asva-floating-actions { right: 275px; }
+        body.asva-sidebar-open #asva-sidebar-overlay { visibility: visible; opacity: 1; }
+    }
+    .asva-submenu {
+        overflow: hidden;
+        max-height: 0;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease, padding 0.4s ease, margin 0.4s ease;
+        
+        opacity: 0;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+    .asva-submenu.open {
+        max-height: 1000px; /* high enough, but we rely on JS for smooth animation */
+        opacity: 1;
+        padding-top: 5px !important;
+        margin-top: 5px !important;
+    }
+    .asva-arrow {
+        transition: transform 0.3s ease;
+        display: inline-block;
+    }
+    .asva-arrow.open {
+        transform: rotate(-90deg);
+    }
+
+    .asva-menu-link {
+        text-decoration: none !important;
+        transform: translateZ(0);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        border-radius: 12px;
+        margin-bottom: 5px;
+        background: transparent;
+        color: var(--text-gray) !important;
+        border: 1px solid transparent;
+        display: block;
+    }
+    .asva-menu-link:hover {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        color: var(--primary-color) !important;
+        border-color: var(--glass-border);
+        
+    }
+    .asva-menu-link.active {
+        background: var(--glass-active);
+        backdrop-filter: blur(16px);
+        border-color: var(--glass-border);
+        box-shadow: var(--glass-shadow);
+        color: var(--primary-color) !important;
+        font-weight: bold;
+        
+    }
+    .asva-menu-title {
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 12px;
+        border: 1px solid transparent;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        cursor: pointer;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 10px 14px !important;
+        color: var(--text-gray) !important;
+    }
+    .asva-menu-title:hover {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        color: var(--primary-color) !important;
+        border-color: var(--glass-border);
+    }
+    .asva-menu-title-label {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+    }
+    .asva-menu-title-label svg, .asva-menu-title svg {
+        width: 20px !important;
+        height: 20px !important;
+        flex-shrink: 0 !important;
+    }
+    .asva-menu-link {
+        text-decoration: none !important;
+        transform: translateZ(0);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        border-radius: 10px !important;
+        margin-bottom: 4px !important;
+        background: transparent;
+        color: var(--text-gray, #94a3b8) !important;
+        border: 1px solid transparent;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 8px 12px !important;
+        font-size: 0.88rem !important;
+        font-weight: 500 !important;
+    }
+    .asva-menu-link svg {
+        width: 18px !important;
+        height: 18px !important;
+        flex-shrink: 0 !important;
+    }
+    .asva-menu-link.logout-link:hover {
+        background: rgba(239, 68, 68, 0.1) !important;
+        color: var(--error-color) !important;
+        border-color: rgba(239, 68, 68, 0.2) !important;
+    }
+    #asva-pro-sidebar::-webkit-scrollbar {
+        width: 6px;
+    }
+    #asva-pro-sidebar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    #asva-pro-sidebar::-webkit-scrollbar-thumb {
+        background-color: rgba(255,255,255,0.1);
+        border-radius: 10px;
+    }
+</style>
+
+
+
+<div id="asva-floating-actions">
+    <button id="asva-sidebar-toggle-btn" onclick="toggleAsvaSidebar()" aria-label="بستن/باز کردن منو" tabindex="0"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><line x1='4' x2='20' y1='12' y2='12'/><line x1='4' x2='20' y1='6' y2='6'/><line x1='4' x2='20' y1='18' y2='18'/></svg></button>
+    <div class="icon-wrapper">
+            <a href="javascript:void(0)" role="button" aria-label="اعلان‌ها" tabindex="0" onclick="toggleNotifications(event)" id="sidebar-bell-icon" style="">
+                <!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-bell" style="width: 22px; height: 22px; vertical-align: middle;"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+  <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
+</svg>
+                <span id="notif-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: var(--error-color); color: white; font-size: 10px; font-weight: bold; padding: 2px 5px; border-radius: 10px;"></span>
+            </a>
+        </div>
+    
+    <button onclick="openOmnibar()" id="search-toggle-btn" title="جستجو (Ctrl+Shift+F)" style="">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    </button>
+
+    <button onclick="toggleTheme(event)" id="theme-toggle-btn" title="تغییر تم">
+            <svg class="icon-moon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            <svg class="icon-sun" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        </button>
+
+</div>
+<div id="asva-sidebar-overlay" onclick="toggleAsvaSidebar()"></div>
+
+<% userPermissions = typeof userPermissions !== "undefined" ? userPermissions : []; %>
+<div id="notif-dropdown" style="display: none; position: fixed; top: 65px; right: 240px; width: 320px; background: var(--card-bg); border-radius: 12px; box-shadow: 0 20px 40px -5px rgba(0,0,0,0.15); border: 1px solid var(--border-color); z-index: 995; overflow: hidden; color: var(--text-gray); direction: rtl;">
+    <div style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: var(--text-gray); font-weight: bold;">پیام‌ها و اعلان‌ها</span>
+        <a href="notifications" style="font-size: 0.85rem; color: var(--primary-color); ">مشاهده همه</a>
+    </div>
+    <div id="notif-list" style="max-height: 350px; overflow-y: auto;">
+        <div class="skeleton" style="height: 60px; width: 100%; margin-bottom: 10px; border-radius: 8px;"></div><div class="skeleton" style="height: 60px; width: 100%; border-radius: 8px;"></div>
+    </div>
+    <div style="padding: 10px; text-align: center; border-top: 1px solid var(--border-color); background: rgba(128, 128, 128, 0.05);">
+        <button onclick="markAllRead()" style="background: none; border: none; color: var(--text-gray); font-size: 0.85rem; cursor: pointer;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg> علامت‌گذاری همه به عنوان خوانده شده</button>
+    </div>
+</div>
+<aside id="asva-pro-sidebar">
+    
+    <div style="display: flex; align-items: center; margin-bottom: 20px; padding: 0 6px; flex-shrink: 0; min-height: 40px; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 38px; width: 100%; overflow: hidden;">
+            <% if (typeof settings !== 'undefined' && settings.studio_info && (settings.studio_info.logo_light || settings.studio_info.logo_dark || settings.studio_info.logo)) { 
+                let lightLogo = settings.studio_info.logo_light || settings.studio_info.logo || '';
+                let darkLogo = settings.studio_info.logo_dark || lightLogo;
+            %>
+                <img alt="" id="sidebarStudioLogo" src="<%= lightLogo %>" data-light="<%= lightLogo %>" data-dark="<%= darkLogo %>" alt="لوگو استودیو" style="width: 38px; height: 38px; min-width: 38px; min-height: 38px; border-radius: 8px; object-fit: contain; background: transparent; flex-shrink: 0;">
+            <% } else if (typeof STUDIO_LOGO !== 'undefined' && STUDIO_LOGO) { %>
+                <img alt="" id="sidebarStudioLogo" src="<%= STUDIO_LOGO %>" data-light="<%= STUDIO_LOGO %>" data-dark="<%= STUDIO_LOGO %>" alt="لوگو استودیو" style="width: 38px; height: 38px; min-width: 38px; min-height: 38px; border-radius: 8px; object-fit: contain; background: transparent; flex-shrink: 0;">
+            <% } else { %>
+                <img id="sidebarStudioLogo" src="" data-light="" data-dark="" alt="لوگو استودیو" style="width: 38px; height: 38px; min-width: 38px; min-height: 38px; border-radius: 8px; object-fit: contain; display: none; background: transparent; flex-shrink: 0;">
+            <% } %>
+            <script>
+                (function() {
+                    const sidebarLogo = document.getElementById('sidebarStudioLogo');
+                    if (sidebarLogo) {
+                        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                        const newSrc = isDark ? sidebarLogo.getAttribute('data-dark') : sidebarLogo.getAttribute('data-light');
+                        if (newSrc) {
+                            sidebarLogo.src = newSrc;
+                        }
+                    }
+                })();
+            </script>
+            <h2 id="sidebarStudioName" style="color: var(--text-dark); font-size: 18px; margin: 0; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; padding-bottom: 2px;"><%= STUDIO_NAME %></h2>
+        </div>
+        
+
+</div>
+    <!-- کارت پروفایل کاربر آنلاین -->
+    <%
+      const currentUser = typeof user !== 'undefined' && user ? user : null;
+      const userName = currentUser ? (currentUser.full_name || 'کاربر استودیو') : 'کاربر استودیو';
+      const userRoleName = currentUser && currentUser.role_name ? currentUser.role_name : (currentUser && (currentUser.role_id === 'admin' || currentUser.role_id == 1) ? 'مدیر کل' : 'همکار استودیو');
+      const userAvatar = currentUser && currentUser.avatar_url ? currentUser.avatar_url : '';
+      const userInitial = userName ? userName.trim().charAt(0) : `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>`;
+    %>
+    <div style="margin: 20px 0 24px; padding: 16px; background: linear-gradient(135deg, var(--card-bg), var(--bg-color)); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; position: relative; overflow: hidden; flex-shrink: 0; min-height: 220px;">
+        <!-- background decorative glow -->
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary-color), #8b5cf6, #ec4899);"></div>
+        
+        <div style="position: relative; flex-shrink: 0; width: 64px; height: 64px; min-width: 64px; min-height: 64px; display: flex; align-items: center; justify-content: center;">
+            <% if (userAvatar) { %>
+                <img alt="" id="sidebarUserAvatarImg" src="<%= userAvatar %>" alt="<%= userName %>" style="width: 64px; height: 64px; min-width: 64px; min-height: 64px; border-radius: 16px; object-fit: cover; border: 2px solid var(--card-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.1); flex-shrink: 0;" onerror="this.style.display='none'; document.getElementById('sidebarUserAvatarFallback').style.display='flex';">
+                <div id="sidebarUserAvatarFallback" style="display: none; width: 64px; height: 64px; min-width: 64px; min-height: 64px; border-radius: 16px; background: linear-gradient(135deg, var(--primary-color), #8b5cf6, #ec4899); color: #fff; font-weight: bold; font-size: 1.5rem; align-items: center; justify-content: center; border: 2px solid var(--card-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.1); flex-shrink: 0;">
+                    <%= userInitial %>
+                </div>
+            <% } else { %>
+                <img alt="" id="sidebarUserAvatarImg" src="" style="display: none; width: 64px; height: 64px; min-width: 64px; min-height: 64px; border-radius: 16px; object-fit: cover; border: 2px solid var(--card-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.1); flex-shrink: 0;" onerror="this.style.display='none'; document.getElementById('sidebarUserAvatarFallback').style.display='flex';">
+                <div id="sidebarUserAvatarFallback" style="width: 64px; height: 64px; min-width: 64px; min-height: 64px; border-radius: 16px; background: linear-gradient(135deg, var(--primary-color), #8b5cf6, #ec4899); color: #fff; font-weight: bold; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; border: 2px solid var(--card-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.1); flex-shrink: 0;">
+                    <%= userInitial %>
+                </div>
+            <% } %>
+            <span style="position: absolute; bottom: -2px; left: -2px; width: 14px; height: 14px; background: var(--success-color); border: 2px solid var(--card-bg); border-radius: 50%; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);" title="آنلاین"></span>
+        </div>
+        
+        <div style="flex: 1; min-width: 0; width: 100%;">
+            <div id="sidebarUserName" style="font-weight: 700; font-size: 1.05rem; color: var(--text-dark); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <%= userName %>
+            </div>
+            <div id="sidebarUserRole" style="font-size: 0.85rem; color: var(--text-gray); display: flex; align-items: center; justify-content: center; gap: 4px;">
+                <span style="background: rgba(99, 102, 241, 0.1); color: var(--primary-color); padding: 4px 10px; border-radius: 12px; font-weight: 500;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14'/></svg> <%= userRoleName %></span>
+            </div>
+            <div style="margin-top: 14px; width: 100%;">
+                <a href="my-projects" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; width: 100%; text-decoration: none; border: none;">
+                    پروژه‌های من
+                </a>
+            </div>
+        </div>
+    </div>
+    
+        <nav>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+            <% if (userPermissions.some(p => ['dashboard', 'reports'].includes(p))) { %>
+            <li style="margin-bottom: 8px;">
+                <div onclick="toggleMenu('reports-menu', this)" class="asva-menu-title">
+                    <div class="asva-menu-title-label">
+                        <!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-pie-chart"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" />
+  <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+</svg>
+                        <span>گزارش‌ها</span>
+                    </div>
+                    <span class="asva-arrow <%= ['dashboard', 'reports'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                </div>
+                <ul id="reports-menu" class="asva-submenu <%= ['dashboard', 'reports'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                    <% if (userPermissions.includes('dashboard')) { %><li><a href="dashboard" class="<%= current === 'dashboard' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-layout-dashboard"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="7" height="9" x="3" y="3" rx="1" />
+  <rect width="7" height="5" x="14" y="3" rx="1" />
+  <rect width="7" height="9" x="14" y="12" rx="1" />
+  <rect width="7" height="5" x="3" y="16" rx="1" />
+</svg> داشبورد گزارش‌ها</a></li><% } %>
+                    <% if (userPermissions.includes('reports') || userPermissions.includes('dashboard')) { %><li><a href="reports" class="<%= current === 'reports' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-bar-chart-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M5 21v-6" />
+  <path d="M12 21V3" />
+  <path d="M19 21V9" />
+</svg> گزارش محتوا</a></li><% } %>
+                </ul>
+            </li>
+            <% } %>
+
+            <!-- کارخانه محتوا -->
+            <% if (userPermissions.some(p => ['depot', 'media', 'templates'].includes(p))) { %>
+            <li style="margin-bottom: 8px;">
+                <div onclick="toggleMenu('content-menu', this)" class="asva-menu-title">
+                    <div class="asva-menu-title-label">
+                        <!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-factory"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 16h.01" />
+  <path d="M16 16h.01" />
+  <path d="M3 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a.5.5 0 0 0-.769-.422l-4.462 2.844A.5.5 0 0 1 15 10.5v-2a.5.5 0 0 0-.769-.422L9.77 10.922A.5.5 0 0 1 9 10.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" />
+  <path d="M8 16h.01" />
+</svg>
+                        <span>کارخانه محتوا</span>
+                    </div>
+                    <span class="asva-arrow <%= ['depot', 'collections', 'archive', 'media', 'templates'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                </div>
+                <ul id="content-menu" class="asva-submenu <%= ['depot', 'collections', 'archive', 'media', 'templates'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                    <% if (userPermissions.includes('depot')) { %><li><a href="depot" class="<%= current === 'depot' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-inbox"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+  <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+</svg> دپوی محتوا</a></li><% } %>
+                    <% if (userPermissions.includes('collections')) { %><li><a href="collections" class="<%= current === 'collections' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-folder"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg> مجموعه‌ها</a></li><% } %>
+                    <% if (userPermissions.includes('archive')) { %><li><a href="archive" class="<%= current === 'archive' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-archive"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="20" height="5" x="2" y="3" rx="1" />
+  <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+  <path d="M10 12h4" />
+</svg> آرشیو محتوا</a></li><% } %>
+                    <% if (userPermissions.includes('media')) { %><li><a href="media" class="<%= current === 'media' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-image"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+  <circle cx="9" cy="9" r="2" />
+  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+</svg> دارایی‌های دیجیتال</a></li><% } %>
+                    <% if (userPermissions.includes('templates')) { %><li><a href="templates" class="<%= current === 'templates' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-file-text"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg> موتور قالبساز</a></li><% } %>
+                </ul>
+            </li>
+            <% } %>
+
+            <!-- برنامه‌ریزی و تقویم -->
+            <% if (userPermissions.some(p => ['calendar', 'smart-events'].includes(p))) { %>
+            <li style="margin-bottom: 8px;">
+                <div onclick="toggleMenu('planning-menu', this)" class="asva-menu-title">
+                    <div class="asva-menu-title-label">
+                        <!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-calendar"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M8 2v3" />
+  <path d="M16 2v3" />
+  <rect x="3" y="3" width="18" height="18" rx="2" />
+  <path d="M3 9h18" />
+</svg>
+                        <span>برنامه‌ریزی انتشار</span>
+                    </div>
+                    <span class="asva-arrow <%= ['calendar', 'smart-events'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                </div>
+                <ul id="planning-menu" class="asva-submenu <%= ['calendar', 'smart-events'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                    <% if (userPermissions.includes('calendar')) { %><li><a href="calendar" class="<%= current === 'calendar' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-calendar-days"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M8 2v3" />
+  <path d="M16 2v3" />
+  <rect x="3" y="3" width="18" height="18" rx="2" />
+  <path d="M3 9h18" />
+  <path d="M8 13h.01" />
+  <path d="M12 13h.01" />
+  <path d="M16 13h.01" />
+  <path d="M8 17h.01" />
+  <path d="M12 17h.01" />
+  <path d="M16 17h.01" />
+</svg> تقویم انتشار</a></li><% } %>
+                    <% if (userPermissions.includes('smart-events')) { %><li><a href="smart-events" class="<%= current === 'smart-events' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-calendar-heart"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12.127 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v5.125" />
+  <path d="M14.62 17.8A2.25 2.25 0 1118 14.836a2.25 2.25 0 113.38 2.966l-2.626 2.856a.998.998 0 01-1.507 0z" />
+  <path d="M16 2v3" />
+  <path d="M3 9h18" />
+  <path d="M8 2v3" />
+</svg> سامانه مناسبت‌ها</a></li><% } %>
+                </ul>
+            </li>
+            <% } %>
+
+            <!-- امور کارفرمایان -->
+            <% if (userPermissions.some(p => ['organizations', 'client-portal', 'invoice'].includes(p))) { %>
+            <li style="margin-bottom: 8px;">
+                <div onclick="toggleMenu('org-menu', this)" class="asva-menu-title">
+                    <div class="asva-menu-title-label">
+                        <!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-briefcase"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+  <rect width="20" height="14" x="2" y="6" rx="2" />
+</svg>
+                        <span>امور کارفرمایان</span>
+                    </div>
+                    <span class="asva-arrow <%= ['organizations', 'client-portal', 'invoices_list'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                </div>
+                <ul id="org-menu" class="asva-submenu <%= ['organizations', 'client-portal', 'invoices_list'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                    <% if (userPermissions.includes('organizations')) { %><li><a href="organizations" class="<%= current === 'organizations' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-building-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 12h4" />
+  <path d="M10 8h4" />
+  <path d="M14 21v-3a2 2 0 0 0-4 0v3" />
+  <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" />
+  <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
+</svg> مدیریت سازمان‌ها</a></li><% } %>
+                    <% if (userPermissions.includes('client-portal')) { %><li><a href="client-portal" class="<%= current === 'client-portal' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-smartphone"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+  <path d="M12 18h.01" />
+</svg> پورتال کارفرما</a></li><% } %>
+                                        <% if (userPermissions.includes('invoice')) { %><li><a href="invoices_list" class="<%= current === 'invoices_list' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-receipt"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 17V7" />
+  <path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8" />
+  <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" />
+</svg> فاکتور‌های مالی</a></li><% } %>
+                </ul>
+            </li>
+            <% } %>
+
+            <!-- منابع انسانی -->
+            <% if (userPermissions.some(p => ['add-user', 'leaves', 'team'].includes(p))) { %>
+            <li style="margin-bottom: 8px;">
+                <div onclick="toggleMenu('hr-menu', this)" class="asva-menu-title">
+                    <div class="asva-menu-title-label">
+                        <!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-users"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+  <path d="M16 3.128a4 4 0 0 1 0 7.744" />
+  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+  <circle cx="9" cy="7" r="4" />
+</svg>
+                        <span>تیم و منابع انسانی</span>
+                    </div>
+                    <span class="asva-arrow <%= ['add-user', 'leaves', 'team'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                </div>
+                <ul id="hr-menu" class="asva-submenu <%= ['add-user', 'leaves', 'team'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                    <% if (userPermissions.includes('add-user')) { %><li><a href="add-user" class="<%= current === 'add-user' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-user-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+  <circle cx="9" cy="7" r="4" />
+  <line x1="19" x2="19" y1="8" y2="14" />
+  <line x1="22" x2="16" y1="11" y2="11" />
+</svg> ثبت همکاران</a></li><% } %>
+                    <% if (userPermissions.includes('leaves')) { %><li><a href="leaves" class="<%= current === 'leaves' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-palmtree"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" />
+  <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" />
+  <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" />
+  <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" />
+</svg> مدیریت مرخصی‌ها</a></li><% } %>
+                    <% if (userPermissions.includes('team')) { %><li><a href="team" class="<%= current === 'team' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-users"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+  <path d="M16 3.128a4 4 0 0 1 0 7.744" />
+  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+  <circle cx="9" cy="7" r="4" />
+</svg> تیم ما</a></li><% } %>
+                </ul>
+            </li>
+            <% } %>
+
+            <!-- امنیت و سیستم -->
+            <% if (userPermissions.some(p => ['settings', 'audit', 'tokens'].includes(p))) { %>
+            <li style="margin-bottom: 8px;">
+                <div onclick="toggleMenu('settings-menu', this)" class="asva-menu-title">
+                    <div class="asva-menu-title-label">
+                        <!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-shield"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+</svg>
+                        <span>زیرساخت و امنیت</span>
+                    </div>
+                    <span class="asva-arrow <%= ['settings', 'audit', 'tokens', 'recycle_bin'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                </div>
+                <ul id="settings-menu" class="asva-submenu <%= ['settings', 'audit', 'tokens', 'recycle_bin'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                    <% if (userPermissions.includes('recycle_bin')) { %><li><a href="recycle_bin" class="<%= current === 'recycle_bin' ? 'active' : '' %> asva-menu-link" >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        سطل زباله
+                    </a></li><% } %>
+
+                    <% if (userPermissions.includes('settings')) { %><li><a href="settings" class="<%= current === 'settings' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-settings"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
+  <circle cx="12" cy="12" r="3" />
+</svg> تنظیمات پایه</a></li><% } %>
+                    <% if (userPermissions.includes('audit')) { %><li><a href="audit" class="<%= current === 'audit' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-activity"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />
+</svg> تاریخچه فعالیت‌ها</a></li><% } %>
+                    <% if (userPermissions.includes('tokens')) { %><li><a href="tokens" class="<%= current === 'tokens' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-link-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+  <path d="M15 7h2a5 5 0 1 1 0 10h-2" />
+  <line x1="8" x2="16" y1="12" y2="12" />
+</svg> سلامت توکن‌ها</a></li><% } %>
+                </ul>
+            </li>
+            <% } %>
+
+            <li style="margin-top: 24px;">
+                <a href="javascript:void(0)" onclick="if(window.showShortcutsModal) window.showShortcutsModal();" class="asva-menu-link" style="display: flex !important; align-items: center !important; gap: 10px !important; text-decoration: none !important; padding: 10px 14px !important; border-radius: 12px !important; font-weight: 600 !important; font-size: 0.9rem !important;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-keyboard"><path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/></svg>
+                    <span>میان‌برهای کیبورد (Shift+?)</span>
+                </a>
+            </li>
+            <li style="margin-top: 8px;">
+                <a href="javascript:void(0)" onclick="window.customConfirm('آیا از خروج از حساب کاربری اطمینان دارید؟').then(res => { if(res) window.location.href='/api/logout'; })" class="asva-menu-link logout-link" style="color: var(--error-color) !important; display: flex !important; align-items: center !important; gap: 10px !important; text-decoration: none !important; padding: 10px 14px !important; border-radius: 12px !important; font-weight: 600 !important; font-size: 0.9rem !important;">
+                    <svg class="lucide lucide-log-out" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--error-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" x2="9" y1="12" y2="12"></line>
+                    </svg>
+                    <span>خروج از حساب</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</aside>
+
+<script>
+    window.toPersianDigits = function(num) {
+        if (num === null || num === undefined) return '';
+        const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        return num.toString().replace(/\d/g, x => persianDigits[x]);
+    };
+    
+    // Auto-convert standard numbers in DOM to Persian digits where applicable, could be done globally but we'll manually call it.
+
+    var notifLoaded = false;
+    async function fetchNotifications() {
+        try {
+            const res = await fetch('/api/get_notifications');
+            const data = await res.json();
+            if (data.status === 'success') {
+                const badge = document.getElementById('notif-badge');
+                if (data.unread_count > 0) {
+                    badge.innerText = window.toPersianDigits ? window.toPersianDigits(data.unread_count) : data.unread_count;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+                
+                const list = document.getElementById('notif-list');
+                list.innerHTML = '';
+                if (data.notifications.length === 0) {
+                    list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-gray); font-size: 0.9rem;">پیام جدیدی ندارید.</div>';
+                } else {
+                    (data.notifications || []).forEach(n => {
+                        const bg = n.status === 'unread' ? 'rgba(59, 130, 246, 0.1)' : 'transparent';
+                        let actionBtns = '';
+                        if (n.type === 'calendar_approved') {
+                            actionBtns = `<a href="calendar" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem;  color: white; border-radius: 4px; ">مشاهده تقویم</a>`;
+                        } else if (n.type === 'content_reviewed' || n.type === 'content_assigned') {
+                            let link = '/depot';
+                            if (n.target_id) link += `?open=${n.target_id}`;
+                            actionBtns = `<a href="${link}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem;  color: white; border-radius: 4px; ">مشاهده محتوا در دپو</a>`;
+                        } else if (n.link) {
+                            actionBtns = `<a href="${n.link}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem; background: var(--border-color); color: var(--text-gray); border-radius: 4px; ">مشاهده</a>`;
+                        }
+
+                        list.innerHTML += `
+                            <div style="display: block; padding: 15px; border-bottom: 1px solid var(--border-color); background: ${bg}; transition: 0.2s;" onmouseover="this.style.background='rgba(128, 128, 128, 0.05)'" onmouseout="this.style.background='${bg}'">
+                                <div style="font-weight: bold; color: var(--text-gray); font-size: 0.9rem; margin-bottom: 4px;">${window.toPersianDigits ? window.toPersianDigits(n.title) : n.title}</div>
+                                <div style="color: var(--text-gray); font-size: 0.8rem; line-height: 1.5;">${window.toPersianDigits ? window.toPersianDigits(n.description) : n.description}</div>
+                                ${actionBtns}
+                                <div style="color: var(--text-gray); font-size: 0.75rem; margin-top: 6px;">${window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at}</div>
+                            </div>
+                        `;
+                    });
+                }
+            }
+        } catch(e) { console.error(e); }
+    }
+    
+    function toggleNotifications(e) {
+        if(e) e.stopPropagation();
+        const drop = document.getElementById('notif-dropdown');
+        const bellIcon = document.getElementById('sidebar-bell-icon');
+        if (drop.style.display === 'none') {
+            
+            // Adjust position for mobile
+            if (window.innerWidth <= 768) {
+                drop.style.right = '20px';
+                drop.style.left = '20px';
+                drop.style.width = 'auto';
+            } else {
+                const isSidebarOpen = document.body.classList.contains('asva-sidebar-open');
+                if (isSidebarOpen) {
+                    drop.style.right = '325px';
+                } else {
+                    drop.style.right = '65px';
+                }
+                drop.style.width = '320px';
+            }
+            
+            drop.style.display = 'block';
+            if (bellIcon) bellIcon.classList.add('active');
+            if (!notifLoaded) { fetchNotifications(); notifLoaded = true; }
+        } else {
+            drop.style.display = 'none';
+            if (bellIcon) bellIcon.classList.remove('active');
+        }
+    }
+    
+    async function markAllRead() {
+        try {
+            const res = await fetch('/api/read_notifications', { method: 'POST' });
+            if ((await res.json()).status === 'success') {
+                fetchNotifications();
+            }
+        } catch(e) { console.error(e); }
+    }
+    
+    fetchNotifications();
+    
+    document.addEventListener('click', function(e) {
+        const drop = document.getElementById('notif-dropdown');
+        if (drop && drop.style.display === 'block' && !e.target.closest('#notif-dropdown') && !e.target.closest('#sidebar-bell-icon')) {
+            drop.style.display = 'none';
+            const bellIcon = document.getElementById('sidebar-bell-icon');
+            if (bellIcon) bellIcon.classList.remove('active');
+        }
+    });
+
+    function toggleAsvaSidebar() {
+        document.body.classList.toggle('asva-sidebar-open');
+        const btn = document.getElementById('asva-sidebar-toggle-btn');
+        if (document.body.classList.contains('asva-sidebar-open')) {
+            btn.innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>`;
+            btn.style.transform = 'rotate(90deg)';
+        } else {
+            btn.innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><line x1='4' x2='20' y1='12' y2='12'/><line x1='4' x2='20' y1='6' y2='6'/><line x1='4' x2='20' y1='18' y2='18'/></svg>`;
+            btn.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    function toggleMenu(id, element) {
+        const menu = document.getElementById(id);
+        if (menu) {
+            const isClosing = menu.classList.contains('open');
+            
+            if (!isClosing) {
+                document.querySelectorAll('.asva-submenu.open').forEach(openMenu => {
+                    if (openMenu.id !== id) {
+                        openMenu.style.maxHeight = openMenu.scrollHeight + 'px';
+                        void openMenu.offsetHeight; // reflow
+                        openMenu.classList.remove('open');
+                        openMenu.style.maxHeight = '0px';
+                        
+                        const toggleDiv = openMenu.previousElementSibling;
+                        if (toggleDiv) {
+                            const openArrow = toggleDiv.querySelector('.asva-arrow.open');
+                            if (openArrow) {
+                                openArrow.classList.remove('open');
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (isClosing) {
+                menu.style.maxHeight = menu.scrollHeight + 'px';
+                void menu.offsetHeight; // reflow
+                menu.classList.remove('open');
+                menu.style.maxHeight = '0px';
+            } else {
+                menu.classList.add('open');
+                menu.style.maxHeight = menu.scrollHeight + 'px';
+                setTimeout(() => {
+                    if (menu.classList.contains('open')) {
+                        menu.style.maxHeight = '1000px';
+                    }
+                }, 400);
+            }
+            if (element) {
+                const arrow = element.querySelector('.asva-arrow');
+                if (arrow) {
+                    if (isClosing) {
+                        arrow.classList.remove('open');
+                    } else {
+                        arrow.classList.add('open');
+                    }
+                }
+            }
+        }
+    }
+
+    if (window.innerWidth > 768) {
+        document.body.classList.add('asva-sidebar-open');
+        const btn = document.getElementById('asva-sidebar-toggle-btn');
+        if (btn) {
+            btn.innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>`;
+            btn.style.transform = 'rotate(90deg)';
+        }
+    }
+</script>
+
+<div id="custom-confirm" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 2147483647 !important; align-items:center; justify-content:center; flex-direction:column;">
+    <div style="background: var(--card-bg); padding:20px; border-radius:12px; width: 100%; max-width: 400px; box-sizing: border-box; text-align:center; box-shadow: 0 20px 40px -5px rgba(0,0,0,0.15);">
+        <p id="custom-confirm-msg" style="margin-bottom:20px; font-size:1.1rem;"></p>
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button id="custom-confirm-yes" class="btn-danger">بله، مطمئنم</button>
+            <button type="button" class="btn-outline" id="custom-confirm-no"  >انصراف</button>
+        </div>
+    </div>
+</div>
+<script>
+window.customConfirm = function(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-confirm');
+        const msgEl = document.getElementById('custom-confirm-msg');
+        const btnYes = document.getElementById('custom-confirm-yes');
+        const btnNo = document.getElementById('custom-confirm-no');
+        
+        msgEl.innerText = message;
+        modal.style.display = 'flex';
+        
+        btnYes.onclick = function() {
+            modal.style.display = 'none';
+            resolve(true);
+        };
+        btnNo.onclick = function() {
+            modal.style.display = 'none';
+            resolve(false);
+        };
+    });
+};
+</script>
+
+
+
+<link rel="stylesheet" href="assets/css/jalalidatepicker.min.css">
+<script src="assets/js/jalalidatepicker.min.js" defer></script>
+<script>
+    let checkJdpIntervalSidebar = setInterval(function() {
+        if (typeof jalaliDatepicker !== 'undefined') {
+            clearInterval(checkJdpIntervalSidebar);
+            jalaliDatepicker.startWatch({
+                persianDigits: true,
+                hideAfterChange: true,
+                autoHide: true,
+                showTodayBtn: true,
+                showEmptyBtn: true
+            });
+
+        const jalaaliToday = new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        
+        function processInput(input) {
+            if(input.type === 'checkbox' || input.type === 'radio' || input.type === 'hidden') return;
+            // Exclude anything that is not a date
+            if(input.id && (input.id.includes('update') || input.id === 'candidateSearch')) return;
+            
+            input.setAttribute('data-jdp', 'true');
+            // The library needs input type to be text
+            if(input.type === 'date') input.type = 'text';
+            
+            if (!input.value) {
+                input.value = jalaaliToday;
+            }
+        }
+
+        const dateInputs = document.querySelectorAll('input[placeholder*="140"], input[id*="Date"], input[id*="date"]');
+        dateInputs.forEach(processInput);
+        
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(m => {
+                m.addedNodes.forEach(node => {
+                    if (node.nodeType === 1) {
+                        let inputs = node.querySelectorAll ? node.querySelectorAll('input[placeholder*="140"], input[id*="Date"], input[id*="date"]') : [];
+                        if (node.tagName === 'INPUT' && (node.placeholder.includes('140') || node.id.toLowerCase().includes('date'))) {
+                            inputs = [node];
+                        }
+                        inputs.forEach(input => {
+                            if(!input.hasAttribute('data-jdp')) {
+                                processInput(input);
+                            }
+                        });
+                    }
+                });
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        } // end if
+    }, 50); // end setInterval
+</script>
+
+<style>
+/* Global UX Elements */
+#global-toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 2147483647 !important;
+}
+.global-toast {
+    min-width: 300px;
+    padding: 14px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    animation: slideUp 0.3s ease-out forwards;
+    transition: opacity 0.3s, transform 0.3s;
+}
+.global-toast.hiding {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+}
+.global-toast.success { background-color: var(--success-color); }
+.global-toast.error { background-color: var(--error-color); }
+.global-toast.info { background-color: var(--primary-color); }
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#global-loader-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 2147483647 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+#global-loader-overlay.active {
+    visibility: visible;
+    opacity: 1;
+}
+.loader-spinner {
+    border: 4px solid rgba(79, 70, 229, 0.2);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.loader-text {
+    font-weight: bold;
+    color: var(--text-gray);
+    font-size: 1.1rem;
+}
+</style>
+
+<div id="global-toast-container"></div>
+<div id="global-loader-overlay">
+    <div class="loader-spinner"></div>
+    <div class="loader-text" id="global-loader-text">لطفا کمی صبر کنید...</div>
+</div>
+
+<script>
+window.showToast = function(message, type = 'info', action = null) {
+    if (window.toPersianDigits && typeof message === 'string') message = window.toPersianDigits(message);
+    if (window.toPersianDigits && typeof message === 'number') message = window.toPersianDigits(message.toString());
+    const container = document.getElementById('global-toast-container');
+    if (!container) return;
+    
+    if (type !== 'success' && type !== 'error' && type !== 'info') {
+        if (message && message.toString().toLowerCase().includes('خطا')) type = 'error';
+        else type = 'info';
+    }
+    const toast = document.createElement('div');
+    toast.className = 'global-toast ' + type;
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.justifyContent = 'space-between';
+    toast.style.gap = '15px';
+    
+    let iconHtml = '';
+    if (type === 'success') iconHtml = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg>";
+    else if (type === 'error') iconHtml = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>";
+    else iconHtml = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><circle cx='12' cy='12' r='10'/><path d='M12 16v-4'/><path d='M12 8h.01'/></svg>";
+    
+    let innerHtml = `<div style="display: flex; align-items: center;"><span>${iconHtml}</span> <span>${message}</span></div>`;
+    if (action) {
+        innerHtml += `<button class="toast-action-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; white-space: nowrap; transition: 0.2s;">${action.text}</button>`;
+    }
+    
+    toast.innerHTML = innerHtml;
+    
+    if (action) {
+        const btn = toast.querySelector('.toast-action-btn');
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            action.callback();
+            toast.classList.add('hiding');
+            setTimeout(() => toast.remove(), 300);
+        });
+        btn.addEventListener('mouseover', () => btn.style.background = 'rgba(255,255,255,0.3)');
+        btn.addEventListener('mouseout', () => btn.style.background = 'rgba(255,255,255,0.2)');
+    }
+
+    container.appendChild(toast);
+    setTimeout(() => {
+        if (document.body.contains(toast)) {
+            toast.classList.add('hiding');
+            setTimeout(() => {
+                if (document.body.contains(toast)) toast.remove();
+            }, 300);
+        }
+    }, action ? 5000 : 3500);
+};
+
+window.alert = function(msg) { window.showToast(msg); };
+
+window.showLoading = function(text = 'لطفا کمی صبر کنید...') {
+    const loader = document.getElementById('global-loader-overlay');
+    const loaderText = document.getElementById('global-loader-text');
+    if (loader && loaderText) {
+        loaderText.innerText = text;
+        loader.classList.add('active');
+    }
+};
+
+window.hideLoading = function() {
+    const loader = document.getElementById('global-loader-overlay');
+    if (loader) {
+        loader.classList.remove('active');
+    }
+};
+</script>
+
+<script>
+    // بستن مودال با کلیک در پس‌زمینه
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+
+    // بستن مودال با زدن کلید Esc
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay, .modal').forEach(modal => {
+                if (modal.style.display === 'flex' || modal.style.display === 'block') {
+                    modal.style.display = 'none';
+                }
+            });
+            const customConfirm = document.getElementById('custom-confirm');
+            if(customConfirm && customConfirm.style.display === 'flex') {
+                 // cancel it
+                 document.getElementById('custom-confirm-no').click();
+            }
+        }
+    });
+</script>
+
+<script>
+    if (!window.toPersianDigits) {
+        window.toPersianDigits = function(str) {
+            if (str === null || str === undefined) return "";
+            const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+            return str.toString().replace(/\d/g, x => persianDigits[x]);
+        };
+    }
+    if (!window.toEnglishDigits) {
+        window.toEnglishDigits = function(str) {
+            if (!str) return str;
+            return str.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+        };
+    }
+</script>
+
+
+<script>
+(function() {
+    function enforcePersianDigits(input) {
+        if (!input || !window.toPersianDigits) return;
+        const oldVal = input.value;
+        if (!oldVal) return;
+        const newVal = window.toPersianDigits(oldVal);
+        if (oldVal !== newVal) {
+            let start = input.selectionStart;
+            let end = input.selectionEnd;
+            input.value = newVal;
+            try { input.setSelectionRange(start, end); } catch(err) {}
+        }
+    }
+    
+    // For manual typing
+    document.addEventListener('input', function(e) {
+        if (e.target.tagName === 'INPUT' && (
+            e.target.getAttribute('inputmode') === 'numeric' ||
+            e.target.hasAttribute('data-jdp') ||
+            e.target.classList.contains('comp-count') ||
+            e.target.classList.contains('comp-count-sched') ||
+            e.target.classList.contains('edit-comp-count') ||
+            e.target.classList.contains('item-count') ||
+            e.target.classList.contains('item-day') ||
+            e.target.type === 'tel'
+        )) {
+            enforcePersianDigits(e.target);
+        }
+    });
+
+    // Replaced polling with event
+document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.target); });
+})();
+</script>
+
+
+        <script>
+            function updateThemeIcon(animate = false) {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const btn = document.getElementById('theme-toggle-btn');
+                if(btn) {
+                    btn.querySelector('.icon-moon').style.display = isDark ? 'none' : 'block';
+                    btn.querySelector('.icon-sun').style.display = isDark ? 'block' : 'none';
+                    if (animate) {
+                        btn.style.transform = 'rotate(360deg)';
+                        setTimeout(() => btn.style.transform = 'rotate(0deg)', 400);
+                    }
+                }
+            }
+            // Run initially
+            setTimeout( () => updateThemeIcon(false));
+            
+            
+        </script>
+<!-- Omnibar Modal -->
+<div id="omnibarModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.6); z-index: 10000; justify-content: center; align-items: flex-start; padding-top: 12vh; backdrop-filter: blur(8px); opacity: 0; transition: opacity 0.2s;">
+    <div style="background: var(--card-bg); width: 90%; width: 100%; max-width: 650px; box-sizing: border-box; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--border-color); transform: translateY(-20px); transition: transform 0.2s;" id="omnibarContainer">
+        <div style="display: flex; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border-color);">
+            <svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='color: var(--primary-color); margin-left: 12px;'><circle cx='11' cy='11' r='8'/><path d='m21 21-4.3-4.3'/></svg>
+            <input type="text" id="omnibarInput" placeholder="جستجو در کل سیستم... (محتوا‌ها، فایل‌ها، پروژه‌ها)" style="flex: 1; border: none; background: transparent; font-size: 1.15rem; color: var(--text-color); outline: none; padding: 5px; font-family: inherit;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button onclick="closeOmnibar()" style="background: transparent; border: none; color: var(--text-gray); cursor: pointer; padding: 5px; border-radius: 4px;" onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background='transparent'"><svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></button>
+            </div>
+        </div>
+        <div id="omnibarResults" style="max-height: 60vh; overflow-y: auto; padding: 0;">
+            <div style="padding: 30px; text-align: center; color: var(--text-gray);">
+                <svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1' stroke-linecap='round' stroke-linejoin='round' style='margin-bottom: 12px; opacity: 0.5;'><path d='M12 2v20'/><path d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/></svg>
+                <p>برای شروع جستجو تایپ کنید...</p>
+                <p style="font-size: 0.8rem; margin-top: 8px; opacity: 0.7;">میانبر: Ctrl + Shift + F</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Omnibar Logic
+    let omnibarDebounceTimer = null;
+    
+    function openOmnibar() {
+        const modal = document.getElementById('omnibarModal');
+        const container = document.getElementById('omnibarContainer');
+        const input = document.getElementById('omnibarInput');
+        
+        modal.style.display = 'flex';
+        // force reflow
+        void modal.offsetWidth;
+        
+        modal.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+        
+        input.value = '';
+        document.getElementById('omnibarResults').innerHTML = `
+            <div style="padding: 30px; text-align: center; color: var(--text-gray);">
+                <p>برای شروع جستجو تایپ کنید...</p>
+            </div>
+        `;
+        input.focus();
+    }
+    
+    function closeOmnibar() {
+        const modal = document.getElementById('omnibarModal');
+        const container = document.getElementById('omnibarContainer');
+        
+        modal.style.opacity = '0';
+        container.style.transform = 'translateY(-20px)';
+        
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 200);
+    }
+    
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+            e.preventDefault();
+            if (document.getElementById('omnibarModal').style.display === 'flex') {
+                closeOmnibar();
+            } else {
+                openOmnibar();
+            }
+        }
+        if (e.key === 'Escape' && document.getElementById('omnibarModal').style.display === 'flex') {
+            closeOmnibar();
+        }
+    });
+
+    // Close on click outside
+    document.getElementById('omnibarModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeOmnibar();
+        }
+    });
+    
+    document.getElementById('omnibarInput').addEventListener('input', function(e) {
+        const q = e.target.value.trim();
+        const resultsDiv = document.getElementById('omnibarResults');
+        
+        if (q.length < 2) {
+            resultsDiv.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-gray);">برای شروع جستجو تایپ کنید... (حداقل ۲ حرف)</div>`;
+            return;
+        }
+        
+        resultsDiv.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-gray);"><svg class="spinner" viewBox="0 0 50 50" style="width:30px;height:30px;animation:rotate 2s linear infinite;"><circle cx="25" cy="25" r="20" fill="none" stroke-width="5" stroke="var(--primary-color)" style="stroke-linecap:round;animation:dash 1.5s ease-in-out infinite;"></circle></svg><p style="margin-top:10px;">در حال جستجو...</p></div>`;
+        
+        clearTimeout(omnibarDebounceTimer);
+        omnibarDebounceTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/global_search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    renderOmnibarResults(data.results, q);
+                } else {
+                    resultsDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--error-color);">خطا در جستجو</div>`;
+                }
+            } catch(err) {
+                console.error(err);
+                resultsDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--error-color);">خطا در ارتباط با سرور</div>`;
+            }
+        }, 300);
+    });
+
+    function highlightMatch(text, query) {
+        if (!text) return '';
+        const regex = new RegExp(`(${query})`, 'gi');
+        return text.replace(regex, '<mark style="background: rgba(234,179,8,0.3); color: inherit; padding: 0 2px; border-radius: 2px;">$1</mark>');
+    }
+
+    function renderOmnibarResults(results, query) {
+        const div = document.getElementById('omnibarResults');
+        let html = '';
+        
+        const contentsCount = results.contents.length;
+        const mediaCount = results.media.length;
+        const colCount = results.collections.length;
+        
+        
+        const orgCount = results.orgs ? results.orgs.length : 0;
+        const total = contentsCount + mediaCount + colCount + orgCount;
+
+        
+        if (total === 0) {
+            div.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-gray);">هیچ نتیجه‌ای یافت نشد.</div>`;
+            return;
+        }
+
+        // Contents Section
+        if (contentsCount > 0) {
+            html += `
+                <div style="padding: 10px 20px; background: var(--hover-bg); font-weight: bold; color: var(--text-color); font-size: 0.9rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                    <span>📝 پست‌ها و محتوا‌ها</span>
+                    <span style=" color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem;">${window.toPersianDigits ? window.toPersianDigits(contentsCount) : contentsCount} مورد</span>
+                </div>
+                <div style="padding: 10px 0;">
+            `;
+            
+            results.contents.forEach(c => {
+                html += `
+                    <a href="javascript:void(0)" onclick="closeOmnibar(); if(window.openContentDetails) { window.openContentDetails(${c.id}); } else { window.location.href='depot?open=${c.id}'; }" style="display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: inherit; transition: background 0.2s; border-right: 3px solid transparent;" onmouseover="this.style.background='var(--hover-bg)'; this.style.borderRight='3px solid var(--primary-color)'" onmouseout="this.style.background='transparent'; this.style.borderRight='3px solid transparent'">
+                        <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(99,102,241,0.1); display: flex; align-items: center; justify-content: center; margin-left: 15px; color: var(--primary-color);">
+                            <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/><line x1='16' y1='13' x2='8' y2='13'/><line x1='16' y1='17' x2='8' y2='17'/><polyline points='10 9 9 9 8 9'/></svg>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; font-size: 1rem; margin-bottom: 4px;">${highlightMatch(c.title, query)}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-gray); display: flex; gap: 8px; align-items: center;">
+                                <span>${c.org_name || 'بدون سازمان'}</span>
+                                <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--border-color);"></span>
+                                <span>${c.content_type || 'محتوا'}</span>
+                                <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--border-color);"></span>
+                                <span>${c.status}</span>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            });
+            html += `</div>`;
+        }
+        
+        // Media Section
+        if (mediaCount > 0) {
+            html += `
+                <div style="padding: 10px 20px; background: var(--hover-bg); font-weight: bold; color: var(--text-color); font-size: 0.9rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                    <span>🖼️ فایل‌ها و رسانه‌ها</span>
+                    <span style="background: var(--success-color, #10b981); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem;">${window.toPersianDigits ? window.toPersianDigits(mediaCount) : mediaCount} مورد</span>
+                </div>
+                <div style="padding: 10px 0;">
+            `;
+            
+            results.media.forEach(m => {
+                html += `
+                    <a href="javascript:void(0)" onclick="closeOmnibar(); window.location.href='media'" style="display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: inherit; transition: background 0.2s; border-right: 3px solid transparent;" onmouseover="this.style.background='var(--hover-bg)'; this.style.borderRight='3px solid var(--success-color, #10b981)'" onmouseout="this.style.background='transparent'; this.style.borderRight='3px solid transparent'">
+                        <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(16,185,129,0.1); display: flex; align-items: center; justify-content: center; margin-left: 15px; color: var(--success-color, #10b981); overflow: hidden;">
+                            ${m.url && m.url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? `<img alt="" src="${m.url}" style="width:100%;height:100%;object-fit:cover;">` : `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='18' x='3' y='3' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>`}
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; font-size: 1rem; margin-bottom: 4px;">${highlightMatch(m.title, query)}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-gray);">
+                                ${m.type || 'فایل'}
+                            </div>
+                        </div>
+                    </a>
+                `;
+            });
+            html += `</div>`;
+        }
+        
+        // Collections Section
+        if (colCount > 0) {
+            html += `
+                <div style="padding: 10px 20px; background: var(--hover-bg); font-weight: bold; color: var(--text-color); font-size: 0.9rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                    <span>📁 مجموعه‌ها</span>
+                    <span style="background: var(--warning-color, #f59e0b); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem;">${window.toPersianDigits ? window.toPersianDigits(colCount) : colCount} مورد</span>
+                </div>
+                <div style="padding: 10px 0;">
+            `;
+            
+            results.collections.forEach(c => {
+                html += `
+                    <a href="javascript:void(0)" onclick="closeOmnibar(); window.location.href='collections'" style="display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: inherit; transition: background 0.2s; border-right: 3px solid transparent;" onmouseover="this.style.background='var(--hover-bg)'; this.style.borderRight='3px solid var(--warning-color, #f59e0b)'" onmouseout="this.style.background='transparent'; this.style.borderRight='3px solid transparent'">
+                        <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(245,158,11,0.1); display: flex; align-items: center; justify-content: center; margin-left: 15px; color: var(--warning-color, #f59e0b);">
+                            <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/></svg>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; font-size: 1rem;">${highlightMatch(c.title, query)}</div>
+                        </div>
+                    </a>
+                `;
+            });
+            html += `</div>`;
+        }
+
+        
+        // Orgs Section
+        if (orgCount > 0) {
+            html += `
+                <div style="padding: 10px 20px; background: var(--hover-bg); font-weight: bold; color: var(--text-color); font-size: 0.9rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                    <span>🏢 مشتریان / سازمان‌ها</span>
+                    <span style="background: var(--info-color, #3b82f6); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem;">${window.toPersianDigits ? window.toPersianDigits(orgCount) : orgCount} مورد</span>
+                </div>
+                <div style="padding: 10px 0;">
+            `;
+            
+            results.orgs.forEach(o => {
+                html += `
+                    <a href="javascript:void(0)" onclick="closeOmnibar(); window.location.href='organizations'" style="display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: inherit; transition: background 0.2s; border-right: 3px solid transparent;" onmouseover="this.style.background='var(--hover-bg)'; this.style.borderRight='3px solid var(--info-color, #3b82f6)'" onmouseout="this.style.background='transparent'; this.style.borderRight='3px solid transparent'">
+                        <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(59,130,246,0.1); display: flex; align-items: center; justify-content: center; margin-left: 15px; color: var(--info-color, #3b82f6);">
+                            <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='16' height='20' x='4' y='2' rx='2' ry='2'/><path d='M9 22v-4h6v4'/><path d='M8 6h.01'/><path d='M16 6h.01'/><path d='M12 6h.01'/><path d='M12 10h.01'/><path d='M12 14h.01'/><path d='M16 10h.01'/><path d='M16 14h.01'/><path d='M8 10h.01'/><path d='M8 14h.01'/></svg>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; font-size: 1rem;">${highlightMatch(o.name, query)}</div>
+                        </div>
+                    </a>
+                `;
+            });
+            html += `</div>`;
+        }
+    
+        div.innerHTML = html;
+    }
+</script>
+<style>
+    @keyframes rotate { 100% { transform: rotate(360deg); } }
+    @keyframes dash { 0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; } 50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; } 100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; } }
+</style>
+
+
+<script>
+window.ASVA_CURRENT_USER = '<%= typeof user !== "undefined" && user ? user.username : "guest" %>';
+// --- Global Keyboard Shortcuts ---
+const defaultShortcuts = {
+    save: { ctrl: true, alt: false, shift: false, key: 's' },
+    search: { ctrl: true, alt: false, shift: false, key: 'k' },
+    add: { ctrl: false, alt: true, shift: false, key: 'n' },
+    help: { ctrl: false, alt: false, shift: true, key: '?' } // ? might not need shift in some layouts, but typically it is shift+/
+};
+
+function getShortcuts() {
+    try {
+        const stored = localStorage.getItem('asva_shortcuts_' + window.ASVA_CURRENT_USER);
+        if (stored) return JSON.parse(stored);
+    } catch(e) {}
+    return defaultShortcuts;
+}
+
+function matchesShortcut(e, shortcutDef) {
+    if (!shortcutDef) return false;
+    
+    // Check modifiers
+    if (!!shortcutDef.ctrl !== (e.ctrlKey || e.metaKey)) return false;
+    if (!!shortcutDef.alt !== e.altKey) return false;
+    if (!!shortcutDef.shift !== e.shiftKey) return false;
+    
+    // Check key
+    // For ?, the e.key is '?' and shift might be true.
+    // If user configured it as something else, we compare lowercased.
+    return e.key.toLowerCase() === shortcutDef.key.toLowerCase();
+}
+
+document.addEventListener('keydown', function(e) {
+    // Exclude if typing in input/textarea (unless it's save or esc)
+    const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+    const shortcuts = getShortcuts();
+    
+    // 1. Esc to close active things (always Esc)
+    if (e.key === 'Escape') {
+        let handled = false;
+        if (typeof window.closeOmnibar === 'function' && document.getElementById('omnibarModal') && document.getElementById('omnibarModal').style.display === 'flex') {
+            window.closeOmnibar();
+            handled = true;
+        }
+        
+        if (!handled) {
+            const openModals = Array.from(document.querySelectorAll('.modal, .modal-overlay, .side-drawer-overlay, [id*="Modal"]'))
+                .filter(el => window.getComputedStyle(el).display !== 'none');
+            if (openModals.length > 0) {
+                const topModal = openModals[openModals.length - 1];
+                const closeBtn = topModal.querySelector('button[onclick*="close"], button.close-btn, button[onclick*="display=\'none\'"]');
+                if (closeBtn) {
+                    closeBtn.click();
+                    handled = true;
+                } else if (topModal.style.display === 'flex' || topModal.style.display === 'block') {
+                    topModal.style.display = 'none';
+                    handled = true;
+                }
+            }
+        }
+        if (handled) { e.preventDefault(); return; }
+    }
+
+    // 2. Save
+    if (matchesShortcut(e, shortcuts.save)) {
+        e.preventDefault(); 
+        const openModals = Array.from(document.querySelectorAll('.modal, .modal-overlay, .side-drawer-overlay, [id*="Modal"]'))
+            .filter(el => window.getComputedStyle(el).display !== 'none' && !el.id.includes('omnibar'));
+        let container = document;
+        if (openModals.length > 0) container = openModals[openModals.length - 1];
+        
+        if (container.classList.contains('side-drawer-overlay')) {
+            const saveAllBtn = container.querySelector('button[onclick*="saveAllEditFields"]');
+            if (saveAllBtn) { saveAllBtn.click(); return; }
+        }
+        
+        const buttons = Array.from(container.querySelectorAll('button:not(:disabled)'));
+        const saveBtn = buttons.find(b => 
+            b.innerText.includes('ذخیره') || 
+            b.innerText.includes('ثبت') || 
+            b.innerText.includes('تایید') ||
+            b.innerText.includes('به‌روزرسانی') ||
+            b.innerText.includes('ارسال')
+        );
+        if (saveBtn) { saveBtn.click(); return; }
+    }
+    
+    // 3. Search
+    if (matchesShortcut(e, shortcuts.search) && !isTyping) {
+        e.preventDefault();
+        if (typeof window.toggleOmnibar === 'function') {
+            window.toggleOmnibar();
+        } else if (document.getElementById('omnibarModal')) {
+            const ob = document.getElementById('omnibarModal');
+            if (ob.style.display === 'flex') {
+                ob.style.display = 'none';
+            } else {
+                ob.style.display = 'flex';
+                const inp = document.getElementById('omnibarInput');
+                if (inp) inp.focus();
+            }
+        }
+    }
+    
+    // 4. Add New
+    if (matchesShortcut(e, shortcuts.add) && !isTyping) {
+        e.preventDefault();
+        const buttons = Array.from(document.querySelectorAll('button:not(:disabled)'));
+        const addBtn = buttons.find(b => b.innerText.includes('افزودن'));
+        if (addBtn) addBtn.click();
+    }
+    
+    // 5. Help / Shortcuts
+    if (matchesShortcut(e, shortcuts.help) && !isTyping) {
+        e.preventDefault();
+        window.showShortcutsModal();
+    }
+});
+
+function formatShortcut(shortcut) {
+    if (!shortcut) return '';
+    let parts = [];
+    if (shortcut.ctrl) parts.push('Ctrl');
+    if (shortcut.alt) parts.push('Alt');
+    if (shortcut.shift) parts.push('Shift');
+    parts.push(shortcut.key.toUpperCase());
+    return parts.map(p => `<kbd style="background: rgba(128,128,128,0.1); padding: 4px 8px; border-radius: 4px; font-family: monospace; border: 1px solid var(--border-color); color: var(--text-color);">${p}</kbd>`).join(' + ');
+}
+
+window.showShortcutsModal = function() {
+    let existing = document.getElementById('shortcutsModal');
+    if (existing) {
+        existing.style.display = 'flex';
+        renderShortcutsEditor();
+        return;
+    }
+    
+    const div = document.createElement('div');
+    div.id = 'shortcutsModal';
+    div.className = 'modal-overlay';
+    div.style.display = 'flex';
+    div.style.position = 'fixed';
+    div.style.top = '0';
+    div.style.left = '0';
+    div.style.right = '0';
+    div.style.bottom = '0';
+    div.style.background = 'rgba(15, 23, 42, 0.7)';
+    div.style.backdropFilter = 'blur(5px)';
+    div.style.justifyContent = 'center';
+    div.style.alignItems = 'center';
+    div.style.zIndex = '3000';
+    div.onclick = function(e) { if(e.target === div) div.style.display = 'none'; };
+    
+    div.innerHTML = `
+        <div style="background: var(--card-bg); width: 90%; width: 100%; max-width: 500px; box-sizing: border-box; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; position: relative;">
+                <div style="flex: 1;"></div>
+                <h2 style="margin: 0; color: var(--text-color); display: flex; align-items: center; justify-content: center; gap: 8px; flex: 3; text-align: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/></svg>
+                    راهنمای کلید‌های میانبر
+                </h2>
+                <div style="flex: 1; display: flex; justify-content: flex-end;">
+                    <button onclick="document.getElementById('shortcutsModal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-gray);">&times;</button>
+                </div>
+            </div>
+            
+            <div id="shortcutsEditorContainer" style="display: flex; flex-direction: column; gap: 15px;">
+                <!-- Populated by JS -->
+            </div>
+            
+            <div style="margin-top: 25px; display: flex; gap: 10px;">
+                <button onclick="resetShortcuts()" class="btn-outline" style="flex: 1; padding: 12px; font-size: 0.95rem; border-radius: 8px;">بازنشانی پیشفرض</button>
+                <button onclick="document.getElementById('shortcutsModal').style.display='none'" class="btn-primary" style="flex: 2; padding: 12px; font-size: 1rem; border-radius: 8px;">متوجه شدم</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(div);
+    renderShortcutsEditor();
+};
+
+window.renderShortcutsEditor = function() {
+    const container = document.getElementById('shortcutsEditorContainer');
+    if (!container) return;
+    
+    const shortcuts = getShortcuts();
+    
+    const items = [
+        { id: 'save', label: 'ذخیره کردن فرم‌ها (Save)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>' },
+        { id: 'search', label: 'جستجوی سریع (Omnibar)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>' },
+        { id: 'add', label: 'افزودن آیتم جدید', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' },
+        { id: 'help', label: 'نمایش این راهنما', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' }
+    ];
+    
+    let html = '';
+    items.forEach(item => {
+        const sc = shortcuts[item.id];
+        html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
+                <span style="color: var(--text-gray); display: flex; align-items: center; gap: 8px;">
+                    ${item.icon}
+                    ${item.label}
+                </span>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <div id="shortcut-display-${item.id}" style="display: flex; gap: 5px;">
+                        ${formatShortcut(sc)}
+                    </div>
+                    <button onclick="startEditingShortcut('${item.id}')" style="background: none; border: none; cursor: pointer; color: var(--primary-color); padding: 4px; margin-right: 5px;" title="ویرایش">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    // Add Esc which is fixed
+    html += `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px;">
+            <span style="color: var(--text-gray); display: flex; align-items: center; gap: 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                بستن فرم / لغو (Cancel)
+            </span>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <div style="display: flex; gap: 5px;">
+                    <kbd style="background: rgba(128,128,128,0.1); padding: 4px 8px; border-radius: 4px; font-family: monospace; border: 1px solid var(--border-color); color: var(--text-color);">ESC</kbd>
+                </div>
+                <div style="width: 22px;"></div> <!-- placeholder for align -->
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+};
+
+let currentEditingId = null;
+
+window.startEditingShortcut = function(id) {
+    currentEditingId = id;
+    const displayDiv = document.getElementById('shortcut-display-' + id);
+    if (!displayDiv) return;
+    
+    displayDiv.innerHTML = `<span style="color: var(--primary-color); font-size: 0.85rem; padding: 4px 8px; background: rgba(2, 132, 199, 0.1); border-radius: 4px;">لطفا کلید‌های جدید را فشار دهید...</span>`;
+    
+    // Add one-time listener
+    document.addEventListener('keydown', handleShortcutRecord);
+};
+
+window.handleShortcutRecord = function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Ignore if it's just a modifier key
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
+        return; 
+    }
+    
+    const newShortcut = {
+        ctrl: e.ctrlKey || e.metaKey,
+        alt: e.altKey,
+        shift: e.shiftKey,
+        key: e.key === ' ' ? 'Space' : e.key
+    };
+    
+    const shortcuts = getShortcuts();
+    shortcuts[currentEditingId] = newShortcut;
+    localStorage.setItem('asva_shortcuts_' + window.ASVA_CURRENT_USER, JSON.stringify(shortcuts));
+    
+    // Remove listener
+    document.removeEventListener('keydown', handleShortcutRecord);
+    currentEditingId = null;
+    
+    renderShortcutsEditor();
+    
+    // small toast
+    if (window.showToast) window.showToast('کلید میانبر با موفقیت تغییر کرد.', 'success');
+};
+
+window.resetShortcuts = async function() {
+    if (typeof window.customConfirm === 'function') {
+        if (!(await window.customConfirm('آیا از بازنشانی کلید‌های میانبر به حالت پیشفرض اطمینان دارید؟'))) return;
+    } else {
+        if (!confirm('آیا از بازنشانی کلید‌های میانبر به حالت پیشفرض اطمینان دارید؟')) return;
+    }
+    localStorage.removeItem('asva_shortcuts_' + window.ASVA_CURRENT_USER);
+    renderShortcutsEditor();
+    if (window.showToast) window.showToast('کلید‌های میانبر به حالت پیشفرض بازگشتند.', 'success');
+};
+</script>
+
+
+

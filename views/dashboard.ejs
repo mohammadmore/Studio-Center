@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | داشبورد تحلیلی مدیر کل</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <script src="assets/js/chart.js" defer></script>
+    <style>
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .time-filter { background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-family: inherit; font-weight: bold; color: var(--text-dark); cursor: pointer; box-shadow: 0 2px 8px -1px rgba(0,0,0,0.03); }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background: var(--card-bg); padding: 25px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 2px 15px -3px rgba(0,0,0,0.04); transition: box-shadow 0.3s ease, transform 0.3s ease; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+        .kpi-card::before { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 4px; }
+        .kpi-blue::before {  }
+        .kpi-green::before { background: var(--success-color); }
+        .kpi-red::before { background: var(--error-color); }
+        .kpi-purple::before { background: #8b5cf6; }
+        .kpi-title { color: var(--text-gray); font-size: 0.95rem; margin-bottom: 10px; font-weight: bold; }
+        .kpi-value { font-size: 2rem; font-weight: 900; color: var(--text-dark); }
+        .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 30px; min-width: 0; }
+        .chart-box:hover { box-shadow: 0 10px 30px -5px rgba(0,0,0,0.08); transform: translateY(-3px); } .chart-box { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 2px 15px -3px rgba(0,0,0,0.04); transition: box-shadow 0.3s ease, transform 0.3s ease; width: 100%; box-sizing: border-box; min-width: 0; }
+        .chart-box > div:last-child { position: relative; width: 100%; height: 300px; }
+        
+        @media (max-width: 1024px) {
+            .charts-grid { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .kpi-grid { grid-template-columns: 1fr; }
+            .dashboard-header { flex-direction: column; align-items: center; text-align: center; gap: 15px; }
+            .chart-box > div:last-child { height: 250px; }
+            .chart-box { padding: 15px 10px; }
+            body { overflow-x: hidden; }
+        }
+        .chart-title { font-size: 1.1rem; font-weight: bold; color: var(--text-dark); margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+    
+        .kpi-card { cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px -5px rgba(0,0,0,0.08); }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: var(--card-bg); width: 90%; width: 100%; max-width: 500px; box-sizing: border-box; padding: 25px; border-radius: 12px; max-height: 80vh; overflow-y: auto; }
+        .modal-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; color: var(--text-dark); }
+        .modal-list { list-style: none; padding: 0; margin: 0; }
+        .modal-list li { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-gray); }
+        .modal-list li:last-child { border-bottom: none; }
+        .btn-close { background: var(--error-color); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
+</style>
+</head>
+<body>
+    <%- include('sidebar') %>
+
+    
+
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-layout-dashboard"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="7" height="9" x="3" y="3" rx="1" />
+  <rect width="7" height="5" x="14" y="3" rx="1" />
+  <rect width="7" height="9" x="14" y="12" rx="1" />
+  <rect width="7" height="5" x="3" y="16" rx="1" />
+</svg> <span>داشبورد تحلیلی و گزارشات کلان (زنده)</span></h1>
+                <p class="page-subtitle">نمای ۳۶۰ درجه از وضعیت تولید، متصل به دیتابیس استودیو.</p>
+            </div>
+            <select class="time-filter" id="timeFilter" onchange="loadDashboardData()">
+                <option value="month">عملکرد این ماه</option>
+                <option value="all">گزارش کل سیستم</option>
+            </select>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card kpi-blue" onclick="openStatsModal('total')">
+                <span class="kpi-title">مجموع محتوا‌های سیستم</span>
+                <span class="kpi-value" id="kpi-total"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg></span>
+            </div>
+            <div class="kpi-card kpi-purple" onclick="openStatsModal('raw')">
+                <span class="kpi-title">کارت‌های خام (مناسبت‌ها)</span>
+                <span class="kpi-value" id="kpi-raw"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg></span>
+            </div>
+            <div class="kpi-card kpi-red" onclick="openStatsModal('revision')">
+                <span class="kpi-title">نرخ اصلاحیه‌های کارفرما</span>
+                <span class="kpi-value" id="kpi-revision">٪</span>
+                <span id="kpi-worst-org" style="font-size: 0.8rem; margin-top: 10px; font-weight: bold; color: var(--error-color);">↓ پرهزینهترین کارفرما: -</span>
+            </div>
+            <div class="kpi-card kpi-green" onclick="openStatsModal('completion')">
+                <span class="kpi-title">تعهدات تکمیل شده</span>
+                <span class="kpi-value" id="kpi-completion">٪</span>
+                <span id="kpi-best-org" style="font-size: 0.8rem; margin-top: 10px; font-weight: bold; color: var(--success-color);">↑ بهترین کارفرما: -</span>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-box">
+                <div class="chart-title" style="display: flex; align-items: center; gap: 8px;">
+                    <svg class="lucide lucide-search" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line></svg>
+                    <span>بررسی گلوگاه‌های تولید (وضعیت محتوا‌ها)</span>
+                </div>
+                <div style="position: relative; width: 100%; height: 300px;">
+                    <canvas id="bottleneckChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-box">
+                <div class="chart-title" style="display: flex; align-items: center; gap: 8px;">
+                    <svg class="lucide lucide-globe" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" x2="22" y1="12" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    <span>سهم پلتفرم‌های انتشار (بر اساس تعهدات)</span>
+                </div>
+                <div style="position: relative; width: 100%; height: 300px;">
+                    <canvas id="platformsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    
+    <div class="modal-overlay" id="statsModal">
+        <div class="modal-box">
+            <div class="modal-title" id="modalTitle">جزئیات آمار</div>
+            <ul class="modal-list" id="modalList"></ul>
+            <button type="button" class="btn-outline"  onclick="closeStatsModal()" >بستن</button>
+        </div>
+    </div>
+<script src="assets/js/app.js?v=4"></script>
+    <script>
+        let dashboardDetails = null;
+        let bottleneckChartInstance = null;
+        let platformsChartInstance = null;
+
+        // Run immediately instead of waiting for DOMContentLoaded
+        
+    let checkChartInterval = setInterval(function() {
+        if (typeof Chart !== 'undefined') {
+            clearInterval(checkChartInterval);
+            loadDashboardData();
+        }
+    }, 50);
+
+        async function loadDashboardData() {
+            try {
+                // دریافت اطلاعات واقعی از دیتابیس
+                const filter = document.getElementById('timeFilter').value;
+                const response = await fetch('/api/get_dashboard_stats?filter=' + filter);
+                const data = await response.json();
+
+                if(data.status === 'success') {
+                    dashboardDetails = data.details;
+                    // آپدیت کردن KPI ها
+                    document.getElementById('kpi-total').innerText = window.toPersianDigits(data.kpis.total_content);
+                    document.getElementById('kpi-raw').innerText = window.toPersianDigits(data.kpis.raw_events);
+                    document.getElementById('kpi-revision').innerText = window.toPersianDigits(data.kpis.overall_revision_rate) + '٪';
+                    document.getElementById('kpi-completion').innerText = window.toPersianDigits(data.kpis.overall_completion_rate) + '٪';
+                    document.getElementById('kpi-worst-org').innerText = '↓ پرهزینهترین کارفرما: ' + data.kpis.worst_org;
+                    document.getElementById('kpi-best-org').innerText = '↑ بهترین کارفرما: ' + data.kpis.best_org;
+
+                    // رسم نمودار گلوگاه‌ها (Bar Chart)
+                    const statuses = Object.keys(data.bottlenecks).length > 0 ? Object.keys(data.bottlenecks) : ['هیچ دیتایی نیست'];
+                    const counts = Object.values(data.bottlenecks).length > 0 ? Object.values(data.bottlenecks) : [0];
+                    
+                    // تغییر نام کلید‌های دیتابیس به فارسی
+                    const statusTranslations = {
+                        'raw': 'ورودی خام',
+                        'raw_event': 'مناسبت خام',
+                        'todo': 'در صف انتظار',
+                        'in_progress': 'در حال تولید',
+                        'doing': 'در حال تولید',
+                        'in_production': 'در حال تولید',
+                        'review': 'ارزیابی استودیو',
+                        'client_review': 'ارزیابی کارفرما',
+                        'needs_revision': 'نیازمند اصلاح',
+                        'done': 'تکمیل شده',
+                        'approved_by_client': 'تایید کارفرما',
+                        'ready_to_publish': 'آماده انتشار',
+                        'published': 'منتشر شده'
+                    };
+                    const persianLabels = statuses.map(s => statusTranslations[s] || s);
+
+                    const ctxBottleneck = document.getElementById('bottleneckChart').getContext('2d');
+                    if (bottleneckChartInstance) bottleneckChartInstance.destroy();
+                    bottleneckChartInstance = new Chart(ctxBottleneck, {
+                        type: 'bar',
+                        data: {
+                            labels: persianLabels,
+                            datasets: [{
+                                label: 'تعداد محتوا',
+                                data: counts,
+                                backgroundColor: ['#a855f7', 'var(--primary-color)', 'var(--success-color)', 'var(--error-color)', 'var(--warning-color)'],
+                                borderRadius: 8,
+                                maxBarThickness: 50
+                            }]
+                        },
+                        options: {
+                            onClick: (e, elements) => {
+                                if (elements.length > 0) {
+                                    const index = elements[0].index;
+                                    let rawStatus = statuses[index];
+                                    if (rawStatus && rawStatus !== 'هیچ دیتایی نیست') {
+                                        window.location.href = 'depot?status=' + encodeURIComponent(rawStatus);
+                                    }
+                                }
+                            },
+                            onHover: (e, elements) => {
+                                e.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+                            },
+                            responsive: true, animation: false, 
+                            maintainAspectRatio: false, 
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                    titleFont: { family: 'inherit', size: 14 },
+                                    bodyFont: { family: 'inherit', size: 13 },
+                                    padding: 12,
+                                    displayColors: false,
+                                    cornerRadius: 8
+                                }
+                            },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { font: { family: 'inherit', size: 12 } } },
+                                y: { beginAtZero: true, border: { dash: [4, 4] }, grid: { color: Chart.defaults.borderColor }, ticks: { font: { family: 'inherit' }, stepSize: 1 } }
+                            }
+                        }
+                    });
+
+                    // رسم نمودار پلتفرم‌ها (Doughnut Chart)
+                    const platforms = Object.keys(data.platforms).length > 0 ? Object.keys(data.platforms) : ['اینستاگرام', 'یوتیوب'];
+                    const platCounts = Object.values(data.platforms).length > 0 ? Object.values(data.platforms) : [10, 5]; // دیتای فرضی اگر دیتابیس خالی بود
+
+                    const ctxPlatforms = document.getElementById('platformsChart').getContext('2d');
+                    if (platformsChartInstance) platformsChartInstance.destroy();
+                    platformsChartInstance = new Chart(ctxPlatforms, {
+                        type: 'doughnut',
+                        data: {
+                            labels: platforms,
+                            datasets: [{
+                                data: platCounts,
+                                backgroundColor: ['#e1306c', '#ff0000', 'var(--success-color)', '#2ea9df'],
+                                borderWidth: 2,
+                                borderColor: '#ffffff',
+                                hoverOffset: 6
+                            }]
+                        },
+                        options: {
+                            onClick: (e, elements) => {
+                                // For platforms, maybe we don't have a platform filter in depot yet, but let's see. 
+                                // Actually, let's just make it clickable, or maybe the user just wants the bottleneck chart to be clickable.
+                                // I will make platforms chart clickable too if there's a way. But for now just adding the event.
+                                if (elements.length > 0) {
+                                    const index = elements[0].index;
+                                    let rawPlatform = platforms[index];
+                                    if (rawPlatform) {
+                                        window.location.href = 'depot?platform=' + encodeURIComponent(rawPlatform);
+                                    }
+                                }
+                            },
+                            onHover: (e, elements) => {
+                                e.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+                            },
+                            responsive: true, animation: false, 
+                            maintainAspectRatio: false, 
+                            cutout: '75%', 
+                            plugins: { 
+                                legend: { 
+                                    position: 'bottom', 
+                                    labels: { font: { family: 'inherit', size: 12 }, padding: 20, usePointStyle: true }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching dashboard stats:', error);
+            }
+        }
+
+        function openStatsModal(type) {
+            if(!dashboardDetails) return;
+            const modal = document.getElementById('statsModal');
+            const title = document.getElementById('modalTitle');
+            const list = document.getElementById('modalList');
+            
+            let data = [];
+            if(type === 'total') { title.innerText = 'جزئیات مجموع محتوا‌ها'; data = dashboardDetails.total; }
+            if(type === 'raw') { title.innerText = 'جزئیات مناسبت‌های خام'; data = dashboardDetails.raw; }
+            if(type === 'revision') { title.innerText = 'بیشترین نرخ اصلاحیه'; data = dashboardDetails.revision; }
+            if(type === 'completion') { title.innerText = 'بهترین نرخ تحویل'; data = dashboardDetails.completion; }
+            
+            list.innerHTML = '';
+            data.forEach(item => {
+                const li = document.createElement('li');
+                li.innerText = window.toPersianDigits(item);
+                list.appendChild(li);
+            });
+            modal.style.display = 'flex';
+        }
+
+        function closeStatsModal() {
+            document.getElementById('statsModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

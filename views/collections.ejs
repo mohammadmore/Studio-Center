@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | مدیریت مجموعه‌ها</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <style>
+        .org-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+        .collection-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; position: relative; transition: 0.2s; cursor: pointer; min-height: 175px; }
+        .collection-card:hover { border-color: var(--primary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.05); transform: translateY(-3px); }
+        .btn-delete { width: 60px; text-align: center; background: rgba(239, 68, 68, 0.15); color: var(--error-color); border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
+        .btn-edit { width: 60px; text-align: center; background: rgba(128, 128, 128, 0.1); color: var(--text-gray); border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: var(--card-bg); width: 90%; width: 100%; max-width: 800px; box-sizing: border-box; padding: 30px; border-radius: 15px; max-height: 90vh; overflow-y: auto; }
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .content-card { background: rgba(128, 128, 128, 0.05); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; }
+    </style>
+</head>
+
+<body>
+    <%- include('sidebar') %>
+    <div class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-folder"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg> <span>مدیریت مجموعه‌های محتوا</span></h1>
+                <p class="page-subtitle">ساختار‌بندی محتوا‌ها در آلبوم‌های منظم</p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="search_collection" class="form-control" onkeyup="renderCollections()" placeholder="جستجوی مجموعه..." style="width: 200px; height: 38px; padding: 0 10px; border-radius: 8px; font-size: 0.9rem; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-dark);">
+                <select id="filter_org_id" class="form-control" onchange="renderCollections()" style="width: auto; height: 38px; padding: 0 10px; border-radius: 8px; font-size: 0.9rem; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-gray);">
+                    <option value="">همه سازمان‌ها</option>
+                </select>
+                <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelImport(event)">
+                <button class="btn-outline" style="border: 1px solid var(--primary-color); color: var(--primary-color); padding: 8px 16px; border-radius: 8px; cursor: pointer;" onclick="openExcelGuideModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> ورود گروهی با اکسل</button>
+                <button class="btn btn-primary" onclick="openAddModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 12h14'/><path d='M12 5v14'/></svg> ایجاد مجموعه جدید</button>
+            </div>
+        </div>
+
+        <div class="org-grid" id="collectionsGrid">
+            <!-- Loading -->
+            <div class="skeleton" style="height: 60px; width: 100%; margin-bottom: 10px; border-radius: 8px;"></div><div class="skeleton" style="height: 60px; width: 100%; border-radius: 8px;"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Create/Edit -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal-box" style="width: 100%; max-width: 500px; box-sizing: border-box;">
+            <h2 id="modalTitle">ایجاد مجموعه جدید</h2>
+            <form id="addForm" onsubmit="submitForm(event)" style="margin-top: 20px;">
+                <input type="hidden" id="colId" name="colId">
+                <div class="form-group">
+                    <label>عنوان مجموعه *</label>
+                    <input type="text" id="title" class="form-control" required placeholder="مثال: ویدیو‌های آموزشی قسمت ۱ تا ۲۰">
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>سازمان مرتبط (اختیاری)</label>
+                    <select id="org_id" class="form-control">
+                        <option value="">بدون سازمان (ذخیره برای بعد)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>مجموعه والد (اختیاری - زیرمجموعه قرار دادن)</label>
+                    <select id="parent_id" class="form-control">
+                        <option value="">مجموعه اصلی (بدون والد)</option>
+                    </select>
+                </div>
+                
+                <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn-outline"  onclick="document.getElementById('addModal').style.display='none'" >انصراف</button>
+                    <button type="submit" class="btn btn-primary">ذخیره مجموعه</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Viewing Contents -->
+    <div class="modal-overlay" id="viewModal">
+        <div class="modal-box" id="viewModalBox">
+            <div id="viewModalBackButtonContainer"></div>
+            <h2 id="viewModalTitle" style="margin-top: 5px;">محتوا‌های مجموعه</h2>
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                <p style="color: var(--text-gray); margin: 0;" id="viewModalOrg"></p>
+                <img id="viewModalOrgLogo" src="" alt="" style="width: 24px; height: 24px; border-radius: 4px; display: none; object-fit: contain;">
+                <p style="color: var(--text-gray); margin: 0; font-size: 0.9rem; padding-right: 15px; border-right: 1px solid var(--border-color);" id="viewModalCount"></p>
+            </div>
+            <input type="text" id="viewModalSearch" class="form-control" placeholder="جستجو در محتوا‌ها (شامل زیرمجموعه‌ها)..." onkeyup="filterViewModal()" style="margin-top: 15px; width: 100%; border-radius: 8px;">
+            <div class="cards-grid" id="viewModalCards"></div>
+            <div style="margin-top: 25px; text-align: left;">
+                <button type="button" class="btn-outline"  onclick="closeModals()" >بستن</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        
+        window.allOrgs = [];
+        window.allSettings = {};
+        window.allColleagues = [];
+        window.allCollections = [];
+        window.allDepotItems = [];
+        
+        async function loadGlobals() {
+            try {
+                const [orgRes, setRes, colRes, collectRes] = await Promise.all([
+                    fetch('/api/get_orgs', { cache: 'no-store' }),
+                    fetch('/api/manage_settings', { cache: 'no-store' }),
+                    fetch('/api/get_colleagues'),
+                    fetch('/api/get_collections')
+                ]);
+                window.allOrgs = (await orgRes.json()).data || [];
+                window.allSettings = (await setRes.json()).data || {};
+                window.allColleagues = (await colRes.json()).data || [];
+                const collectionsResult = await collectRes.json();
+                window.allCollections = collectionsResult.data || [];
+                window.allDepotItems = collectionsResult.contents || []; // Fixed later in loadData
+                allContents = collectionsResult.contents || []; // Sync
+            } catch(e) { console.error('Failed to load globals', e); }
+        }
+
+        
+    window.toPersianDigits = function(str) {
+        const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        return str.toString().replace(/\d/g, x => persianDigits[x]);
+    };
+    ;
+    window.monthNames = [
+        "فروردین", "اردیبهشت", "خرداد",
+        "تیر", "مرداد", "شهریور",
+        "مهر", "آبان", "آذر",
+        "دی", "بهمن", "اسفند"
+    ];
+    
+
+        let collectionsList = [];
+        let orgsList = [];
+        let allContents = [];
+
+        async function loadData() {
+            try {
+                await loadGlobals();
+                const contentsRes = await fetch('/api/get_depot_contents', { cache: 'no-store' }).then(r => r.json());
+                collectionsList = window.allCollections;
+                orgsList = window.allOrgs;
+                if (contentsRes.status === 'success') { allContents = contentsRes.data; window.allDepotItems = contentsRes.data; }
+                renderCollections();
+                renderOrgsDropdown();
+                // Refresh view modal if it's open
+                if (document.getElementById('viewModal') && document.getElementById('viewModal').style.display === 'flex') {
+                    const currentColId = document.getElementById('viewModalBox').dataset.currentColId;
+                    if (currentColId) openViewModal(parseInt(currentColId));
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('خطا در دریافت اطلاعات', 'error');
+            }
+        }
+
+        function renderOrgsDropdown() {
+            const select = document.getElementById('org_id');
+            const filterSelect = document.getElementById('filter_org_id');
+            const selectedFilter = filterSelect ? filterSelect.value : "";
+            
+            select.innerHTML = '<option value="">بدون سازمان (ذخیره برای بعد)</option>';
+            if(filterSelect) filterSelect.innerHTML = '<option value="">همه سازمان‌ها</option><option value="null">بدون سازمان</option>';
+            
+            (orgsList || []).forEach(org => {
+                const opt = document.createElement('option');
+                opt.value = org.id;
+                opt.textContent = org.org_name;
+                select.appendChild(opt);
+                
+                if(filterSelect) {
+                    const opt2 = document.createElement('option');
+                    opt2.value = org.id;
+                    opt2.textContent = org.org_name;
+                    filterSelect.appendChild(opt2);
+                }
+            });
+            if(filterSelect) filterSelect.value = selectedFilter;
+        }
+
+        function renderCollections() {
+            const grid = document.getElementById('collectionsGrid');
+            grid.innerHTML = '';
+            
+            const filterSelect = document.getElementById('filter_org_id');
+            const filterValue = filterSelect ? filterSelect.value : "";
+            const searchInput = document.getElementById('search_collection');
+            const searchVal = searchInput ? searchInput.value.toLowerCase() : "";
+            
+            let filteredList = collectionsList || [];
+            if (searchVal) {
+                filteredList = filteredList.filter(c => c.title.toLowerCase().includes(searchVal));
+            }
+            if (filterValue === "null") {
+                filteredList = filteredList.filter(c => !c.org_id);
+            } else if (filterValue !== "") {
+                filteredList = filteredList.filter(c => c.org_id == filterValue);
+            }
+            
+            // Only show root collections on main view if not searching
+            if (!searchVal) {
+                filteredList = filteredList.filter(c => !c.parent_id);
+            }
+            
+            if (filteredList.length === 0) {
+                grid.innerHTML = `
+    <div style="grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--card-bg); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
+        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+        </div>
+        <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">هنوز مجموعه‌ای نساخته‌اید!</h3>
+        <p style="color: var(--text-gray); width: 100%; max-width: 400px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">مجموعه‌ها به شما کمک می‌کنند محتوا‌های کمپین‌ها و پروژه‌ها را به صورت منظم دسته‌بندی و مدیریت کنید.</p>
+        <button class="btn-primary"  onclick="openAddModal()" style=""  >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            ساخت اولین مجموعه
+        </button>
+    </div>`;
+                return;
+            }
+
+            (filteredList || []).forEach(col => {
+                // Count how many items in this collection
+                const allColIds = window.getAllDescendantCollectionIds ? window.getAllDescendantCollectionIds(col.id) : [col.id];
+                const itemsCount = allContents.filter(c => allColIds.includes(c.collection_id)).length;
+                
+                const card = document.createElement('div');
+                card.className = 'collection-card';
+                const cardColor = col.org_color || 'var(--primary-color)';
+                card.style.borderRight = `4px solid ${cardColor}`;
+                card.style.background = `color-mix(in srgb, ${cardColor} 10%, var(--card-bg))`;
+                
+                const hasSub = collectionsList.some(c => c.parent_id === col.id);
+                let stackHtml = '';
+                if (hasSub) {
+                    card.style.isolation = 'isolate';
+                    const bg = `color-mix(in srgb, ${cardColor} 10%, var(--card-bg))`;
+                    card.style.background = bg;
+                    stackHtml = `
+                        <div style="position:absolute; top:0; bottom:0; right:-6px; left:0; background:${bg}; border:1px solid var(--border-color); border-right:4px solid color-mix(in srgb, ${cardColor} 60%, var(--card-bg)); border-radius:12px; z-index:-1; pointer-events:none;"></div>
+                        <div style="position:absolute; top:0; bottom:0; right:-12px; left:0; background:${bg}; border:1px solid var(--border-color); border-right:4px solid color-mix(in srgb, ${cardColor} 30%, var(--card-bg)); border-radius:12px; z-index:-2; pointer-events:none;"></div>
+                    `;
+                }
+                
+                card.onclick = (e) => {
+                    if(!e.target.closest('button')) {
+                        openViewModal(col.id);
+                    }
+                };
+                card.innerHTML = `
+                    ${stackHtml}
+                    <div style="position: absolute; left: 15px; top: 15px; display: flex; flex-direction: column; gap: 5px; z-index: 2;">
+                        <button class="btn-edit" onclick="event.stopPropagation(); openAddModal(${col.id})">ویرایش</button>
+                        <button class="btn-edit" onclick="event.stopPropagation(); archiveCol(${col.id})" style="background:var(--warning-color); color:#fff; border:none;">آرشیو</button>
+                        <button class="btn-delete" onclick="event.stopPropagation(); deleteCol(${col.id})">حذف</button>
+                    </div>
+                    
+                    <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-gray); padding-left: 90px; min-height: 2.8em; line-height: 1.4;">${col.title}</h3>
+                    
+                    <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
+                        ${col.org_logo ? `<img alt="" src="${col.org_logo}" style="width:24px; height:24px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : `<span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${col.org_color || 'var(--text-gray)'}"></span>`}
+                        <span style="font-size: 0.9rem; color: var(--text-gray);">${col.org_name}</span>
+                    </div>
+                    
+                    <div style="margin-top: auto; padding-top: 15px; font-size: 0.85rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: flex-end;">
+                        <span>تاریخ ایجاد: ${col.created_at || 'نامشخص'}</span>
+                        <span style="background: rgba(128, 128, 128, 0.1); padding: 2px 8px; border-radius: 4px; color: var(--text-gray);">${window.toPersianDigits(itemsCount)} محتوا</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openAddModal(id = null) {
+            document.getElementById('addModal').style.display = 'flex';
+            const form = document.getElementById('addForm');
+            form.reset();
+            
+            // Populate parent_id select
+            const parentSelect = document.getElementById('parent_id');
+            parentSelect.innerHTML = '<option value="">مجموعه اصلی (بدون والد)</option>';
+            collectionsList.forEach(c => {
+                // Prevent cyclic assignment (cannot be its own parent)
+                if (c.id !== id) {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.title + (c.org_name ? ' (' + c.org_name + ')' : '');
+                    parentSelect.appendChild(opt);
+                }
+            });
+            
+            if (id) {
+                document.getElementById('modalTitle').textContent = 'ویرایش مجموعه';
+                const col = collectionsList.find(c => c.id === id);
+                document.getElementById('colId').value = col.id;
+                document.getElementById('title').value = col.title;
+                document.getElementById('org_id').value = col.org_id || '';
+                document.getElementById('parent_id').value = col.parent_id || '';
+            } else {
+                document.getElementById('modalTitle').textContent = 'ایجاد مجموعه جدید';
+                document.getElementById('colId').value = '';
+            }
+        }
+        
+        
+        window.getAllDescendantCollectionIds = function(id) {
+            let ids = [id];
+            const subCols = collectionsList.filter(c => c.parent_id === id && c.status !== 'archived');
+            for (let sub of subCols) {
+                ids = ids.concat(window.getAllDescendantCollectionIds(sub.id));
+            }
+            return ids;
+        };
+        
+        window.filterViewModal = function() {
+            const q = document.getElementById('viewModalSearch').value.toLowerCase();
+            const id = parseInt(document.getElementById('viewModalBox').dataset.currentColId);
+            if (!q) {
+                openViewModal(id);
+                return;
+            }
+            
+            const cardsGrid = document.getElementById('viewModalCards');
+            cardsGrid.innerHTML = '';
+            
+            const allColIds = window.getAllDescendantCollectionIds(id);
+            const matchedContents = allContents.filter(c => allColIds.includes(c.collection_id) && (c.title.toLowerCase().includes(q) || (c.caption && c.caption.toLowerCase().includes(q))));
+            
+            if (matchedContents.length > 0) {
+                matchedContents.forEach((item, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'content-card';
+                    div.style.cursor = 'pointer';
+                    div.style.transition = 'transform 0.2s, box-shadow 0.2s';
+                    div.onmouseover = () => { div.style.transform = 'translateY(-2px)'; div.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1)'; };
+                    div.onmouseout = () => { div.style.transform = 'translateY(0)'; div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'; };
+                    div.onclick = () => { window.openContentDetails(item.id); };
+                    div.innerHTML = `
+                        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px;">#${index + 1}</div>
+                        <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray);">${item.title}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${item.content_type || 'نامشخص'}</span></div>
+                        <div style="font-size: 0.85rem; margin-top: 10px; margin-bottom: 5px;">وضعیت: ${translateStatus(item.status)}</div>
+                    `;
+                    cardsGrid.appendChild(div);
+                });
+            } else {
+                cardsGrid.innerHTML = '<p style="color: var(--text-gray); grid-column:1/-1;">نتیجه‌ای یافت نشد.</p>';
+            }
+        };
+
+        function openViewModal(id) {
+            document.getElementById('viewModalBox').dataset.currentColId = id;
+            const col = collectionsList.find(c => c.id === id);
+            if(!col) return;
+            
+            if (col.parent_id) {
+                document.getElementById('viewModalBackButtonContainer').innerHTML = `<button onclick="openViewModal(${col.parent_id})" style="background:none; border:none; color:var(--primary-color); cursor:pointer; font-size:0.9rem; display:flex; align-items:center; gap:5px; padding: 0;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m15 18-6-6 6-6'/></svg> بازگشت به مجموعه قبلی</button>`;
+            } else {
+                document.getElementById('viewModalBackButtonContainer').innerHTML = '';
+            }
+            document.getElementById('viewModalTitle').innerHTML = col.title;
+            document.getElementById('viewModalBox').style.maxWidth = '900px';
+            document.getElementById('viewModalBox').style.width = '90%';
+            document.getElementById('viewModalOrg').textContent = 'سازمان: ' + col.org_name;
+            const logoEl = document.getElementById('viewModalOrgLogo');
+            if (col.org_logo) {
+                logoEl.src = col.org_logo;
+                logoEl.style.display = 'block';
+            } else {
+                logoEl.style.display = 'none';
+            }
+            document.getElementById('viewModalSearch').value = '';
+            
+            const allColIdsForCount = window.getAllDescendantCollectionIds(id);
+            const totalCount = allContents.filter(c => allColIdsForCount.includes(c.collection_id)).length;
+            const toPersianNum = (num) => String(num).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+            document.getElementById('viewModalCount').textContent = `تعداد کل محتواها: ${toPersianNum(totalCount)}`;
+            
+            const cardsGrid = document.getElementById('viewModalCards');
+            cardsGrid.innerHTML = '';
+            
+            // Find sub-collections
+            const subCols = collectionsList.filter(c => c.parent_id === id);
+            if (subCols.length > 0) {
+                const subColsHeader = document.createElement('h3');
+                subColsHeader.style.gridColumn = '1/-1';
+                subColsHeader.style.marginTop = '10px';
+                subColsHeader.style.marginBottom = '10px';
+                subColsHeader.style.color = 'var(--text-gray)';
+                subColsHeader.textContent = 'زیرمجموعه‌ها:';
+                cardsGrid.appendChild(subColsHeader);
+                
+                subCols.forEach(subCol => {
+                    const div = document.createElement('div');
+                    div.className = 'content-card';
+                    div.style.cursor = 'pointer';
+                    div.style.background = 'rgba(99, 102, 241, 0.05)';
+                    div.style.borderLeft = '3px solid var(--primary-color)';
+                    div.style.transition = 'transform 0.2s, box-shadow 0.2s';
+                    div.onmouseover = () => { div.style.transform = 'translateY(-2px)'; div.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1)'; };
+                    div.onmouseout = () => { div.style.transform = 'translateY(0)'; div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'; };
+                    div.onclick = () => { openViewModal(subCol.id); };
+                    const subAllColIds = window.getAllDescendantCollectionIds(subCol.id);
+                    const subCount = allContents.filter(c => subAllColIds.includes(c.collection_id)).length;
+                    div.innerHTML = `<div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 5px; color: var(--text-dark); display:flex; align-items:center; gap:8px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/></svg> ${subCol.title}</div><div style="font-size:0.8rem; color:var(--text-gray);">تعداد محتواها: ${toPersianNum(subCount)} | کلیک کنید تا باز شود</div>`;
+                    cardsGrid.appendChild(div);
+                });
+            }
+            
+            const items = allContents.filter(c => c.collection_id === id);
+            
+            if(items.length > 0) {
+                const contentsHeader = document.createElement('h3');
+                contentsHeader.style.gridColumn = '1/-1';
+                contentsHeader.style.marginTop = '20px';
+                contentsHeader.style.marginBottom = '10px';
+                contentsHeader.style.color = 'var(--text-gray)';
+                contentsHeader.textContent = 'محتواها:';
+                cardsGrid.appendChild(contentsHeader);
+            }
+            
+            // Sort by creation or title, let's just reverse for newest first or keep order
+            if(items.length === 0 && subCols.length === 0) {
+                cardsGrid.innerHTML = '<p style="color: var(--text-gray); grid-column:1/-1;">هیچ محتوایی یا زیرمجموعه‌ای در این مجموعه وجود ندارد.</p>';
+            }
+            
+            
+            Array.from(items).forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'content-card';
+                div.style.cursor = 'pointer';
+                div.style.transition = 'transform 0.2s, box-shadow 0.2s';
+                
+                const cardColor = item.org_color || 'var(--primary-color)';
+                const isEvent = item.title && item.title.includes('پست مناسبتی');
+                
+                if (isEvent) {
+                    div.style.background = 'linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%)';
+                    div.style.borderRight = '4px solid #d946ef';
+                    div.style.borderLeft = '1px solid #f0abfc';
+                    div.style.borderTop = '1px solid #f0abfc';
+                    div.style.borderBottom = '1px solid #f0abfc';
+                    div.style.boxShadow = '0 4px 6px -1px rgba(217, 70, 239, 0.2)';
+                } else {
+                    div.style.background = `color-mix(in srgb, ${cardColor} 10%, transparent)`;
+                    div.style.borderRight = `4px solid ${cardColor}`;
+                    div.style.borderLeft = `1px solid color-mix(in srgb, ${cardColor} 20%, transparent)`;
+                    div.style.borderTop = `1px solid color-mix(in srgb, ${cardColor} 20%, transparent)`;
+                    div.style.borderBottom = `1px solid color-mix(in srgb, ${cardColor} 20%, transparent)`;
+                }
+
+                div.onmouseover = () => { div.style.transform = 'translateY(-2px)'; div.style.boxShadow = `0 10px 15px -3px color-mix(in srgb, ${cardColor} 30%, transparent)`; };
+                div.onmouseout = () => { div.style.transform = 'translateY(0)'; div.style.boxShadow = isEvent ? '0 4px 6px -1px rgba(217, 70, 239, 0.2)' : 'none'; };
+                div.onclick = () => { window.openContentDetails(item.id); };
+                
+                const orgBadgeStyle = `background: color-mix(in srgb, ${cardColor} 8%, transparent); color: ${cardColor}; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold; display:inline-block; margin-bottom:8px;`;
+
+                div.innerHTML = `
+                    <div style="${orgBadgeStyle}; display:inline-flex; align-items:center; gap:6px;">
+                        ${item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:24px; height:24px; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} 
+                        <span>${item.org_name || 'بدون سازمان'}</span>
+                    </div>
+                    <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray); line-height: 1.4;">${item.title || 'بدون عنوان'}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;">
+                        <span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${item.content_type || 'نامشخص'}</span>
+                    </div>
+                    <div style="font-size: 0.85rem; margin-top: 10px; margin-bottom: 5px;">وضعیت: ${translateStatus(item.status)}</div>
+                `;
+                cardsGrid.appendChild(div);
+            });
+
+            
+            document.getElementById('viewModal').style.display = 'flex';
+        }
+        
+        function translateStatus(s) {
+            if(s === 'raw' || s === 'raw_event') return 'ورودی خام';
+            if(s === 'todo') return 'در صف انتظار';
+            if(s === 'in_progress' || s === 'doing') return 'در حال تولید';
+            if(s === 'review') return 'ارزیابی استودیو';
+            if(s === 'client_review') return 'ارزیابی کارفرما';
+            if(s === 'needs_revision') return 'نیاز به اصلاح';
+            if(s === 'done') return 'تکمیل شده';
+            if(s === 'approved_by_client') return 'تایید کارفرما';
+            if(s === 'ready_to_publish') return 'آماده انتشار';
+            if(s === 'published') return 'منتشر شده 🌟';
+            if(s === 'archived') return 'آرشیو شده';
+            return s;
+        }
+
+        function closeModals() {
+            document.getElementById('addModal').style.display = 'none';
+            document.getElementById('viewModal').style.display = 'none';
+        }
+
+        async function submitForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('colId').value;
+            const payload = {
+                action: id ? 'edit' : 'add',
+                id: id ? parseInt(id) : null,
+                title: document.getElementById('title').value,
+                org_id: document.getElementById('org_id').value,
+                parent_id: document.getElementById('parent_id').value
+            };
+
+            const res = await fetch('/api/manage_collections', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(r => r.json());
+
+            if (res.status === 'success') {
+                document.getElementById('addModal').style.display = 'none';
+                loadData();
+            } else {
+                showToast(res.message);
+            }
+        }
+
+        
+        async function archiveCol(id) {
+            const col = collectionsList.find(c => c.id == id);
+            const title = col ? col.title : 'نامشخص';
+            if (!(await window.customConfirm(`آیا از آرشیو مجموعه (${title}) اطمینان دارید؟`))) return;
+            const res = await fetch('/api/manage_collections', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'archive', id })
+            }).then(r => r.json());
+
+            if (res.status === 'success') {
+                loadData();
+                window.showToast('مجموعه آرشیو شد', 'success');
+            } else {
+                showToast(res.message);
+            }
+        }
+
+        async function deleteCol(id) {
+            const col = collectionsList.find(c => c.id == id);
+            const title = col ? col.title : 'نامشخص';
+            if (!(await window.customConfirm(`آیا از حذف مجموعه (${title}) اطمینان دارید؟`))) return;
+            // Optimistic UI update could be added here, but let's just do it fast
+            const res = await fetch('/api/manage_collections', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'delete', id })
+            }).then(r => r.json());
+
+            if (res.status === 'success') {
+                loadData();
+                if (res.bin_id) {
+                    window.showToast('مجموعه حذف شد', 'info', {
+                        text: 'بازگردانی',
+                        callback: async () => {
+                            const restoreRes = await fetch('/api/recycle_bin', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ action: 'restore', bin_id: res.bin_id })
+                            }).then(r => r.json());
+                            if (restoreRes.status === 'success') {
+                                loadData();
+                                window.showToast('مجموعه با موفقیت بازگردانی شد', 'success');
+                            }
+                        }
+                    });
+                } else {
+                    window.showToast(res.message, 'success');
+                }
+            } else {
+                showToast(res.message);
+            }
+        }
+
+        loadData();
+    
+
+
+
+
+window.togglePlatformPublished = async function(id, platform, status) {
+    if (!(await window.customConfirm('آیا مطمئن هستید؟'))) return;
+    try {
+        const res = await fetch('/api/toggle_platform_published', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id, platform, status })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            if(window.showToast) window.showToast('تغییرات ذخیره شد', 'success');
+            loadData();
+        } else {
+            if(window.showToast) window.showToast(data.message, 'error');
+            else showToast(data.message);
+        }
+    } catch(e) {
+        if(window.showToast) window.showToast('خطا در برقراری ارتباط', 'error');
+        else showToast('خطا در برقراری ارتباط');
+    }
+};
+
+window.filterTeam = function() {
+    const term = document.getElementById('team_filter').value.toLowerCase();
+    const items = document.querySelectorAll('.team-checkbox-item');
+    Array.from(items).forEach(item => {
+        const name = item.querySelector('.team-name').innerText.toLowerCase();
+        if (name.includes(term)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+};
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Excel Guide Modal -->
+<div class="modal-overlay" id="excelGuideModal">
+    <div class="modal-box" style="width: 100%; max-width: 600px; box-sizing: border-box;">
+        <h3 style="margin-bottom: 15px; color: var(--text-dark);">راهنمای اکسل مجموعه‌ها</h3>
+        <p style="color: var(--text-gray); margin-bottom: 15px; line-height: 1.6;">
+            برای وارد کردن مجموعه‌ها از طریق اکسل، فایل شما باید دارای ستون‌های زیر در ردیف اول (Header) باشد. نام ستون‌ها باید دقیقاً مطابق موارد زیر باشد:
+        </p>
+        <table style="width: 100%; text-align: right; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+                <tr style="background: rgba(128,128,128,0.05);">
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">عنوان مجموعه</th>
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نام کاربری سازمان (اختیاری)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">ویدیو‌های آموزشی بخش ۱</td>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">asva</td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 20px;">
+            نکته: نام کاربری سازمان مربوط به کارفرمای مورد نظر است که هنگام تعریف سازمان ثبت کرده‌اید. در صورت خالی بودن، مجموعه بدون سازمان ثبت می‌شود.
+        </p>
+        <div style="display: flex; gap: 10px;"><button class="btn-primary" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'; document.getElementById('excelInput').click();">متوجه شدم، انتخاب فایل اکسل</button><button class="btn-outline" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'">بستن</button></div>
+    </div>
+</div>
+
+<!-- Excel Preview Modal -->
+<div class="modal-overlay" id="excelPreviewModal">
+    <div class="modal-box" style="width: 100%; max-width: 800px; box-sizing: border-box; max-height: 90vh; display: flex; flex-direction: column;">
+        <h3 style="margin-bottom: 15px; color: var(--text-dark);">پیش‌نمایش مجموعه‌های اکسل</h3>
+        <div id="excelPreviewContainer" style="overflow-y: auto; flex: 1; margin-bottom: 20px;">
+            <!-- Preview items here -->
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-primary" style="flex: 1; font-size: 1.1rem; padding: 12px;" onclick="saveExcelCols()">ذخیره همه مجموعه‌ها</button>
+            <button type="button" class="btn-outline"  onclick="document.getElementById('excelPreviewModal').style.display='none'" style="flex: 1;">انصراف</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let pendingExcelCols = [];
+
+    function openExcelGuideModal() {
+        document.getElementById('excelGuideModal').style.display = 'flex';
+    }
+
+    function handleExcelImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            if (json.length < 2) {
+                showToast('فایل اکسل خالی است یا فرمت نامعتبر است', 'error');
+                return;
+            }
+
+            // parse columns
+            const headers = json[0].map(h => typeof h === 'string' ? h.trim() : h);
+            const titleIdx = headers.indexOf('عنوان مجموعه');
+            const orgIdx = headers.indexOf('نام کاربری سازمان (اختیاری)');
+
+            if (titleIdx === -1) {
+                showToast('ستون "عنوان مجموعه" یافت نشد. لطفا راهنمای اکسل را مطالعه کنید.', 'error');
+                return;
+            }
+
+            pendingExcelCols = [];
+            
+            for (let i = 1; i < json.length; i++) {
+                const row = json[i];
+                if (!row || row.length === 0 || !row[titleIdx]) continue;
+                
+                const title = String(row[titleIdx]).trim();
+                const org_username = orgIdx !== -1 && row[orgIdx] ? String(row[orgIdx]).trim() : '';
+
+                pendingExcelCols.push({
+                    title, org_username
+                });
+            }
+
+            if (pendingExcelCols.length === 0) {
+                showToast('هیچ مجموعه‌ای در فایل یافت نشد', 'error');
+                return;
+            }
+
+            showExcelPreview();
+        };
+        reader.readAsArrayBuffer(file);
+        event.target.value = ''; // reset
+    }
+
+    function showExcelPreview() {
+        const container = document.getElementById('excelPreviewContainer');
+        container.innerHTML = '';
+        
+        pendingExcelCols.forEach((col, index) => {
+            container.innerHTML += `
+                <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
+                    <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
+                        <div>عنوان: <span style="font-weight:bold;">${col.title}</span></div>
+                        <div>نام کاربری سازمان: <span style="font-weight:bold;">${col.org_username || 'بدون سازمان'}</span></div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        document.getElementById('excelPreviewModal').style.display = 'flex';
+    }
+
+    async function saveExcelCols() {
+        if (pendingExcelCols.length === 0) return;
+        
+        if (window.showLoading) window.showLoading('در حال ذخیره...');
+        try {
+            const payload = {
+                action: 'batch_add',
+                cols: pendingExcelCols
+            };
+            
+            const res = await fetch('/api/manage_collections', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            
+            if (window.hideLoading) window.hideLoading();
+            
+            if (result.status === 'success') {
+                showToast('مجموعه‌های اکسل با موفقیت ذخیره شدند', 'success');
+                document.getElementById('excelPreviewModal').style.display = 'none';
+                loadCollections();
+            } else {
+                showToast(result.message || 'خطا در ذخیره مجموعه‌ها', 'error');
+            }
+        } catch(e) {
+            if (window.hideLoading) window.hideLoading();
+            showToast('خطا در ارتباط با سرور', 'error');
+        }
+    }
+</script>
+<script src="assets/js/app.js?v=4"></script>
+    <%- include('partials/content-identity') %>
+</body>
+</html>

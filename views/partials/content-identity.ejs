@@ -1,0 +1,858 @@
+<!-- پاپ‌آپ شناسنامه محتوا -->
+<div class="side-drawer-overlay" id="detailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 9999999 !important; justify-content: flex-start; align-items: stretch;" onclick="if(event.target===this) window.closeDetailsModal()">
+    <div class="side-drawer" style="background: var(--card-bg); width: 100%; max-width: 450px; box-sizing: border-box; max-width: 90%; height: 100%; position: absolute; left: 0; top: 0; box-shadow: 4px 0 24px rgba(0,0,0,0.15); display: flex; flex-direction: column; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid var(--border-color); overflow-y: auto; padding: 25px;">
+        <div class="flex-responsive" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: var(--text-dark);"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg> شناسنامه محتوا</h3>
+            <button onclick="window.closeDetailsModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-gray);">&times;</button>
+        </div>
+        
+        <div id="detailsContent" style="line-height: 1.8; color: var(--text-dark);">
+            <!-- Content will be injected here -->
+        </div>
+        
+        <div style="margin-top: 24px; text-align: left;">
+            <button type="button" class="btn-outline" onclick="window.closeDetailsModal()">بستن</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Platform Metrics -->
+<div id="platformMetricsModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999999 !important; justify-content: center; align-items: center;">
+    <div class="modal-content" style="width: 100%; max-width: 450px; box-sizing: border-box; background: var(--card-bg); padding: 20px; border-radius: 8px; width: 90%;">
+        
+        <h3 style="margin-top:0; color:var(--primary-color);"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> وضعیت انتشار و بازخورد (<span id="pmPlatformName"></span>)</h3>
+        
+        <input type="hidden" id="pmItemId">
+        <input type="hidden" id="pmPlatform">
+        <input type="hidden" id="pmDefaultDate">
+        <input type="hidden" id="pmDefaultTime">
+        
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label>وضعیت انتشار</label>
+            <select id="pmStatus" class="form-control" onchange="window.togglePmDetails()">
+                <option value="pending">در انتظار انتشار</option>
+                <option value="scheduled">برنامه‌ریزی شده (زمان‌بندی شده)</option>
+                <option value="published">منتشر شده</option>
+            </select>
+        </div>
+        
+        <div id="pmDetailsSection" style="display: none; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px;">
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label>تاریخ و زمان <span id="pmDateLabel">انتشار</span></label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="pmDate" class="form-control" data-jdp onchange="window.checkPmDateMatch()" oninput="window.checkPmDateMatch()" placeholder="1402/05/12" style="flex: 2; text-align: left; direction: ltr;">
+                    <input type="time" id="pmTime" class="form-control" style="flex: 1;" onchange="window.checkPmDateMatch()" oninput="window.checkPmDateMatch()">
+                </div>
+                <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-gray);">
+                    <input type="checkbox" id="pmAutoFill" onchange="window.autoFillPmDate()"> 
+                    طبق برنامه انجام شد (استفاده از تاریخ و زمان اصلی)
+                </label>
+            </div>
+            
+            <div id="pmFeedbackSection" style="display: none;">
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="font-size: 0.85rem;">لینک نهایی پست (جهت دریافت آمار)</label>
+                    <input type="text" id="pmPostLink" class="form-control" placeholder="https://instagram.com/p/..." style="direction: ltr; text-align: left;">
+                </div>
+                
+                <div id="pmStatsContainer" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin:0; font-size: 0.95rem; color: var(--text-gray);">بازخورد و آمار <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></h4>
+                        <button type="button" class="btn-outline" style="padding: 2px 8px; font-size: 0.75rem; border-color: var(--primary-color); color: var(--primary-color);" onclick="window.fetchLiveStats(event)"> دریافت آنلاین آمار</button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label style="font-size: 0.8rem;">تعداد بازدید (Views)</label>
+                            <input type="text" inputmode="numeric" id="pmViews" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem;">تعداد لایک (Likes)</label>
+                            <input type="text" inputmode="numeric" id="pmLikes" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem;">تعداد کامنت (Comments)</label>
+                            <input type="text" inputmode="numeric" id="pmComments" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem;">تعداد اشتراک (Shares)</label>
+                            <input type="text" inputmode="numeric" id="pmShares" class="form-control" min="0" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 10px;">
+                    <button type="button" class="btn-outline" id="pmShowStatsBtn" onclick="window.showStatsSection()" style="width: 100%; font-size: 0.85rem;">ثبت آمار دستی / مشاهده</button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn-outline" onclick="window.closePlatformMetricsModal()" style="flex: 1;">انصراف</button>
+            <button type="button" class="btn" id="pmSaveBtn" onclick="window.savePlatformMetrics()" style="flex: 2;">ذخیره اطلاعات</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Unsaved Changes Modal -->
+<div class="side-drawer-overlay" id="contentIdentityConfirmModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 99999999 !important; justify-content: center; align-items: center;">
+    <div style="background: var(--card-bg); width: 100%; max-width: 400px; box-sizing: border-box; max-width: 90%; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column;">
+        <div style="padding: 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 12px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(239, 68, 68, 0.1); color: var(--error-color); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/><line x1='12' y1='9' x2='12' y2='13'/><line x1='12' y1='17' x2='12.01' y2='17'/></svg>
+            </div>
+            <div>
+                <h3 style="margin: 0; color: var(--text-dark); font-size: 1.1rem;">تغییرات ذخیره نشده</h3>
+                <p style="margin: 4px 0 0; color: var(--text-gray); font-size: 0.9rem;">شما تغییراتی داده‌اید که هنوز ذخیره نشده‌اند. مایلید چه کار کنید؟</p>
+            </div>
+        </div>
+        <div style="padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; background: rgba(128,128,128,0.02);">
+            <button class="btn-primary" onclick="window.contentIdentityConfirmSave()" style="width: 100%; padding: 12px; justify-content: center;">ذخیره و بستن</button>
+            <button class="btn-outline" onclick="window.contentIdentityConfirmDiscard()" style="width: 100%; padding: 12px; justify-content: center; border-color: var(--error-color); color: var(--error-color);">بستن بدون ذخیره</button>
+            <button class="btn-outline" onclick="window.contentIdentityConfirmCancel()" style="width: 100%; padding: 12px; justify-content: center;">انصراف (بازگشت)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openContentDetails(id, editMode = false) {
+    window.hasUnsavedChanges = false;
+    window.currentEditingContentId = id;
+    window.currentContentEditMode = editMode;
+
+    const item = window.allDepotItems.find(i => i.id == id);
+    if (!item) { closeDetailsModal(); return; }
+
+    let stagesHtml = '<div style="color: #94a3b8; font-size: 0.9rem;">مرحله‌ای تعریف نشده</div>';
+    if (item.stages && item.stages.length > 0) {
+        let completed = item.completed_stages || [];
+        stagesHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">' + 
+            item.stages.map(s => {
+                const isChecked = completed.includes(s) ? 'checked' : '';
+                const style = isChecked ? 'text-decoration: line-through; color: #94a3b8;' : 'color: var(--text-gray); font-weight: bold;';
+                return `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(128, 128, 128, 0.05); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);" onclick="event.stopPropagation()">
+                            <input type="checkbox" ${isChecked} onchange="toggleStage(${item.id}, '${s}', this.checked)">
+                            <span style="${style}">${s}</span>
+                        </label>`;
+            }).join('') + 
+            '</div>';
+    }
+
+    
+    let mgrDisplay = '<span style="color:#94a3b8">تعیین نشده</span>';
+    if (item.project_manager) {
+        const mgr = (window.allColleagues || []).find(c => c.full_name === item.project_manager);
+        const mAvatar = mgr && mgr.avatar_url ? mgr.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+        mgrDisplay = `<span style="display:inline-flex; align-items:center; gap:4px;"><img alt="" src="${mAvatar}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${item.project_manager}</span>`;
+    }
+    
+    let teamHtml = '<div style="color: #94a3b8; font-size: 0.9rem;">تیمی اختصاص نیافته</div>';
+    if (item.assigned_colleagues && item.assigned_colleagues.length > 0) {
+        teamHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px;">' + item.assigned_colleagues.map(name => {
+            const coll = (window.allColleagues || []).find(c => c.full_name === name);
+            const avatar = coll && coll.avatar_url ? coll.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+            return `<span style="display:inline-flex; align-items:center; gap:4px; background: rgba(128, 128, 128, 0.1); padding:2px 8px; border-radius:12px; font-size:0.85rem; border:1px solid var(--border-color);"><img alt="" src="${avatar}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${name}</span>`;
+        }).join('') + '</div>';
+    }
+    
+    let platformsHtml = '<div style="color: #94a3b8; font-size: 0.9rem;">پلتفرمی مشخص نشده</div>';
+    if (item.publish_platforms && item.publish_platforms.length > 0) {
+        platformsHtml = item.publish_platforms.map(p => {
+            const platformSetting = window.allSettings?.platform?.find(sp => sp.setting_key === p);
+            const icon = platformSetting && platformSetting.icon ? platformSetting.icon : p;
+            let logoHtml = '';
+            if (platformSetting && platformSetting.logo_url) {
+                const isSvg = platformSetting.logo_url.toLowerCase().includes('.svg') || platformSetting.logo_url.toLowerCase().includes('data:image/svg');
+                if (isSvg) {
+                    logoHtml = `<span style="display:inline-block; width:16px; height:16px; background-color:currentColor; -webkit-mask-image:url('${platformSetting.logo_url}'); -webkit-mask-size:contain; -webkit-mask-repeat:no-repeat; -webkit-mask-position:center; mask-image:url('${platformSetting.logo_url}'); mask-size:contain; mask-repeat:no-repeat; mask-position:center; vertical-align:middle; margin-right:4px;"></span>`;
+                } else {
+                    logoHtml = `<img alt="" src="${platformSetting.logo_url}" style="width:16px; height:16px; object-fit:cover; border-radius:50%; vertical-align:middle; margin-right:4px;" loading="lazy">`;
+                }
+            }
+            
+            
+            const pmStatus = item.platform_metrics && item.platform_metrics[p] ? item.platform_metrics[p].status : ((item.published_platforms || []).includes(p) ? 'published' : 'pending');
+            let bgColor = 'rgba(244, 63, 94, 0.05)', color = 'var(--primary-color)', badge = '';
+            if (pmStatus === 'published') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#16a34a'; badge = `<span style="font-size:0.7rem; margin-left:4px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></span>`; }
+            else if (pmStatus === 'scheduled') { bgColor = '#fef3c7'; color = '#d97706'; badge = `<span style="font-size:0.7rem; margin-left:4px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg></span>`; }
+            const style = `cursor:pointer; background: ${bgColor}; color: ${color}; padding: 2px 8px; border-radius: 4px; font-size: 1rem; display:inline-flex; align-items:center; border: 1px solid transparent; transition: 0.2s;`;
+            
+            return `<span style="${style}" title="${p}" onclick="event.stopPropagation(); togglePlatformPublished(${item.id}, '${p}', '${pmStatus}')">
+                ${badge}${logoHtml || (platformSetting && platformSetting.icon ? platformSetting.icon : '')} <span style="margin-right: 4px; font-size: 0.85rem;">${p}</span>
+            </span>`;
+        }).join(' ');
+    }
+
+    const safeCaption = (item.caption || '').replace(/"/g, '&quot;');
+    const safeVideoLink = (item.video_link || '').replace(/"/g, '&quot;');
+    const safeCoverLink = (item.cover_link || '').replace(/"/g, '&quot;');
+
+    const isValidUrl = (str) => {
+        try { new URL(str); return true; } catch (e) { return false; }
+    };
+    
+    const renderLinkGroup = (title, field, value) => {
+        const links = (value || '').split(/[\s,]+/).filter(Boolean);
+        
+        let linksHtml = '';
+        if (links.length > 0) {
+            linksHtml = links.map((link, idx) => {
+                const isValid = isValidUrl(link);
+                const icon = isValid ? '<span style="color: green; font-weight:bold;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M20 6 9 17l-5-5"/></svg></span>' : `<span style="color: red; font-weight:bold;" title="لینک نامعتبر است"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></span>`;
+                return `
+                    <div style="display:inline-flex; align-items:center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 6px; margin-bottom: 4px;">
+                        ${icon}
+                        <a href="${link}" target="_blank" style="color: var(--primary-color); text-decoration: none; font-size:0.9rem; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${title} ${links.length > 1 ? (idx + 1) : ''}</a>
+                        <button onclick="navigator.clipboard.writeText('${link}'); showToast('کپی شد')" style="background:none; border:none; cursor:pointer; font-size:1rem;" title="کپی لینک">
+                            <svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg>
+                        </button>
+                    </div>
+                `;
+            }).join(' ');
+        } else {
+            linksHtml = '<span style="font-size:0.9rem; color:#94a3b8;">لینکی ثبت نشده</span>';
+        }
+        
+        return `
+        <div style="background: rgba(128, 128, 128, 0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display:flex; flex-direction:column; gap: 8px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; align-items:center; gap: 12px;">
+                    <span style="font-weight:bold; min-width: 100px;">${title}:</span>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        ${linksHtml}
+                    </div>
+                </div>
+                <div>
+                    <button onclick="document.getElementById('add_${field}').style.display='block'; document.getElementById('edit_${field}').style.display='none';" style="background:none; border:none; cursor:pointer; font-size:1.4rem; color: var(--primary-color);" title="افزودن لینک جدید"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+                    <button onclick="document.getElementById('edit_${field}').style.display='block'; document.getElementById('add_${field}').style.display='none';" style="background:none; border:none; cursor:pointer; font-size:1.2rem;" title="ویرایش کامل"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+            </div>
+            
+            <div id="add_${field}" style="display:none; width:100%; margin-top:8px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                <label style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 4px; display: block;">افزودن لینک جدید:</label>
+                <input type="text" id="input_add_${field}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-bottom:8px;" placeholder="لینک جدید را وارد کنید">
+                <button onclick="const newVal = '${value ? value + '\n' : ''}' + document.getElementById('input_add_${field}').value; saveField(${item.id}, '${field}', newVal)" style="background: var(--success-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">افزودن</button>
+                <button type="button" class="btn-outline" onclick="document.getElementById('add_${field}').style.display='none'">انصراف</button>
+            </div>
+
+            <div id="edit_${field}" style="display:none; width:100%; margin-top:8px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                <label style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 4px; display: block;">ویرایش تمامی لینک‌ها (با فاصله یا خط جدید جدا کنید):</label>
+                <textarea id="input_${field}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-bottom:8px; resize: vertical; min-height: 60px;" placeholder="لینک‌ها را وارد کنید">${value}</textarea>
+                <button class="btn-primary"  onclick="saveField(${item.id}, '${field}', document.getElementById('input_${field}').value)" style="">ثبت تغییرات</button>
+                <button type="button" class="btn-outline" onclick="document.getElementById('edit_${field}').style.display='none'">انصراف</button>
+            </div>
+        </div>
+        `;
+    };
+
+    let componentsHtml = '';
+    if (item.components_count && Object.keys(item.components_count).length > 0) {
+        componentsHtml = `<div style="display:flex; gap: 6px; font-size: 0.85rem; margin-top: 6px; flex-wrap: wrap;">`;
+        for (const [key, count] of Object.entries(item.components_count)) {
+            if (count > 0) {
+                componentsHtml += `<span style="background: rgba(239, 68, 68, 0.15); color: var(--error-color); padding: 4px 10px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; border: 1px solid rgba(239, 68, 68, 0.3); display: inline-flex; align-items: center; gap: 4px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> ${window.toPersianDigits(count)} عدد ${key}</span>`;
+            }
+        }
+        componentsHtml += `</div>`;
+    }
+
+    
+    
+    const allStatuses = [
+        { id: 'raw', name: 'ورودی خام' },
+        { id: 'todo', name: 'در صف انتظار' },
+        { id: 'in_progress', name: 'در حال تولید' },
+        { id: 'review', name: 'ارزیابی استودیو' },
+        { id: 'client_review', name: 'ارزیابی کارفرما' },
+        { id: 'needs_revision', name: 'نیاز به اصلاح' },
+        { id: 'done', name: 'تکمیل شده' },
+        { id: 'approved_by_client', name: `تایید کارفرما <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg>` },
+        { id: 'ready_to_publish', name: `آماده انتشار <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg>` },
+        { id: 'published', name: 'منتشر شده' }
+    ];
+    let currentIndex = allStatuses.findIndex(s => s.id === (item.status === 'doing' ? 'in_progress' : (item.status || 'raw')));
+    if (currentIndex === -1) currentIndex = 0;
+    
+    const currentStatus = allStatuses[currentIndex];
+    const prevStatus = currentIndex > 0 ? allStatuses[currentIndex - 1] : null;
+    const nextStatus = currentIndex < allStatuses.length - 1 ? allStatuses[currentIndex + 1] : null;
+
+    let stageStepperHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; background: rgba(128, 128, 128, 0.05); padding:12px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:16px;">
+            <button ${prevStatus ? '' : 'disabled'} onclick="confirmStageTransition(${item.id}, '${prevStatus ? prevStatus.id : ''}', '${prevStatus ? prevStatus.name : ''}')" style="background:${prevStatus ? 'white' : 'transparent'}; border:1px solid ${prevStatus ? 'var(--border-color)' : 'transparent'}; padding:8px 12px; border-radius:6px; cursor:${prevStatus ? 'pointer' : 'default'}; color: var(--text-gray); display:flex; align-items:center; gap:4px; font-size:0.9rem;">
+                <span style="font-size:1.2rem;">${prevStatus ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>' : ''}</span>
+                ${prevStatus ? 'قبلی' : ''}
+            </button>
+            <div style="font-size:1.2rem; font-weight:bold; color:var(--primary-color);">${currentStatus.name}</div>
+            <button ${nextStatus ? '' : 'disabled'} onclick="confirmStageTransition(${item.id}, '${nextStatus ? nextStatus.id : ''}', '${nextStatus ? nextStatus.name : ''}')" style="background:${nextStatus ? 'var(--primary-color)' : 'transparent'}; border:none; padding:8px 12px; border-radius:6px; cursor:${nextStatus ? 'pointer' : 'default'}; color:${nextStatus ? 'white' : 'transparent'}; display:flex; align-items:center; gap:4px; font-size:0.9rem;">
+                ${nextStatus ? 'بعدی' : ''}
+                <span style="font-size:1.2rem;">${nextStatus ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' : ''}</span>
+            </button>
+        </div>
+    `;
+
+    let titleBlock = `
+        <div style="border-bottom: 1px dashed var(--border-color); padding-bottom: 10px; display:flex; justify-content:space-between; align-items:flex-start;">
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size: 1.3rem; font-weight: bold; color: var(--primary-color);">${item.title || 'بدون عنوان'}</span>
+                ${item.client_comment ? `<div style="margin-top: 5px; padding: 10px; background: rgba(239, 68, 68, 0.15); border-right: 4px solid var(--error-color); border-radius: 4px; font-size: 0.9rem;"><strong>نظرات کارفرما:</strong> ${item.client_comment}</div>` : ''}
+                ${componentsHtml}
+
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="archiveContent(${item.id})" style="background:rgba(249, 115, 22, 0.15); border:1px solid rgba(249, 115, 22, 0.3); color:#f97316; padding:6px 12px; border-radius:6px; font-size:0.9rem; cursor:pointer;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> آرشیو</button>
+                <button onclick="openContentDetails(${item.id}, true)" style="background:var(--border-color); border:none; padding:6px 12px; border-radius:6px; font-size:0.9rem; cursor:pointer; color: var(--text-gray);"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><path d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'/><path d='m15 5 4 4'/></svg> ویرایش کلی</button>
+            </div>
+        </div>
+    `;
+
+    if (editMode) {
+        titleBlock = `
+            <div style="border-bottom: 1px dashed var(--border-color); padding-bottom: 10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; gap:8px;">
+                    <input type="text" id="edit_title" value="${item.title || ''}" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:1.1rem; font-weight:bold; color:var(--primary-color);" placeholder="عنوان محتوا">
+                    <button onclick="deleteContent(${item.id})" style="background:rgba(239, 68, 68, 0.15); color:var(--error-color); border:none; padding:8px 12px; border-radius:8px; font-size:0.9rem; cursor:pointer; flex-shrink:0;">حذف</button>
+                    <button onclick="openContentDetails(${item.id}, false)" style="background: rgba(128, 128, 128, 0.1); border:none; padding:8px 12px; border-radius:8px; font-size:0.9rem; cursor:pointer; color: var(--text-gray); flex-shrink:0;">بازگشت</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold; margin-bottom: 5px; display: block;">وضعیت محتوا:</label>
+                    <select id="edit_status" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:1rem; background: rgba(128, 128, 128, 0.05);">
+                        <option value="raw" ${item.status === 'raw' ? 'selected' : ''}>ورودی خام</option>
+                        <option value="todo" ${item.status === 'todo' ? 'selected' : ''}>در صف انتظار</option>
+                        <option value="in_progress" ${(item.status === 'in_progress' || item.status === 'doing') ? 'selected' : ''}>در حال تولید</option>
+                        <option value="review" ${item.status === 'review' ? 'selected' : ''}>ارزیابی استودیو</option>
+                        <option value="client_review" ${item.status === 'client_review' ? 'selected' : ''}>ارزیابی کارفرما</option>
+                        <option value="needs_revision" ${item.status === 'needs_revision' ? 'selected' : ''}>نیاز به اصلاح</option>
+                        <option value="done" ${item.status === 'done' ? 'selected' : ''}>تکمیل شده</option>
+                        <option value="approved_by_client" ${item.status === 'approved_by_client' ? 'selected' : ''}>تایید کارفرما <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></option>
+                        <option value="ready_to_publish" ${item.status === 'ready_to_publish' ? 'selected' : ''}>آماده انتشار <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg></option>
+                        <option value="published" ${item.status === 'published' ? 'selected' : ''}>منتشر شده</option>
+                    </select>
+                </div>
+
+                <div style="font-size:0.85rem; color: var(--text-gray); margin-bottom: 5px; font-weight:bold;">تعداد اجزای محتوا:</div>
+                
+                <div style="display:flex; gap: 8px; flex-wrap: wrap;">
+                    ${(window.allSettings?.content_type || []).filter(ct => ct.is_active !== 0).map(ct => 
+                        `<label style="display:flex; align-items:center; gap:8px; background: var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px;"><span style="font-size:0.9rem;">${ct.setting_key}</span> <input type="text" inputmode="numeric" min="0" class="edit-comp-count" data-name="${ct.setting_key}" value="${item.components_count?.[ct.setting_key] || 0}" style="width:60px; padding:6px; border:1px solid #ddd; border-radius:6px; text-align:center; font-weight:bold;"></label>`
+                    ).join('')}
+                </div>
+
+            </div>
+        `;
+    }
+
+    let fieldsHtml = '';
+    if (!editMode) {
+        let colTitle = '<span style="color:#94a3b8">مشخص نشده</span>';
+        if (item.collection_id) {
+            const foundCol = (window.allCollections || []).find(c => c.id == item.collection_id || c.title == item.collection_id);
+            if (foundCol) colTitle = foundCol.title;
+            else colTitle = isNaN(item.collection_id) ? item.collection_id : 'نامشخص';
+        }
+        fieldsHtml = `
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;">سازمان / کارفرما:</strong> <div style="margin-top:4px; display:inline-flex; align-items:center; gap:6px;">${item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:48px; height:48px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'} ${item.org_name || '<span style="color:#94a3b8">مشخص نشده</span>'}</div></div>
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;">نوع محتوا:</strong> <div style="margin-top:4px;"><span style="background:rgba(99, 102, 241, 0.15); color:var(--primary-color); padding:4px 10px; border-radius:6px; font-weight:bold;">${item.content_type || 'نامشخص'}</span></div></div>
+                
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> مجموعه (آلبوم):</strong> <div style="margin-top:4px;">${colTitle}</div></div>
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> مدیر پروژه:</strong> <div style="margin-top:4px;">${mgrDisplay}</div></div>
+<div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> همکاران تیم:</strong> <div style="margin-top:4px;">${teamHtml}</div></div>
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M8 2v4'/><path d='M16 2v4'/><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M3 10h18'/></svg> تاریخ انتشار:</strong> <div style="margin-top:4px;">${window.formatPublishDate(item.publish_date, item.publish_time)}</div></div>
+                
+                <div style="grid-column: 1 / -1;"><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> پلتفرم‌های انتشار:</strong> <div style="margin-top:4px; display:flex; gap:4px; flex-wrap:wrap;">${platformsHtml}</div></div>
+            </div>
+        `;
+    } else {
+        const orgOptions = (window.allOrgs || []).map(o => `<option value="${o.id}" ${item.org_id == o.id ? 'selected' : ''}>${o.org_name}</option>`).join('');
+        
+let currentCollectionTitle = "";
+if (item.collection_id) {
+    const fc = (window.allCollections || []).find(c => c.id == item.collection_id || c.title == item.collection_id);
+    if (fc) currentCollectionTitle = fc.title;
+    else currentCollectionTitle = isNaN(item.collection_id) ? item.collection_id : "";
+}
+const colRadios = (window.allCollections || []).map(c => `
+            <label class="col-radio-item" data-org-id="${c.org_id || ''}" style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
+                <input type="radio" name="edit_col_radio" value="${c.title}" ${currentCollectionTitle === c.title ? 'checked' : ''} onchange="document.getElementById('edit_collection_title').value = this.value">
+                <span class="col-title" style="font-size:0.9rem;">${c.title}</span>
+            </label>
+        `).join('');
+
+        const typeOptions = (window.allSettings?.content_type || []).map(t => `<option value="${t.setting_key}" ${item.content_type == t.setting_key ? 'selected' : ''}>${t.setting_key}</option>`).join('');
+        setTimeout(() => { if(window.filterCol) window.filterCol(); }, 50);
+        const mgrDatalist = (window.allColleagues || []).map(u => `<option value="${u.full_name}">`).join('');
+        const teamCheckboxes = (window.allColleagues || []).map(u => `
+            <label class="team-checkbox-item" style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
+                <input type="checkbox" name="edit_team_cb" value="${u.full_name}" ${(item.assigned_colleagues || []).includes(u.full_name) ? 'checked' : ''}>
+                <span class="team-name" style="font-size:0.9rem;">${u.full_name}</span>
+            </label>
+        `).join('');
+        const platOptions = (window.allSettings?.platform || []).map(p => `<label style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;"><input type="checkbox" name="edit_platforms" value="${p.setting_key}" ${(item.publish_platforms || []).includes(p.setting_key) ? 'checked' : ''}> <span style="font-size:0.9rem;">${p.setting_key}</span></label>`).join('');
+        const stagesOptions = (window.allSettings?.stages || []).map(s => `<label style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;"><input type="checkbox" name="edit_stages" value="${s.setting_key}" ${(item.stages || []).includes(s.setting_key) ? 'checked' : ''}> <span style="font-size:0.9rem;">${s.setting_key}</span></label>`).join('');
+
+        fieldsHtml = `
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg> سازمان / کارفرما:</strong>
+                    <select id="edit_org_id" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" onchange="window.filterCol && window.filterCol()">
+                        <option value="">-- انتخاب --</option>
+                        ${orgOptions}
+                    </select>
+                </div>
+                <div>
+                    <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> مجموعه:</strong>
+                    <div style="margin-top:4px; border:1px solid #ddd; border-radius:6px; padding:8px; background: var(--card-bg);">
+                        <input type="text" id="edit_collection_title" value="${currentCollectionTitle}" placeholder="تایپ مجموعه جدید یا جستجو..." onkeyup="filterCol()" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:4px; margin-bottom:8px; font-size:0.85rem;">
+                        <div id="col_radio_list" style="max-height:160px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:8px;">
+                            ${colRadios}
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <strong style="color: var(--text-gray); font-size:0.85rem;">نوع محتوا:</strong>
+                    <select id="edit_content_type" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;">
+                        <option value="">-- انتخاب --</option>
+                        ${typeOptions}
+                    </select>
+                </div>
+                <div>
+                    <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> مدیر پروژه:</strong>
+                    <input type="text" id="edit_project_manager" list="mgr_suggestions" value="${item.project_manager || ''}" onchange="handleManagerChange()" oninput="handleManagerChange()"  style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="جستجو یا انتخاب...">
+                    <datalist id="mgr_suggestions">
+                        ${mgrDatalist}
+                    </datalist>
+                </div>
+                <div>
+                    <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> همکاران تیم:</strong>
+                    <div style="margin-top:4px; border:1px solid #ddd; border-radius:6px; padding:8px; background: var(--card-bg);">
+                        <input type="text" id="team_filter" placeholder="<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-left: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> جستجوی همکار..." onkeyup="filterTeam()" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:4px; margin-bottom:8px; font-size:0.85rem;">
+                        <div id="team_checkbox_list" style="max-height:160px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:8px;">
+                            ${teamCheckboxes}
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M8 2v4'/><path d='M16 2v4'/><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M3 10h18'/></svg> تاریخ انتشار:</strong>
+                    <div style="display:flex; gap:10px;"><input type="text" id="edit_publish_date" data-jdp value="${window.toPersianDigits(item.publish_date || '')}" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="1405/05/10"><input type="time" id="edit_publish_time" value="${item.publish_time || ''}" style="width:120px; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="ساعت انتشار"></div>
+                </div>
+                <div>
+                    <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> پلتفرم‌های انتشار:</strong>
+                    <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px;">
+                        ${platOptions}
+                    </div>
+                </div>
+                <div style="grid-column:span 2;">
+                    <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg> مراحل تولید لازم:</strong>
+                    <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px; background: rgba(128, 128, 128, 0.05); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                        ${stagesOptions}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    const html = `
+        <div style="display: flex; flex-direction: column; gap: 20px; font-size: 0.95rem;">
+            ${!editMode ? stageStepperHtml : ''}
+            ${titleBlock}
+            
+            ${fieldsHtml}
+
+            <!-- لینک‌ها -->
+            <div style="display:flex; flex-direction:column; gap: 12px;">
+                ${renderLinkGroup('فایل ویدئو', 'video_link', item.video_link || '')}
+                ${renderLinkGroup('کاور ویدئو', 'cover_link', item.cover_link || '')}
+            </div>
+
+            <!-- کپشن -->
+            <div style="background: rgba(128, 128, 128, 0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border-color);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <strong style="color: var(--text-gray);"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> متن کپشن:</strong>
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('caption_text').value); showToast('کپشن کپی شد')" style="background:var(--border-color); border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:0.9rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg> کپی کل متن</button>
+                </div>
+                <textarea id="caption_text" rows="4" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; resize:vertical; font-family:inherit;" placeholder="متن کپشن را اینجا بنویسید...">${item.caption || ''}</textarea>
+                <div style="text-align:left; margin-top:8px;">
+                    <button onclick="saveField(${item.id}, 'caption', document.getElementById('caption_text').value)" style="background: var(--success-color); color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer;">ذخیره کپشن</button>
+                </div>
+            </div>
+            
+            ${!editMode ? `<div style="background: rgba(128, 128, 128, 0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border-color);">
+                <strong style="color: var(--text-gray); display:block; margin-bottom:12px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg> مراحل انجام کار:</strong>
+                ${stagesHtml}
+            </div>` : ''}
+
+            ${editMode ? `<div style="margin-top:20px;">
+                <button class="btn-primary"  onclick="saveAllEditFields(${item.id})" style="width:100%; padding:14px; "><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره همه تغییرات</button>
+            </div>` : ''}
+            ${(() => {
+                if (item.activity_log && item.activity_log.length > 0) {
+                    return `
+                        <div style="margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                            <h4 style="margin-top:0; color:var(--text-gray);"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg> تاریخچه فعالیت‌ها</h4>
+                            <div style="display: flex; flex-direction: column; gap: 12px; max-height: 250px; overflow-y: auto; padding-left: 10px;">
+                                ${item.activity_log.map(log => {
+                                    let actionHtml = log.action;
+                                    const statusMatch = log.action.match(/وضعیت را از (.*?) به (.*?) تغییر داد/);
+                                    const batchMatch = log.action.match(/وضعیت را دستهجمعی به (.*?) تغییر داد/);
+                                    if (statusMatch) {
+                                        let fromStatus = statusMatch[1];
+                                        let toStatus = statusMatch[2];
+                                        if (fromStatus === 'در صف') fromStatus = 'در صف انتظار';
+                                        if (toStatus === 'در صف') toStatus = 'در صف انتظار';
+                                        const visual = `<div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:0.85rem;">
+                                            <span style="background:var(--border-color); color:var(--text-dark); padding:4px 8px; border-radius:6px; font-weight:bold;">${fromStatus}</span>
+                                            <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style="color:var(--text-gray);"><path d='M19 12H5'/><path d='m12 19-7-7 7-7'/></svg>
+                                            <span style="background:rgba(99,102,241,0.1); color:var(--primary-color); padding:4px 8px; border-radius:6px; font-weight:bold;">${toStatus}</span>
+                                        </div>`;
+                                        if (log.action === statusMatch[0]) {
+                                            actionHtml = visual;
+                                        } else {
+                                            actionHtml = log.action.replace(statusMatch[0], visual);
+                                        }
+                                    } else if (batchMatch) {
+                                        let toStatus = batchMatch[1];
+                                        if (toStatus === 'در صف') toStatus = 'در صف انتظار';
+                                        const visual = `<div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:0.85rem;">
+                                            <span style="background:var(--border-color); color:var(--text-dark); padding:4px 8px; border-radius:6px; font-weight:bold;">دستهجمعی</span>
+                                            <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style="color:var(--text-gray);"><path d='M19 12H5'/><path d='m12 19-7-7 7-7'/></svg>
+                                            <span style="background:rgba(99,102,241,0.1); color:var(--primary-color); padding:4px 8px; border-radius:6px; font-weight:bold;">${toStatus}</span>
+                                        </div>`;
+                                        if (log.action === batchMatch[0]) {
+                                            actionHtml = visual;
+                                        } else {
+                                            actionHtml = log.action.replace(batchMatch[0], visual);
+                                        }
+                                    }
+                                    return `
+                                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                        <div style="display:flex; justify-content:space-between; margin-bottom: 6px;">
+                                            <strong style="color:var(--primary-color);">${log.user}</strong>
+                                            <span style="color:var(--text-gray); font-size:0.75rem; background: rgba(128,128,128,0.1); padding: 2px 6px; border-radius: 4px;">${log.timestamp}</span>
+                                        </div>
+                                        <div style="color:var(--text-dark); line-height: 1.5;">${actionHtml}</div>
+                                    </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                return '';
+            })()}
+
+        </div>
+    `;
+
+    document.getElementById('detailsContent').innerHTML = html;
+    document.getElementById('detailsContent').onchange = () => { window.hasUnsavedChanges = true; };
+    document.getElementById('detailsContent').oninput = () => { window.hasUnsavedChanges = true; };
+
+    const overlay = document.getElementById('detailsModal');
+    overlay.style.display = 'flex';
+    setTimeout(() => {
+        overlay.querySelector('.side-drawer').style.transform = 'translateX(0)';
+    }, 10);
+}
+window.openContentDetails = openContentDetails;
+
+async function saveAllEditFields(id, closeAfterSave = false) {
+    const title = document.getElementById('edit_title').value;
+    const org_id = document.getElementById('edit_org_id').value;
+    const content_type = document.getElementById('edit_content_type').value;
+    const project_manager = document.getElementById('edit_project_manager').value;
+    const typedColTitle = document.getElementById('edit_collection_title').value.trim();
+    let collection_id = null;
+    if (typedColTitle) {
+        const found = (window.allCollections || []).find(c => c.title === typedColTitle);
+        if (found) collection_id = found.id;
+        else collection_id = typedColTitle; // We will pass string to let server know it's a new one
+    }
+
+    const assigned_colleagues = Array.from(document.querySelectorAll('input[name="edit_team_cb"]:checked')).map(cb => cb.value);
+    
+    const publish_date = window.toEnglishDigits ? window.toEnglishDigits(document.getElementById('edit_publish_date').value) : document.getElementById('edit_publish_date').value;
+    const publish_time = window.toEnglishDigits ? window.toEnglishDigits(document.getElementById('edit_publish_time').value) : document.getElementById('edit_publish_time').value;
+    
+    const publish_platforms = Array.from(document.querySelectorAll('input[name="edit_platforms"]:checked')).map(cb => cb.value);
+    const stages = Array.from(document.querySelectorAll('input[name="edit_stages"]:checked')).map(cb => cb.value);
+    const status = document.getElementById('edit_status').value;
+
+    try {
+        
+        const components_count = {};
+        document.querySelectorAll('.edit-comp-count').forEach(input => {
+            const val = parseInt(window.toEnglishDigits(input.value));
+            if (val > 0) components_count[input.dataset.name] = val;
+        });
+        
+        const payload = {
+            id, title, org_id, collection_id: collection_id, content_type, project_manager, 
+            assigned_colleagues, publish_date, publish_time, publish_platforms, stages,
+            components_count, status
+        };
+        const res = await fetch('/api/update_content_details', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            window.hasUnsavedChanges = false;
+            await loadDepot();
+            showToast('تغییرات با موفقیت ذخیره شد', 'success');
+            if (closeAfterSave) {
+                closeDetailsModal();
+            } else {
+                openContentDetails(id, false);
+            }
+        } else {
+            showToast('خطا در ثبت اطلاعات', 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('خطا در ارتباط با سرور', 'error');
+    }
+}
+window.saveAllEditFields = saveAllEditFields;
+
+
+window.filterCol = function() {
+    const term = document.getElementById('edit_collection_title').value.toLowerCase();
+    const orgSelect = document.getElementById('edit_org_id');
+    const orgId = orgSelect ? orgSelect.value : '';
+    
+    const items = document.querySelectorAll('.col-radio-item');
+    Array.from(items).forEach(item => {
+        const name = item.querySelector('.col-title').innerText.toLowerCase();
+        const itemOrgId = item.getAttribute('data-org-id');
+        
+        let orgMatch = true;
+        if (orgId && itemOrgId && itemOrgId !== "null" && itemOrgId !== orgId) {
+            orgMatch = false;
+        }
+        
+        if (name.includes(term) && orgMatch) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    const checkedRadio = document.querySelector('input[name="edit_col_radio"]:checked');
+    if (checkedRadio && checkedRadio.value !== document.getElementById('edit_collection_title').value) {
+        checkedRadio.checked = false;
+    }
+};
+
+window.filterTeam = function() {
+    const term = document.getElementById('team_filter').value.toLowerCase();
+    const items = document.querySelectorAll('.team-checkbox-item');
+    Array.from(items).forEach(item => {
+        const name = item.querySelector('.team-name').innerText.toLowerCase();
+        if (name.includes(term)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+};
+
+async function saveField(id, field, value) {
+    try {
+        const payload = { id };
+        payload[field] = value;
+        const res = await fetch('/api/update_content_details', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            await loadDepot();
+            openContentDetails(id);
+        } else {
+            showToast('خطا در ثبت اطلاعات', 'error');
+        }
+    } catch(e) {
+        console.error(e);
+        showToast('خطا در ارتباط با سرور', 'error');
+    }
+}
+window.saveField = saveField;
+
+async function archiveContent(id) {
+    if(!(await window.customConfirm('آیا از آرشیو کردن این محتوا اطمینان دارید؟ محتوا از دپو خارج شده و به بخش آرشیو می‌رود.'))) return;
+    try {
+        const res = await fetch('/api/add_content', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'update_status', id: parseInt(id), status: 'archived' })
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            closeDetailsModal();
+            loadDepot(); // reload the board
+        } else {
+            showToast(result.message);
+        }
+    } catch(e) {
+        showToast('خطا در ارتباط با سرور', 'error');
+    }
+}
+window.archiveContent = archiveContent;
+
+async function deleteContent(id) {
+    if (!(await window.customConfirm("آیا از حذف این محتوا اطمینان دارید؟"))) return;
+    try {
+        const res = await fetch('/api/add_content', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'delete', id: parseInt(id) })
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            closeDetailsModal();
+            loadDepot();
+            
+            if (result.bin_id) {
+                window.showToast('محتوا به سطل زباله منتقل شد', 'info', {
+                    text: 'بازگردانی',
+                    callback: async () => {
+                        await fetch('/api/recycle_bin', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ action: 'restore', bin_id: result.bin_id })
+                        });
+                        window.showToast('محتوا با موفقیت بازگردانی شد', 'success');
+                        loadDepot();
+                    }
+                });
+            } else {
+                window.showToast('محتوا با موفقیت حذف شد', 'success');
+            }
+        } else {
+            showToast(result.message);
+        }
+    } catch(e) {
+        showToast('خطا در ارتباط با سرور', 'error');
+    }
+}
+window.deleteContent = deleteContent;
+
+
+
+function closeDetailsModal() {
+    if (window.hasUnsavedChanges) {
+        document.getElementById('contentIdentityConfirmModal').style.display = 'flex';
+        return;
+    }
+    const overlay = document.getElementById('detailsModal');
+    if (overlay) {
+        overlay.querySelector('.side-drawer').style.transform = 'translateX(-100%)';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 300);
+    }
+}
+window.closeDetailsModal = closeDetailsModal;
+
+async function toggleStage(id, stage, isChecked) {
+    try {
+        const res = await fetch('/api/toggle_stage', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id, stage, isChecked })
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            const item = window.allDepotItems.find(i => i.id == id);
+            if(item) {
+                if(!item.completed_stages) item.completed_stages = [];
+                if(isChecked) {
+                    if(!item.completed_stages.includes(stage)) item.completed_stages.push(stage);
+                } else {
+                    item.completed_stages = item.completed_stages.filter(s => s !== stage);
+                }
+                openContentDetails(id); // refresh modal
+            }
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+window.toggleStage = toggleStage;
+
+window.handleManagerChange = function() {
+    const mgrValue = document.getElementById('edit_project_manager') ? document.getElementById('edit_project_manager').value.trim() : '';
+    const teamCheckboxes = document.querySelectorAll('input[name="edit_team_cb"]');
+    teamCheckboxes.forEach(cb => {
+        const itemDiv = cb.closest('.team-checkbox-item');
+        if (itemDiv) {
+            if (cb.value === mgrValue) {
+                cb.checked = true;
+                cb.disabled = true;
+                itemDiv.style.opacity = '0.5';
+            } else {
+                cb.disabled = false;
+                itemDiv.style.opacity = '1';
+            }
+        }
+    });
+};
+
+window.toEnglishDigits = function (str) {
+    const persianNumbers = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const arabicNumbers  = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    if (!str) return str;
+    return str.toString().replace(/[۰-۹]/g, function (w) {
+        return persianNumbers.indexOf(w);
+    }).replace(/[٠-٩]/g, function (w) {
+        return arabicNumbers.indexOf(w);
+    });
+};
+
+window.formatPublishDate = function(dateStr, timeStr) {
+    let timePart = timeStr ? ' - ساعت ' + timeStr : '';
+    if (!dateStr) return '<span style="color:#94a3b8">تعیین نشده</span>';
+    const parts = window.toEnglishDigits(dateStr).split('/');
+    if (parts.length === 3 && window.jalaali) {
+        const y = parseInt(parts[0]);
+        const m = parseInt(parts[1]);
+        const d = parseInt(parts[2]);
+        const g = window.jalaali.toGregorian(y, m, d);
+        const date = new Date(g.gy, g.gm - 1, g.gd);
+        const days = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
+        const dayName = days[date.getDay()];
+        return dayName + ' ' + window.toPersianDigits(dateStr) + (timePart ? window.toPersianDigits(timePart) : '');
+    }
+    return window.toPersianDigits(`${dateStr}${timePart}`);
+};
+
+window.contentIdentityConfirmSave = async function() {
+    document.getElementById('contentIdentityConfirmModal').style.display = 'none';
+    if (window.currentEditingContentId) {
+        if (window.currentContentEditMode) {
+            await saveAllEditFields(window.currentEditingContentId, true);
+        } else {
+            // In view mode, we only have caption
+            const captionVal = document.getElementById('caption_text') ? document.getElementById('caption_text').value : '';
+            await saveField(window.currentEditingContentId, 'caption', captionVal);
+            window.closeDetailsModal();
+        }
+    }
+};
+
+window.contentIdentityConfirmDiscard = function() {
+    document.getElementById('contentIdentityConfirmModal').style.display = 'none';
+    window.hasUnsavedChanges = false;
+    window.closeDetailsModal();
+};
+
+window.contentIdentityConfirmCancel = function() {
+    document.getElementById('contentIdentityConfirmModal').style.display = 'none';
+};
+
+</script>

@@ -1,0 +1,819 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | مدیریت کارفرماها</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <!-- افزودن کتابخانه Cropper.js برای برش عکس -->
+    <link href="assets/css/cropper.min.css" rel="stylesheet">
+    <script src="assets/js/cropper.min.js" defer></script>
+    <style>
+        .org-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px; min-width: 0; }
+        .org-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 24px; border-radius: 16px; display: flex; flex-direction: column; gap: 20px; transition: 0.3s; box-shadow: 0 2px 15px -3px rgba(0,0,0,0.04); transition: box-shadow 0.3s ease, transform 0.3s ease; min-width: 0; }
+        .org-card:hover { border-color: var(--primary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.05); transform: translateY(-3px); }
+        .org-logo { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-color); background: var(--card-bg); flex-shrink: 0; }
+        .btn-delete { position: absolute; left: 15px; top: 15px; background: rgba(239, 68, 68, 0.15); color: var(--error-color); border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
+        
+        @media (max-width: 1400px) { .org-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 1024px) { .org-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 640px) { .org-grid { grid-template-columns: 1fr; } }
+        
+        /* استایل‌های مودال و کراپ */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: var(--card-bg); width: 90%; width: 100%; max-width: 500px; box-sizing: border-box; padding: 30px; border-radius: 15px; max-height: 90vh; overflow-y: auto; }
+        .img-container { width: 100%; max-height: 300px; margin-bottom: 20px; display: none; background: rgba(128, 128, 128, 0.05); border-radius: 8px; overflow: hidden; }
+        .img-container img { max-width: 100%; }
+        .upload-trigger { border: 2px dashed var(--primary-color); padding: 20px; text-align: center; border-radius: 8px; background: rgba(128, 128, 128, 0.05); cursor: pointer; margin-bottom: 15px; color: var(--primary-color); font-weight: bold; }
+    </style>
+</head>
+
+<body>
+    <%- include('sidebar') %>
+    
+
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-building-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 12h4" />
+  <path d="M10 8h4" />
+  <path d="M14 21v-3a2 2 0 0 0-4 0v3" />
+  <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" />
+  <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
+</svg> <span>مدیریت سازمان‌ها و برند‌ها (CRM)</span></h1>
+                <p class="page-subtitle">لیست کارفرما‌های فعال استودیو.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelImport(event)">
+                <button class="btn-outline" style="border: 1px solid var(--primary-color); color: var(--primary-color);" onclick="openExcelGuideModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> ورود گروهی با اکسل</button>
+                <button class="btn-primary" onclick="openModal()">+ افزودن برند جدید</button>
+            </div>
+        </div>
+
+        <div class="org-grid" id="orgContainer">
+            <div class="skeleton" style="height: 60px; width: 100%; margin-bottom: 10px; border-radius: 8px;"></div><div class="skeleton" style="height: 60px; width: 100%; border-radius: 8px;"></div>
+        </div>
+    </main>
+
+    <!-- مودال افزودن کارفرما -->
+    <div class="modal-overlay" id="addOrgModal">
+        <div class="modal-box">
+            <h3 id="modalTitle" style="margin-bottom: 20px;">+ تعریف کارفرمای جدید</h3>
+            <form id="orgForm" onsubmit="saveOrganization(event)">
+                <input type="hidden" id="orgId">
+                <input type="hidden" id="logoUrl">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>نام سازمان / برند:</label>
+                        <input type="text" id="orgName" class="form-control" required placeholder="مثلاً: کلینیک ونوس">
+                    </div>
+                    <div class="form-group">
+                        <label>حوزه فعالیت:</label>
+                        <select id="orgIndustry" class="form-control" required>
+                            <option value="">در حال لود از تنظیمات...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>رنگ سازمانی:</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="colorPickerContainer">
+                        <div class="color-swatch" data-color="var(--error-color)" style="background-color: var(--error-color); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('var(--error-color)', this)"></div><div class="color-swatch" data-color="#F97316" style="background-color: #F97316; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#F97316', this)"></div><div class="color-swatch" data-color="var(--warning-color)" style=" width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('var(--warning-color)', this)"></div><div class="color-swatch" data-color="#EAB308" style="background-color: #EAB308; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#EAB308', this)"></div><div class="color-swatch" data-color="#84CC16" style="background-color: #84CC16; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#84CC16', this)"></div><div class="color-swatch" data-color="#22C55E" style="background-color: #22C55E; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#22C55E', this)"></div><div class="color-swatch" data-color="var(--success-color)" style="background-color: var(--success-color); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('var(--success-color)', this)"></div><div class="color-swatch" data-color="#14B8A6" style="background-color: #14B8A6; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#14B8A6', this)"></div><div class="color-swatch" data-color="#06B6D4" style="background-color: #06B6D4; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#06B6D4', this)"></div><div class="color-swatch" data-color="#0EA5E9" style="background-color: #0EA5E9; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#0EA5E9', this)"></div><div class="color-swatch" data-color="var(--primary-color)" style="background-color: var(--primary-color); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('var(--primary-color)', this)"></div><div class="color-swatch" data-color="#6366F1" style="background-color: #6366F1; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#6366F1', this)"></div><div class="color-swatch" data-color="#8B5CF6" style="background-color: #8B5CF6; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#8B5CF6', this)"></div><div class="color-swatch" data-color="#A855F7" style="background-color: #A855F7; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#A855F7', this)"></div><div class="color-swatch" data-color="#D946EF" style="background-color: #D946EF; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#D946EF', this)"></div><div class="color-swatch" data-color="#EC4899" style="background-color: #EC4899; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#EC4899', this)"></div><div class="color-swatch" data-color="#F43F5E" style="background-color: #F43F5E; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#F43F5E', this)"></div><div class="color-swatch" data-color="#7F1D1D" style="background-color: #7F1D1D; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#7F1D1D', this)"></div><div class="color-swatch" data-color="#7C2D12" style="background-color: #7C2D12; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#7C2D12', this)"></div><div class="color-swatch" data-color="#713F12" style="background-color: #713F12; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#713F12', this)"></div><div class="color-swatch" data-color="#365314" style="background-color: #365314; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#365314', this)"></div><div class="color-swatch" data-color="#14532D" style="background-color: #14532D; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#14532D', this)"></div><div class="color-swatch" data-color="#064E3B" style="background-color: #064E3B; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#064E3B', this)"></div><div class="color-swatch" data-color="#134E4A" style="background-color: #134E4A; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#134E4A', this)"></div><div class="color-swatch" data-color="#164E63" style="background-color: #164E63; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#164E63', this)"></div><div class="color-swatch" data-color="#0C4A6E" style="background-color: #0C4A6E; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#0C4A6E', this)"></div><div class="color-swatch" data-color="#1E3A8A" style="background-color: #1E3A8A; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#1E3A8A', this)"></div><div class="color-swatch" data-color="#312E81" style="background-color: #312E81; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#312E81', this)"></div><div class="color-swatch" data-color="#4C1D95" style="background-color: #4C1D95; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#4C1D95', this)"></div><div class="color-swatch" data-color="#701A75" style="background-color: #701A75; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;" onclick="selectColor('#701A75', this)"></div>
+                    </div>
+                    <input type="hidden" id="orgColor" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>نام رابط:</label>
+                        <input type="text" id="contactName" class="form-control" placeholder="نام شخص رابط">
+                    </div>
+                    <div class="form-group">
+                        <label>شماره تلفن:</label>
+                        <input type="text" id="phoneNumber" class="form-control" placeholder="0912...">
+                        <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="hasTelegram" onchange="toggleTelegram()"> شماره فوق دارای تلگرام است
+                        </label>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label style="color: var(--text-gray); display: flex; align-items: center; gap: 4px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> نام کاربری پورتال:</label>
+                        <input type="text" id="orgUsername" class="form-control" placeholder="username" style="direction: ltr; text-align: left;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label style="color: var(--text-gray); display: flex; align-items: center; gap: 4px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> رمز عبور پورتال:</label>
+                        <input type="text" id="orgPassword" class="form-control" placeholder="رمز عبور" style="direction: ltr; text-align: left;">
+                    </div>
+                </div>
+
+                <div class="form-group" id="telegramGroup">
+                    <label>شماره شماره فوق دارای تلگرام است:</label>
+                    <input type="text" id="telegramNumber" class="form-control" placeholder="0912...">
+                </div>
+
+                <div class="form-group">
+                    <label>شماره تماس‌های اضافه:</label>
+                    <div id="extraPhonesContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                    <button type="button" class="btn-outline" style="padding: 4px 10px; font-size: 0.85rem; margin-top: 8px;" onclick="addDynamicField('extraPhonesContainer', 'extraPhones[]', 'شماره تماس')">+ افزودن شماره</button>
+                </div>
+
+                <div class="form-group">
+                    <label>ایمیل(ها):</label>
+                    <div id="emailsContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                    <button type="button" class="btn-outline" style="padding: 4px 10px; font-size: 0.85rem; margin-top: 8px;" onclick="addDynamicField('emailsContainer', 'emails[]', 'ایمیل')">+ افزودن ایمیل</button>
+                </div>
+
+                <div class="form-group">
+                    <label>آدرس(های) دفتر:</label>
+                    <div id="addressesContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                    <button type="button" class="btn-outline" style="padding: 4px 10px; font-size: 0.85rem; margin-top: 8px;" onclick="addDynamicField('addressesContainer', 'addresses[]', 'آدرس')">+ افزودن آدرس</button>
+                </div>
+
+                <div class="form-group">
+                    <label>لوگوی برند (الزامی):</label>
+                    <div class="upload-trigger" onclick="document.getElementById('imageInput').click()">
+                        <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z'/><circle cx='12' cy='13' r='3'/></svg> برای انتخاب و برش لوگو کلیک کنید
+                    </div>
+                    <input type="file" id="imageInput" accept="image/png, image/jpeg, image/webp" style="display: none;" onchange="initCropper(this)">
+                    
+                    <div class="img-container" id="cropperContainer">
+                        <img alt="" id="imageToCrop" src="" loading="lazy">
+                    </div>
+                    <div id="logoPreviewContainer" style="display:none; margin-top:10px;">
+                        <img alt="" id="logoPreview" style="max-width:100px; border-radius:12px;" loading="lazy">
+                    </div>
+                </div>
+
+                
+                <div id="emergencyUnlockContainer" style="display: none; background: rgba(239, 68, 68, 0.15); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <h4 style="color: var(--error-color); margin-top:0; margin-bottom: 10px;">🔓 بازگرداندن اضطراری مناسبت‌ها</h4>
+                    <p style="font-size: 0.85rem; color: #7f1d1d; margin-bottom: 10px;">در صورتی که کارفرما مناسبت‌های ماه را تایید و قفل کرده است، می‌توانید از اینجا قفل آن را باز کنید.</p>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" id="btnUnlockCurrent" class="btn-outline" style="border-color: var(--error-color); color: var(--error-color); flex: 1;" onclick="unlockEvents('current')">باز کردن قفل این ماه</button>
+                        <button type="button" id="btnUnlockNext" class="btn-outline" style="border-color: var(--error-color); color: var(--error-color); flex: 1;" onclick="unlockEvents('next')">باز کردن قفل ماه آینده</button>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 25px;">
+
+                    <button type="submit" id="saveBtn" class="btn-primary" style="flex: 1;" disabled><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره برند</button>
+                    <button type="button" class="btn-outline"  onclick="closeModal()" style="flex: 1;">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="assets/js/app.js?v=4"></script>
+    <script>
+        let cropper = null;
+
+        setTimeout( () => {
+            loadOrganizations();
+            loadIndustries();
+        });
+
+        // لود حوزه‌های فعالیت از Master Data (فایل تنظیمات که در مرحله قبل ساختیم)
+        async function loadIndustries() {
+            try {
+                const res = await fetch('/api/manage_settings', { cache: 'no-store' });
+                const result = await res.json();
+                const select = document.getElementById('orgIndustry');
+                select.innerHTML = '<option value="">-- انتخاب کنید --</option>';
+                if(result.status === 'success' && result.data['industry']) {
+                    (result.data && result.data['industry'] || []).forEach(item => {
+                        select.innerHTML += `<option value="${item.setting_key}">${item.setting_key}</option>`;
+                    });
+                }
+            } catch(e) { console.log(e); }
+        }
+
+        // واکشی لیست کارفرماها از دیتابیس
+        
+        function filterOrgs() {
+            const query = document.getElementById('searchOrg').value.toLowerCase();
+            const cards = document.querySelectorAll('#orgsList .org-card');
+            cards.forEach(card => {
+                const text = card.innerText.toLowerCase();
+                card.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        async function loadOrganizations() {
+            try {
+                const res = await fetch('/api/manage_orgs');
+                const result = await res.json();
+                const container = document.getElementById('orgContainer');
+                container.innerHTML = '';
+                if(result.data.length === 0) {
+                    container.innerHTML = `
+                    <div style="grid-column:1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--card-bg); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
+                        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg>
+                        </div>
+                        <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">هنوز کارفرما یا سازمانی ثبت نکرده‌اید!</h3>
+                        <p style="color: var(--text-gray); width: 100%; max-width: 400px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">با افزودن سازمان‌ها می‌توانید پروژه‌ها، محتوا‌ها و رویداد‌های مربوط به هر مشتری را به صورت تفکیک‌شده مدیریت کنید.</p>
+                        <button class="btn-primary"  onclick="document.getElementById('orgModal').style.display='flex'" style=""  >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            افزودن اولین سازمان
+                        </button>
+                    </div>`;
+                    return;
+                }
+                
+                window.allOrgsData = result.data;
+                
+                (result.data || []).forEach(org => {
+                    const logoSrc = org.logo_url ? org.logo_url : '/assets/default-org-icon.png';
+                    const color = org.color || 'var(--primary-color)';
+                    container.innerHTML += `
+                        <div class="org-card searchable-item" style="border-right: 5px solid ${color}; opacity: ${org.is_active === 0 ? '0.6' : '1'};">
+                            <div style="display:flex; gap:20px; align-items: flex-start;">
+                                <div style="position: relative;">
+                                    <img src="${logoSrc}" class="org-logo" alt="لوگو" style="border: 2px solid var(--border-color); padding: 4px; border-radius:50%; width:150px; height:150px; filter: ${org.is_active === 0 ? 'grayscale(100%)' : 'none'}; flex-shrink: 0; background: var(--card-bg); box-shadow: 0 2px 5px rgba(0,0,0,0.05);" loading="lazy">
+                                    ${org.is_active === 0 ? '<div style="position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); font-size: 0.7rem; color: var(--error-color); background: rgba(239, 68, 68, 0.15); padding: 2px 6px; border-radius: 12px; font-weight:bold; white-space:nowrap; border:1px solid rgba(239, 68, 68, 0.3);">غیرفعال</div>' : ''}
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                        <div style="font-weight: bold; color: var(--text-gray); font-size: 1.25rem; line-height: 1.2;">
+                                            ${org.org_name}
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
+                                        <span style="font-size: 0.8rem; color: ${color}; background: ${color}15; padding: 4px 10px; border-radius: 20px; border: 1px solid ${color}30; font-weight: bold;">${org.industry}</span>
+                                    </div>
+                                    ${org.contact_name ? `<div style="font-size:0.85rem; color: var(--text-gray); display: flex; align-items: center; gap: 6px;">
+                                        <span style="background: rgba(128, 128, 128, 0.1); padding: 4px; border-radius: 50%; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-phone"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+                                        <span>${org.contact_name}: ${window.toPersianDigits(org.phone_number || '')}</span>
+                                    </div>` : ''}
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                                <a href="client-dashboard?org_id=${org.id}" style="background: rgba(128, 128, 128, 0.05); color: var(--text-gray); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; text-decoration: none; text-align: center; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;" onmouseover="this.style.borderColor='#94a3b8'; this.style.color='#0f172a';" onmouseout="this.style.borderColor='var(--text-gray)'; this.style.color='#475569';"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" x2="21" y1="14" y2="3"></line></svg> <span>مشاهده پورتال</span></a>
+                                <button style="background: rgba(128, 128, 128, 0.05); color: #0284c7; border: 1px solid #bae6fd; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;" onmouseover="this.style.background='#e0f2fe';" onmouseout="this.style.background='var(--bg-color)';" onclick="editOrg(${org.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit-3"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg> <span>ویرایش برند</span></button>
+                                <button style="background: rgba(128, 128, 128, 0.05); color: ${org.is_active === 0 ? '#16a34a' : '#d97706'}; border: 1px solid ${org.is_active === 0 ? '#bbf7d0' : '#fde68a'}; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;" onmouseover="this.style.background='${org.is_active === 0 ? 'rgba(16, 185, 129, 0.15)' : '#fef3c7'}';" onmouseout="this.style.background='var(--bg-color)';" onclick="toggleOrgActive(${org.id}, ${org.is_active === 0 ? 1 : 0})">${org.is_active === 0 ? '<span>فعال کردن</span>' : '<span>غیرفعال کردن</span>'}</button>
+                                <button style="background: rgba(128, 128, 128, 0.05); color: var(--error-color); border: 1px solid rgba(239, 68, 68, 0.3); padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;" onmouseover="this.style.background='rgba(239, 68, 68, 0.15)';" onmouseout="this.style.background='var(--bg-color)';" onclick="deleteOrg(${org.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg> <span>حذف</span></button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) { console.log("خطا در لود کارفرماها"); }
+        }
+
+                // توابع مودال
+        function openModal(id = null, name = '', industry = '') {
+            document.getElementById('addOrgModal').style.display = 'flex';
+            document.getElementById('orgForm').reset();
+            document.getElementById('orgId').value = id || '';
+            const modalTitle = document.getElementById('modalTitle');
+            
+            // Clear dynamic fields
+            document.getElementById('extraPhonesContainer').innerHTML = '';
+            document.getElementById('emailsContainer').innerHTML = '';
+            document.getElementById('addressesContainer').innerHTML = '';
+            document.getElementById('logoUrl').value = '';
+            document.getElementById('logoPreviewContainer').style.display = 'none';
+            document.getElementById('logoPreview').src = '';
+            
+            // Clear color selection
+            document.getElementById('orgColor').value = '';
+            document.querySelectorAll('.color-swatch').forEach(sw => sw.style.border = '2px solid transparent');
+            
+            toggleTelegram();
+
+            if (id) {
+                document.getElementById('orgName').value = name;
+                document.getElementById('orgIndustry').value = industry;
+                document.getElementById('saveBtn').disabled = false;
+                document.getElementById('saveBtn').innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ویرایش برند`;
+                if(modalTitle) modalTitle.innerText = 'ویرایش کارفرما';
+            } else {
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('saveBtn').innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره برند`;
+                if(modalTitle) modalTitle.innerText = '+ تعریف کارفرمای جدید';
+            }
+            
+            document.getElementById('cropperContainer').style.display = 'none';
+            if(cropper) { cropper.destroy(); cropper = null; }
+        }
+        function closeModal() { document.getElementById('addOrgModal').style.display = 'none'; }
+
+        // فعالسازی Cropper.js بعد از انتخاب فایل
+        function initCropper(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const img = document.getElementById('imageToCrop');
+                    img.src = e.target.result;
+                    document.getElementById('cropperContainer').style.display = 'block';
+                    
+                    if (cropper) cropper.destroy();
+                    // تنظیمات برش عکس: مربع (1:1) برای لوگو
+                    cropper = new Cropper(img, { aspectRatio: 1, viewMode: 1 });
+                    
+                    document.getElementById('saveBtn').disabled = false;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // ثبت فرم (آپلود عکس کراپ شده -> دریافت لینک -> ذخیره کارفرما)
+        async function saveOrganization(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveBtn');
+            btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/></svg> در حال ثبت اطلاعات...`;
+            btn.disabled = true;
+
+            const payload = {
+                action: document.getElementById('orgId').value ? 'edit' : 'add',
+                id: document.getElementById('orgId').value,
+                org_name: document.getElementById('orgName').value,
+                industry: document.getElementById('orgIndustry').value,
+                color: document.getElementById('orgColor').value,
+                contact_name: document.getElementById('contactName').value,
+                phone_number: document.getElementById('phoneNumber').value,
+                has_telegram: document.getElementById('hasTelegram').checked,
+                telegram_number: document.getElementById('telegramNumber').value,
+                extra_phones: Array.from(document.querySelectorAll('input[name="extraPhones[]"]')).map(i => i.value).filter(v => v),
+                emails: Array.from(document.querySelectorAll('input[name="emails[]"]')).map(i => i.value).filter(v => v),
+                addresses: Array.from(document.querySelectorAll('input[name="addresses[]"]')).map(i => i.value).filter(v => v),
+                username: document.getElementById('orgUsername').value,
+                password: document.getElementById('orgPassword').value,
+                logo_url: document.getElementById('logoUrl').value
+            };
+
+            const submitForm = async () => {
+                try {
+                    const orgRes = await fetch('/api/manage_orgs', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    const orgData = await orgRes.json();
+                    
+                    if (orgData.status === 'success') {
+                        closeModal();
+                        loadOrganizations();
+                    } else showToast(`<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> ` + orgData.message);
+                } catch(err) { showToast('خطا در ارتباط با سرور', 'error'); }
+                finally { btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg> ذخیره برند`; btn.disabled = false; }
+            };
+
+            if (cropper) {
+                const canvas = cropper.getCroppedCanvas({ width: 300, height: 300 });
+                const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+                try {
+                    btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/></svg> در حال آپلود لوگو...`;
+                    const uploadRes = await fetch('/api/upload_image', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ image: base64Image })
+                    });
+                    const uploadData = await uploadRes.json();
+                    if (uploadData.status === 'success') {
+                        payload.logo_url = uploadData.url;
+                        btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/></svg> در حال ثبت اطلاعات...`;
+                        await submitForm();
+                    } else {
+                        showToast(`<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> خطا در آپلود تصویر`, 'error');
+                        btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg> ذخیره برند`; btn.disabled = false;
+                    }
+                } catch(e) {
+                    showToast('خطا در آپلود تصویر', 'error');
+                    btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg> ذخیره برند`; btn.disabled = false;
+                }
+            } else {
+                if(!payload.logo_url) { showToast("لطفا لوگو را انتخاب کنید!"); btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg> ذخیره برند`; btn.disabled = false; return; }
+                await submitForm();
+            }
+        }
+
+        // حذف نرم
+        function editOrg(id) {
+            const org = window.allOrgsData.find(o => o.id == id);
+            if(!org) return;
+            
+            document.getElementById('addOrgModal').style.display = 'flex';
+            document.getElementById('orgForm').reset();
+            
+            document.getElementById('orgId').value = org.id;
+            document.getElementById('orgName').value = org.org_name;
+            document.getElementById('orgIndustry').value = org.industry;
+            document.getElementById('contactName').value = org.contact_name || '';
+            document.getElementById('phoneNumber').value = org.phone_number || '';
+            document.getElementById('hasTelegram').checked = org.has_telegram || false;
+            toggleTelegram();
+            document.getElementById('telegramNumber').value = org.telegram_number || '';
+            document.getElementById('orgUsername').value = org.username || '';
+            document.getElementById('orgPassword').value = '';
+            document.getElementById('logoUrl').value = org.logo_url || '';
+            
+            if (org.logo_url) {
+                document.getElementById('logoPreviewContainer').style.display = 'block';
+                document.getElementById('logoPreview').src = org.logo_url;
+                document.getElementById('saveBtn').disabled = false;
+            }
+            
+            toggleTelegram();
+            selectColor(org.color || 'var(--primary-color)', document.querySelector(`.color-swatch[data-color="${org.color}"]`));
+            
+            document.getElementById('extraPhonesContainer').innerHTML = '';
+            (org.extra_phones || []).forEach(p => {
+                addDynamicField('extraPhonesContainer', 'extraPhones[]', 'شماره تماس');
+                document.getElementById('extraPhonesContainer').lastElementChild.querySelector('input').value = p;
+            });
+            
+            document.getElementById('emailsContainer').innerHTML = '';
+            (org.emails || []).forEach(e => {
+                addDynamicField('emailsContainer', 'emails[]', 'ایمیل');
+                document.getElementById('emailsContainer').lastElementChild.querySelector('input').value = e;
+            });
+            
+            document.getElementById('addressesContainer').innerHTML = '';
+            (org.addresses || []).forEach(a => {
+                addDynamicField('addressesContainer', 'addresses[]', 'آدرس');
+                document.getElementById('addressesContainer').lastElementChild.querySelector('input').value = a;
+            });
+            
+            document.getElementById('saveBtn').innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ویرایش برند`;
+            document.getElementById('modalTitle').innerText = 'ویرایش کارفرما';
+            
+            document.getElementById('emergencyUnlockContainer').style.display = 'block';
+            
+            const btnCurrent = document.getElementById('btnUnlockCurrent');
+            const btnNext = document.getElementById('btnUnlockNext');
+            
+            if (org.current_month_locked) {
+                btnCurrent.innerText = 'باز کردن قفل این ماه';
+                btnCurrent.style.borderColor = 'var(--error-color)';
+                btnCurrent.style.color = 'var(--error-color)'; btnCurrent.style.backgroundColor = 'transparent';
+                btnCurrent.disabled = false;
+            } else {
+                btnCurrent.innerText = 'هنوز تایید نشده';
+                btnCurrent.style.borderColor = 'var(--success-color)';
+                btnCurrent.style.color = 'var(--success-color)'; btnCurrent.style.backgroundColor = '#d1fae5';
+                btnCurrent.disabled = true;
+            }
+            
+            if (org.next_month_locked) {
+                btnNext.innerText = 'باز کردن قفل ماه آینده';
+                btnNext.style.borderColor = 'var(--error-color)';
+                btnNext.style.color = 'var(--error-color)'; btnNext.style.backgroundColor = 'transparent';
+                btnNext.disabled = false;
+            } else {
+                btnNext.innerText = 'هنوز تایید نشده';
+                btnNext.style.borderColor = 'var(--success-color)';
+                btnNext.style.color = 'var(--success-color)'; btnNext.style.backgroundColor = '#d1fae5';
+                btnNext.disabled = true;
+            }
+
+            
+            document.getElementById('cropperContainer').style.display = 'none';
+            if(cropper) { cropper.destroy(); cropper = null; }
+        }
+                
+
+        let pendingUnlockMonthType = null;
+        function unlockEvents(monthType) {
+            pendingUnlockMonthType = monthType;
+            document.getElementById('unlockReason').value = 'لیست مناسبت‌ها برای تغییرات باز شد. لطفا اصلاحات را با دقت انجام داده و سپس تایید نهایی کنید';
+            document.getElementById('unlockConfirmModal').style.display = 'flex';
+        }
+        
+        function closeUnlockModal() {
+            document.getElementById('unlockConfirmModal').style.display = 'none';
+            pendingUnlockMonthType = null;
+        }
+
+        async function executeUnlock() {
+            const reason = document.getElementById('unlockReason').value.trim();
+            if (!reason) {
+                if(window.showToast) window.showToast('وارد کردن پیام تایید الزامی است', 'error');
+                return;
+            }
+            
+            const orgId = document.getElementById('orgId').value;
+            if(!orgId || !pendingUnlockMonthType) return;
+            
+            const btn = document.querySelector('#unlockConfirmModal .btn-primary');
+            const originalText = btn.innerText;
+            btn.innerText = 'در حال انجام...';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/unlock_events', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ org_id: orgId, type: pendingUnlockMonthType, reason: reason })
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    if(window.showToast) window.showToast('قفل با موفقیت باز شد', 'success');
+                    closeUnlockModal();
+                    document.getElementById('addOrgModal').style.display = 'none';
+                    if (typeof loadOrganizations === 'function') loadOrganizations();
+                } else {
+                    if(window.showToast) window.showToast(data.message, 'error');
+                }
+            } catch(e) {
+                if(window.showToast) window.showToast('خطا در برقراری ارتباط', 'error');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function toggleOrgActive(id, isActive) {
+            try {
+                await fetch('/api/manage_orgs', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'toggle_active', id: id, is_active: isActive })
+                });
+                loadOrganizations();
+            } catch(err) { showToast('خطا در سرور', 'error'); }
+        }
+        
+        async function deleteOrg(id) {
+            if (!(await window.customConfirm("آیا از حذف این سازمان اطمینان دارید؟"))) return;
+            try {
+                const res = await fetch('/api/manage_orgs', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'delete', id: id })
+                }).then(r => r.json());
+                
+                loadOrganizations();
+                
+                if (res.status === 'success' && res.bin_id) {
+                    window.showToast('سازمان به سطل زباله منتقل شد', 'info', {
+                        text: 'بازگردانی',
+                        callback: async () => {
+                            await fetch('/api/recycle_bin', {
+                                method: 'POST', headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ action: 'restore', bin_id: res.bin_id })
+                            });
+                            window.showToast('سازمان بازگردانی شد', 'success');
+                            loadOrganizations();
+                        }
+                    });
+                } else if (res.status === 'success') {
+                    window.showToast('سازمان حذف شد', 'success');
+                } else {
+                    window.showToast(res.message || 'خطا در عملیات', 'error');
+                }
+            } catch(err) { showToast('خطا در سرور', 'error'); }
+        }
+    </script>
+
+<script>
+        function selectColor(color, el) {
+            document.getElementById('orgColor').value = color;
+            document.querySelectorAll('.color-swatch').forEach(sw => sw.style.border = '2px solid transparent');
+            if (el) el.style.border = '2px solid #000';
+            document.getElementById('saveBtn').disabled = false;
+        }
+
+        function toggleTelegram() {
+            const hasTelegram = document.getElementById('hasTelegram').checked;
+            const telGroup = document.getElementById('telegramGroup');
+            if (hasTelegram) {
+                telGroup.style.display = 'none';
+            } else {
+                telGroup.style.display = 'block';
+            }
+        }
+
+        function addDynamicField(containerId, nameAttr, placeholder) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.gap = '8px';
+            div.innerHTML = `
+                <input type="text" name="${nameAttr}" class="form-control" placeholder="${placeholder}" style="flex: 1;">
+                <button type="button" class="btn-outline" style="padding: 4px 8px; border-color: var(--error-color); color: var(--error-color);" onclick="this.parentElement.remove()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></button>
+            `;
+            container.appendChild(div);
+        }
+</script>
+
+<div class="modal-overlay" id="unlockConfirmModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index: 2147483647 !important; justify-content:center; align-items:center;">
+    <div style="background: var(--card-bg); padding:20px; border-radius:12px; width: 100%; max-width: 400px; box-sizing: border-box; max-width:90%;">
+        <h3 style="margin-bottom:15px; color:var(--error-color);">🔓 بازگرداندن اضطراری مناسبت‌ها</h3>
+        <p style="margin-bottom:15px; font-size: 0.95rem;">آیا مطمئن هستید که می‌خواهید قفل مناسبت‌های این ماه را باز کنید؟</p>
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label style="display:block; margin-bottom:8px; font-size:0.9rem;">پیام تایید / دلیل باز کردن قفل (اجباری):</label>
+            <input type="text" id="unlockReason" class="form-control" placeholder="مثال: ویرایش لیست بنا به درخواست کارفرما" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn-danger" style=" flex:1;" onclick="executeUnlock()">تایید و باز کردن قفل</button>
+            <button type="button" class="btn-outline"  onclick="closeUnlockModal()" style="flex: 1;">انصراف</button>
+        </div>
+</div>
+</div>
+
+<!-- Excel Guide Modal -->
+<div class="modal-overlay" id="excelGuideModal">
+    <div class="modal-box" style="width: 100%; max-width: 600px; box-sizing: border-box;">
+        <h3 style="margin-bottom: 15px; color: var(--text-dark);">راهنمای اکسل سازمان‌ها</h3>
+        <p style="color: var(--text-gray); margin-bottom: 15px; line-height: 1.6;">
+            برای وارد کردن سازمان‌ها از طریق اکسل، فایل شما باید دارای ستون‌های زیر در ردیف اول (Header) باشد. نام ستون‌ها باید دقیقاً مطابق موارد زیر باشد:
+        </p>
+        <table style="width: 100%; text-align: right; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+                <tr style="background: rgba(128,128,128,0.05);">
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نام برند</th>
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نوع قرارداد</th>
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نام رابط</th>
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">تلفن</th>
+                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">رنگ سازمانی (Hex)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">دیجی‌کالا</td>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">فروشگاهی</td>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">علی محمدی</td>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">09123456789</td>
+                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">#EF4444</td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 20px;">
+            نکته: در صورت خالی بودن رنگ سازمانی، رنگ پیش‌فرض (#6366F1) در نظر گرفته می‌شود.
+        </p>
+        <div style="display: flex; gap: 10px;"><button class="btn-primary" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'; document.getElementById('excelInput').click();">متوجه شدم، انتخاب فایل اکسل</button><button class="btn-outline" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'">بستن</button></div>
+    </div>
+</div>
+
+<!-- Excel Preview Modal -->
+<div class="modal-overlay" id="excelPreviewModal">
+    <div class="modal-box" style="width: 100%; max-width: 800px; box-sizing: border-box; max-height: 90vh; display: flex; flex-direction: column;">
+        <h3 style="margin-bottom: 15px; color: var(--text-dark);">پیش‌نمایش سازمان‌های اکسل</h3>
+        <div id="excelPreviewContainer" style="overflow-y: auto; flex: 1; margin-bottom: 20px;">
+            <!-- Preview items here -->
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-primary" style="flex: 1; font-size: 1.1rem; padding: 12px;" onclick="saveExcelOrgs()">ذخیره همه سازمان‌ها</button>
+            <button type="button" class="btn-outline"  onclick="document.getElementById('excelPreviewModal').style.display='none'" style="flex: 1;">انصراف</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+    let pendingExcelOrgs = [];
+
+    function openExcelGuideModal() {
+        document.getElementById('excelGuideModal').style.display = 'flex';
+    }
+
+    function handleExcelImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            if (json.length < 2) {
+                showToast('فایل اکسل خالی است یا فرمت نامعتبر است', 'error');
+                return;
+            }
+
+            // parse columns
+            const headers = json[0].map(h => typeof h === 'string' ? h.trim() : h);
+            const nameIdx = headers.indexOf('نام برند');
+            const typeIdx = headers.indexOf('نوع قرارداد');
+            const contactIdx = headers.indexOf('نام رابط');
+            const phoneIdx = headers.indexOf('تلفن');
+            const colorIdx = headers.indexOf('رنگ سازمانی (Hex)');
+
+            if (nameIdx === -1) {
+                showToast('ستون "نام برند" یافت نشد. لطفا راهنمای اکسل را مطالعه کنید.', 'error');
+                return;
+            }
+
+            pendingExcelOrgs = [];
+            
+            for (let i = 1; i < json.length; i++) {
+                const row = json[i];
+                if (!row || row.length === 0 || !row[nameIdx]) continue;
+                
+                const org_name = String(row[nameIdx]).trim();
+                const industry = typeIdx !== -1 && row[typeIdx] ? String(row[typeIdx]).trim() : 'سایر';
+                const contact_name = contactIdx !== -1 && row[contactIdx] ? String(row[contactIdx]).trim() : '';
+                const phone_number = phoneIdx !== -1 && row[phoneIdx] ? String(row[phoneIdx]).trim() : '';
+                let color = colorIdx !== -1 && row[colorIdx] ? String(row[colorIdx]).trim() : '#6366F1';
+                
+                if (!color.startsWith('#')) color = '#' + color;
+
+                pendingExcelOrgs.push({
+                    org_name, industry, contact_name, phone_number, color
+                });
+            }
+
+            if (pendingExcelOrgs.length === 0) {
+                showToast('هیچ سازمانی در فایل یافت نشد', 'error');
+                return;
+            }
+
+            showExcelPreview();
+        };
+        reader.readAsArrayBuffer(file);
+        event.target.value = ''; // reset
+    }
+
+    function showExcelPreview() {
+        const container = document.getElementById('excelPreviewContainer');
+        container.innerHTML = '';
+        
+        pendingExcelOrgs.forEach((org, index) => {
+            container.innerHTML += `
+                <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: ${org.color}; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                        ${org.org_name.charAt(0)}
+                    </div>
+                    <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
+                        <div>نام: <span style="font-weight:bold;">${org.org_name}</span></div>
+                        <div>نوع: <span style="font-weight:bold;">${org.industry}</span></div>
+                        <div>رابط: <span style="font-weight:bold;">${org.contact_name || '-'}</span></div>
+                        <div>تلفن: <span style="font-weight:bold;">${org.phone_number || '-'}</span></div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        document.getElementById('excelPreviewModal').style.display = 'flex';
+    }
+
+    async function saveExcelOrgs() {
+        if (pendingExcelOrgs.length === 0) return;
+        
+        if (window.showLoading) window.showLoading('در حال ذخیره...');
+        try {
+            const payload = {
+                action: 'batch_add',
+                orgs: pendingExcelOrgs
+            };
+            
+            const res = await fetch('/api/manage_orgs', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            
+            if (window.hideLoading) window.hideLoading();
+            
+            if (result.status === 'success') {
+                showToast('سازمان‌های اکسل با موفقیت ذخیره شدند', 'success');
+                document.getElementById('excelPreviewModal').style.display = 'none';
+                loadOrganizations();
+            } else {
+                showToast(result.message || 'خطا در ذخیره سازمان‌ها', 'error');
+            }
+        } catch(e) {
+            if (window.hideLoading) window.hideLoading();
+            showToast('خطا در ارتباط با سرور', 'error');
+        }
+    }
+</script>
+
+</body>
+</html>

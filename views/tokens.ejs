@@ -1,0 +1,236 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<script>
+// Global Network Error Handler
+(function() {
+    if (window._fetchIntercepted) return;
+    window._fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            return await originalFetch.apply(this, args);
+        } catch (e) {
+            // Suppress network error toasts which commonly trigger on dev server restart polling
+            // console.error('Network Error:', e);
+            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    };
+})();
+</script>
+
+        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | داشبورد سلامت توکن‌ها</title>
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <style>
+        .token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .token-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; transition: 0.2s; }
+        .token-card:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .token-card.status-expired { border-color: var(--error-color); background: #fef2f2; }
+        .token-card.status-expired::before { content:''; display:block; height:4px; background:var(--error-color); margin:-20px -20px 20px -20px; border-radius: 12px 12px 0 0; }
+        
+        .token-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .status-badge { font-size: 0.8rem; font-weight: bold; padding: 5px 12px; border-radius: 20px; }
+        .badge-active { background: #d1fae5; color: #065f46; }
+        .badge-expired { background: rgba(239, 68, 68, 0.15); color: var(--error-color); animation: pulse 2s infinite; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        
+        .btn-refresh { margin-top: auto; background: var(--error-color); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-refresh:hover { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <%- include('sidebar') %>
+
+    
+
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
+<svg
+  class="lucide lucide-link-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+  <path d="M15 7h2a5 5 0 1 1 0 10h-2" />
+  <line x1="8" x2="16" y1="12" y2="12" />
+</svg> <span>سلامت توکن‌ها و اتصالات</span></h1>
+                <p class="page-subtitle">بررسی وضعیت توکن‌ها و اتصالات شبکه‌های اجتماعی</p>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" class="flex-responsive">
+            <input type="text" class="global-search-input" data-target="#tokenContainer" placeholder="جستجوی سریع (کلمه مورد نظر را تایپ کنید)..." style="flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit;">
+        </div>
+    
+            <p style="color: var(--text-gray);">نظارت زنده بر اتصال شبکه‌های اجتماعی کارفرماها جهت جلوگیری از قطعیِ انتشار خودکار.</p>
+        </div>
+
+        
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 30px;">
+            <h3 style="margin-top: 0; display: flex; align-items: center; gap: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="16"></line><line x1="8" x2="16" y1="12" y2="12"></line></svg> <span>اتصال حساب جدید (Meta Graph / Telegram API)</span></h3>
+            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="font-size: 0.85rem; color: var(--text-gray);">کارفرما</label>
+                    <select id="newTokenOrg" class="form-control" style="width: 100%;"></select>
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 0.85rem; color: var(--text-gray);">پلتفرم</label>
+                    <select id="newTokenPlatform" class="form-control" style="width: 100%;">
+                        <option value="اینستاگرام">اینستاگرام (Meta Graph)</option>
+                        <option value="تلگرام">تلگرام (Bot API)</option>
+                        <option value="بله">بله (Bot API)</option>
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 0.85rem; color: var(--text-gray);">نام اکانت / آیدی</label>
+                    <input type="text" id="newTokenAccount" class="form-control" placeholder="username" style="width: 100%; direction: ltr; text-align: left;">
+                </div>
+                <div style="flex: 2; min-width: 250px;">
+                    <label style="font-size: 0.85rem; color: var(--text-gray);">توکن دسترسی (Access Token)</label>
+                    <input type="text" id="newTokenAccess" class="form-control" placeholder="EAAGm0PX4ZCkw..." style="width: 100%; direction: ltr; text-align: left;">
+                </div>
+                <div>
+                    <button class="btn-primary" onclick="saveNewToken()" style="height: 42px;">اتصال</button>
+                </div>
+            </div>
+        </div>
+<div class="token-grid" id="tokenContainer">
+
+            <div style="text-align:center; padding: 50px; color: gray; grid-column: 1/-1;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg> در حال پینگ گرفتن از شبکه‌ها...</div>
+        </div>
+    </main>
+
+    <script src="assets/js/app.js?v=4"></script>
+    <script>
+        
+        async function saveNewToken() {
+            const orgSelect = document.getElementById('newTokenOrg');
+            const platform = document.getElementById('newTokenPlatform').value;
+            const account = document.getElementById('newTokenAccount').value;
+            const access = document.getElementById('newTokenAccess').value;
+            
+            if(!orgSelect.value || !account || !access) {
+                showToast('لطفا تمامی فیلد‌ها را پر کنید');
+                return;
+            }
+            
+            const orgId = orgSelect.value;
+            const orgName = orgSelect.options[orgSelect.selectedIndex].text;
+            
+            try {
+                const res = await fetch('/api/save_token', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        org_id: orgId,
+                        org_name: orgName,
+                        platform_name: platform,
+                        account_username: account,
+                        access_token: access
+                    })
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    if(window.showToast) window.showToast('اتصال برقرار شد', 'success');
+                    else showToast('اتصال برقرار شد');
+                    closeTokenModal(); document.getElementById("tokenAccount").value = ""; document.getElementById("tokenAccess").value = ""; loadTokens();
+                } else {
+                    showToast(data.message);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+setTimeout( async () => {
+
+            try {
+                
+                // Fetch orgs for dropdown
+                try {
+                    const orgsRes = await fetch('/api/get_orgs');
+                    const orgsData = await orgsRes.json();
+                    const orgSelect = document.getElementById('newTokenOrg');
+                    (orgsData.organizations || []).forEach(o => {
+                        orgSelect.innerHTML += `<option value="${o.id}">${o.org_name}</option>`;
+                    });
+                } catch(e) {}
+                loadTokens();
+            } catch(e) {
+                console.error(e);
+            }
+        });
+
+        async function loadTokens() {
+            try {
+                const res = await fetch('/api/get_tokens');
+
+                const data = await res.json();
+                const container = document.getElementById('tokenContainer');
+                container.innerHTML = '';
+                
+                if(data.tokens.length === 0) {
+                    container.innerHTML = `
+                    <div class="searchable-item" style="grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--card-bg); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
+                        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                        </div>
+                        <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">هیچ اکانتی متصل نیست!</h3>
+                        <p style="color: var(--text-gray); width: 100%; max-width: 450px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">شما می‌توانید حساب‌های اینستاگرام، تلگرام یا فیسبوک مشتریان را به پلتفرم متصل کنید تا انتشار خودکار و پایش آمار امکان‌پذیر شود.</p>
+                    </div>`;
+                    return;
+                }
+                
+                (data.tokens || []).forEach(token => {
+                    const isExpired = token.status === 'expired';
+                    const badge = isExpired ? `<span class="status-badge badge-expired">نیازمند تمدید <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></span>` : `<span class="status-badge badge-active">متصل و سالم <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></span>`;
+                    const cardClass = isExpired ? 'token-card status-expired' : 'token-card';
+                    
+                    // فرمت کردن تاریخ
+                    const expireDate = new Date(token.expires_at).toLocaleDateString('fa-IR');
+                    
+                    container.innerHTML += `
+                        <div class="${cardClass}">
+                            <div class="token-header">
+                                <span style="font-weight:900; font-size:1.1rem; color:var(--text-dark); display:flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-globe"><circle cx="12" cy="12" r="10"></circle><line x1="2" x2="22" y1="12" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg> ${token.platform_name}</span>
+                                ${badge}
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <span style="color: var(--text-gray); font-size: 0.9rem;">کارفرما:</span>
+                                <div style="font-weight: bold; margin-top: 5px; display:flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building-2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg> ${token.org_name}</div>
+                            </div>
+                            <div style="margin-bottom: 25px;">
+                                <span style="color: var(--text-gray); font-size: 0.9rem;">نام کاربری (اکانت):</span>
+                                <div style="font-weight: bold; direction: ltr; text-align: right; margin-top: 5px; background: rgba(128, 128, 128, 0.05); padding:8px; border-radius:6px;">${token.account_username}</div>
+                            </div>
+                            ${isExpired 
+                                ? `<button class="btn-refresh" onclick="showToast('انتقال به درگاه لاگینِ ${token.platform_name} جهت تایید مجدد دسترسی...')"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg> اتصال مجدد (Re-auth)</button>` 
+                                : `<div style="text-align:center; color: var(--text-gray); font-size: 0.85rem; background: rgba(128, 128, 128, 0.1); padding:8px; border-radius:6px;">انقضای توکن: ${expireDate}</div>`}
+                        </div>
+                    `;
+                });
+            } catch(e) {
+                document.getElementById('tokenContainer').innerHTML = '<div style="color:red; grid-column:1/-1; text-align:center;">خطا در برقراری ارتباط با دیتابیس</div>';
+            }
+        }
+    </script>
+</body>
+
+</html>

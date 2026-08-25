@@ -1,0 +1,285 @@
+963:        let html = `
+964-            <style>
+965-                .swimlane-container { border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px; background: var(--bg-color); overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+966-                .swimlane-header { background: var(--card-bg); padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; transition: background 0.2s; }
+967-                .swimlane-header:hover { background: rgba(128,128,128,0.02); }
+968-                .swimlane-title { display: flex; align-items: center; gap: 12px; font-size: 1.2rem; font-weight: bold; color: var(--text-dark); }
+969-                .swimlane-badge { background: var(--primary-color); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
+970-                .swimlane-toggle { transition: transform 0.3s; color: var(--text-gray); }
+971-                .swimlane-collapsed .swimlane-toggle { transform: rotate(-90deg); }
+972-                .swimlane-content { display: flex; overflow-x: auto; padding: 12px; gap: 12px; background: rgba(128,128,128,0.01); min-height: 200px; }
+973-                .swimlane-collapsed .swimlane-content { display: none; }
+974-                .swimlane-content .kanban-column { flex: 0 0 320px; background: var(--card-bg); border-radius: 10px; border: 1px solid var(--border-color); padding-bottom: 10px;}
+975-            </style>
+976-        `;
+977-        
+978-        if (orgsList.length === 0) {
+979-            html += `<div style="text-align: center; padding: 50px; color: var(--text-gray);">هیچ محتوایی با این فیلترها یافت نشد</div>`;
+980-        }
+981-
+982-        orgsList.forEach((orgName, index) => {
+983-            const orgItems = items.filter(i => (i.org_name || 'بدون سازمان') === orgName);
+984-            if(orgItems.length === 0) return;
+985-            
+986-            const sampleItem = orgItems.find(i => i.org_name === orgName) || {};
+987-            const orgLogo = sampleItem.org_logo ? `<img src="${sampleItem.org_logo}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">` : '🏢';
+988-            const orgColor = sampleItem.org_color || 'var(--primary-color)';
+989-            
+990-            html += `
+991-                <div class="swimlane-container" id="swimlane-${index}">
+992-                    <div class="swimlane-header" onclick="document.getElementById('swimlane-${index}').classList.toggle('swimlane-collapsed')">
+993-                        <div class="swimlane-title">
+994-                            <span style="display:inline-flex; padding: 4px; border-radius: 8px; background: color-mix(in srgb, ${orgColor} 15%, transparent);">${orgLogo}</span>
+995-                            ${orgName}
+996-                            <span class="swimlane-badge" style="background: ${orgColor};">${window.toPersianDigits(orgItems.length)} محتوا</span>
+997-                        </div>
+998-                        <div class="swimlane-toggle">
+999-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+1000-                        </div>
+1001-                    </div>
+1002-                    <div class="swimlane-content">
+1003-            `;
+1004-            
+1005-            statusesConfig.forEach(sConfig => {
+1006-                const statusKey = sConfig.id;
+1007-                let colItems = [];
+1008-                if (statusKey === 'raw') {
+1009-                    colItems = orgItems.filter(i => !i.status || i.status === 'raw' || i.status === 'raw_event');
+1010-                } else if (statusKey === 'in_progress') {
+1011-                    colItems = orgItems.filter(i => ['doing', 'in_production', 'review', 'client_review', 'needs_revision', 'in_progress'].includes(i.status));
+1012-                } else if (statusKey === 'done') {
+1013-                    colItems = orgItems.filter(i => ['approved_by_client', 'ready_to_publish', 'done'].includes(i.status));
+1014-                } else {
+1015-                    colItems = orgItems.filter(i => i.status === statusKey);
+1016-                }
+1017-                
+1018-                html += `
+1019-                    <div class="kanban-column" style="display:flex; flex-direction:column; max-height: 800px; overflow:hidden;" data-title="${sConfig.title.replace(/<[^>]+>/g, '').trim()}">
+1020-                        <div class="column-header" style="display:flex; justify-content:space-between; align-items:center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: rgba(128,128,128,0.02);">
+1021-                            ${sConfig.title}
+1022-                            <div style="display: flex; align-items: center; gap: 8px;">
+1023-                                <span id="col-count-${statusKey}-${index}" style="background: var(--text-gray); color: #ffffff; border-radius: 12px; padding: 2px 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold;">${window.toPersianDigits(colItems.length)}</span>
+1024-                                <button class="col-toggle-btn" onclick="this.closest('.kanban-column').classList.toggle('column-collapsed')" style="background: none; border: none; cursor: pointer; color: var(--text-gray); padding: 4px; border-radius: 4px;" title="جمع کردن ستون">
+1025-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+1026-                                </button>
+1027-                            </div>
+1028-                        </div>
+1029-                        <div id="col-body-${statusKey}-${index}" class="column-body" style="flex:1; overflow-y:auto; padding:8px; min-height: 150px;" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)">
+1030-                            ${renderCards(colItems, statusKey)}
+1031-                        </div>
+1032-                    </div>
+1033-                `;
+1034-            });
+1035-            
+1036-            html += `
+1037-                    </div>
+1038-                </div>
+1039-            `;
+1040-        });
+1041-        
+1042-        board.innerHTML = html;
+1043-        board.style.display = 'block'; // Ensure block display for swimlanes
+1044-        
+1045-    } else {
+1046-        board.style.display = ''; // default flex
+1047:        let html = '';
+1048-        statusesConfig.forEach(sConfig => {
+1049-            const statusKey = sConfig.id;
+1050-            let colItems = [];
+1051-            if (statusKey === 'raw') {
+1052-                colItems = items.filter(i => !i.status || i.status === 'raw' || i.status === 'raw_event');
+1053-            } else if (statusKey === 'in_progress') {
+1054-                colItems = items.filter(i => ['doing', 'in_production', 'review', 'client_review', 'needs_revision', 'in_progress'].includes(i.status));
+1055-            } else if (statusKey === 'done') {
+1056-                colItems = items.filter(i => ['approved_by_client', 'ready_to_publish', 'done'].includes(i.status));
+1057-            } else {
+1058-                colItems = items.filter(i => i.status === statusKey);
+1059-            }
+1060-            
+1061-            html += `
+1062-                <div class="kanban-column" style="display:flex; flex-direction:column; max-height:100%; overflow:hidden;" data-title="${sConfig.title.replace(/<[^>]+>/g, '').trim()}">
+1063-                    <div class="column-header" style="display:flex; justify-content:space-between; align-items:center;">
+1064-                        ${sConfig.title}
+1065-                        <div style="display: flex; align-items: center; gap: 8px;">
+1066-                            <span id="col-count-${statusKey}" style="background: var(--primary-color, var(--primary-color)); color: #ffffff; border-radius: 50%; width: 44px; height: 44px; min-width: 44px; border: 2px solid var(--card-bg, #ffffff); box-shadow: 0 4px 10px rgba(0,0,0,0.18); display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 800;">${window.toPersianDigits(colItems.length)}</span>
+1067-                            <button class="col-toggle-btn" onclick="this.closest('.kanban-column').classList.toggle('column-collapsed')" style="background: none; border: none; cursor: pointer; color: var(--text-gray); padding: 4px; border-radius: 4px;" title="جمع کردن ستون">
+1068-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+1069-                            </button>
+1070-                        </div>
+1071-                    </div>
+1072-                    <div id="col-body-${statusKey}" class="column-body" style="flex:1; overflow-y:auto; padding:8px;" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)">
+1073-                        ${renderCards(colItems, statusKey)}
+1074-                    </div>
+1075-                </div>
+1076-            `;
+1077-        });
+1078-        board.innerHTML = html;
+1079-    }
+1080-}
+1081-
+1082-function filterCards() {
+1083-    renderKanban(window.allDepotItems);
+1084-}
+1085-
+1086-window.isGroupedByOrg = false;
+1087-window.showMyTasks = false;
+1088-
+1089-window.toggleGroupByOrg = function() {
+1090-    window.isGroupedByOrg = !window.isGroupedByOrg;
+1091-    const btn = document.getElementById('groupByOrgBtn');
+1092-    if (window.isGroupedByOrg) {
+1093-        btn.style.background = 'var(--primary-color)';
+1094-        btn.style.color = 'white';
+1095-        btn.style.borderColor = 'var(--primary-color)';
+1096-    } else {
+1097-        btn.style.background = 'var(--card-bg)';
+1098-        btn.style.color = 'var(--primary-color)';
+1099-        btn.style.borderColor = 'var(--primary-color)';
+1100-    }
+1101-    filterCards();
+1102-};
+1103-
+1104-window.toggleMyTasks = function() {
+1105-    window.showMyTasks = !window.showMyTasks;
+1106-    const btn = document.getElementById('myTasksBtn');
+1107-    if (window.showMyTasks) {
+1108-        btn.style.background = 'var(--primary-color)';
+1109-        btn.style.color = 'white';
+1110-        btn.style.borderColor = 'var(--primary-color)';
+1111-    } else {
+1112-        btn.style.background = 'var(--card-bg)';
+1113-        btn.style.color = 'var(--primary-color)';
+1114-        btn.style.borderColor = 'var(--primary-color)';
+1115-    }
+1116-    filterCards();
+1117-};
+1118-
+1119-document.filterCards = filterCards;
+1120-
+1121-
+1122-async function confirmStageTransition(id, newStatusId, newStatusName) {
+1123-    if (!newStatusId) return;
+1124-    const item = (window.allDepotItems || []).find(i => i.id == id);
+1125-    const itemName = item ? (item.title || 'بدون عنوان') : 'بدون عنوان';
+1126-    const itemType = item ? (item.content_type || 'محتوای') : 'محتوای';
+1127-    if (await window.customConfirm(`${itemType} «${itemName}» به مرحله ${newStatusName} منتقل شود!؟`)) {
+1128-        try {
+1129-            const res = await fetch('api/add_content.php', {
+1130-                method: 'POST',
+1131-                headers: {'Content-Type': 'application/json'},
+1132-                body: JSON.stringify({ action: 'update_status', id: parseInt(id), status: newStatusId })
+1133-            });
+1134-            const result = await res.json();
+1135-            if (result.status === 'success') {
+1136-                const item = (window.allDepotItems || []).find(i => i.id == id);
+1137-                if (item) {
+1138-                    const oldStatus = item.status || 'raw';
+1139-                    item.status = newStatusId;
+1140-                    // Optimistic UI update without full reload
+1141-                    const cardEl = document.querySelector(`[data-id="${id}"]`);
+1142-                    const newColBody = document.getElementById(`col-body-${newStatusId}`);
+1143-                    const oldColBody = document.getElementById(`col-body-${oldStatus}`);
+1144-                    if (cardEl && newColBody) {
+1145-                        // Remove 'خالی' from destination if it exists
+1146-                        const emptyMsg = newColBody.querySelector('.empty-state');
+1147-                        if (emptyMsg) emptyMsg.remove();
+1148-
+1149-                        newColBody.appendChild(cardEl);
+1150-
+1151-                        // Add 'خالی' to source if empty
+1152-                        if (oldColBody && oldColBody.querySelectorAll('.task-card').length === 0) {
+1153-                            oldColBody.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;" class="empty-state">خالی</div>';
+1154-                        }
+1155-
+1156-                        const oldCountSpan = document.getElementById(`col-count-${oldStatus}`);
+1157-                        const newCountSpan = document.getElementById(`col-count-${newStatusId}`);
+1158-                        if(oldCountSpan) oldCountSpan.innerText = window.toPersianDigits(Math.max(0, parseInt(oldCountSpan.innerText.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) - 1));
+1159-                        if(newCountSpan) newCountSpan.innerText = window.toPersianDigits(parseInt(newCountSpan.innerText.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) + 1);
+1160-                    } else {
+1161-                        filterCards();
+1162-                    }
+1163-                }
+1164-                openContentDetails(id, false); // Reload modal details
+1165-                if (window.showToast) window.showToast('وضعیت با موفقیت تغییر کرد', 'success');
+1166-            } else {
+1167-                if (window.showToast) window.showToast('خطا در انتقال کارت', 'error');
+1168-            }
+1169-        } catch(e) {
+1170-            if (window.showToast) window.showToast('خطا در انتقال کارت', 'error');
+1171-        }
+1172-    }
+1173-}
+1174-
+1175-function openContentDetails(id, editMode = false) {
+1176-    const item = window.allDepotItems.find(i => i.id == id);
+1177-    if (!item) { closeDetailsModal(); return; }
+1178-
+1179-    let stagesHtml = '<div style="color: #94a3b8; font-size: 0.9rem;">مرحله‌ای تعریف نشده</div>';
+1180-    if (item.stages && item.stages.length > 0) {
+1181-        let completed = item.completed_stages || [];
+1182-        stagesHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">' + 
+1183-            item.stages.map(s => {
+1184-                const isChecked = completed.includes(s) ? 'checked' : '';
+1185-                const style = isChecked ? 'text-decoration: line-through; color: #94a3b8;' : 'color: var(--text-gray); font-weight: bold;';
+1186-                return `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(128, 128, 128, 0.05); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);" onclick="event.stopPropagation()">
+1187-                            <input type="checkbox" ${isChecked} onchange="toggleStage(${item.id}, '${s}', this.checked)">
+1188-                            <span style="${style}">${s}</span>
+1189-                        </label>`;
+1190-            }).join('') + 
+1191-            '</div>';
+1192-    }
+1193-
+1194-    
+1195-    let mgrDisplay = '<span style="color:#94a3b8">تعیین نشده</span>';
+1196-    if (item.project_manager) {
+1197-        const mgr = (window.allColleagues || []).find(c => c.full_name === item.project_manager);
+1198-        const mAvatar = mgr && mgr.avatar_url ? mgr.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+1199-        mgrDisplay = `<span style="display:inline-flex; align-items:center; gap:4px;"><img src="${mAvatar}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${item.project_manager}</span>`;
+1200-    }
+1201-    
+1202-    let teamHtml = '<div style="color: #94a3b8; font-size: 0.9rem;">تیمی اختصاص نیافته</div>';
+1203-    if (item.assigned_colleagues && item.assigned_colleagues.length > 0) {
+1204-        teamHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px;">' + item.assigned_colleagues.map(name => {
+1205-            const coll = (window.allColleagues || []).find(c => c.full_name === name);
+1206-            const avatar = coll && coll.avatar_url ? coll.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+1207-            return `<span style="display:inline-flex; align-items:center; gap:4px; background: rgba(128, 128, 128, 0.1); padding:2px 8px; border-radius:12px; font-size:0.85rem; border:1px solid var(--border-color);"><img src="${avatar}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${name}</span>`;
+1208-        }).join('') + '</div>';
+1209-    }
+1210-    
+1211-    let platformsHtml = '<div style="color: #94a3b8; font-size: 0.9rem;">پلتفرمی مشخص نشده</div>';
+1212-    if (item.publish_platforms && item.publish_platforms.length > 0) {
+1213-        platformsHtml = item.publish_platforms.map(p => {
+1214-            const platformSetting = window.allSettings?.platform?.find(sp => sp.setting_key === p);
+1215-            const icon = platformSetting && platformSetting.icon ? platformSetting.icon : p;
+1216-            let logoHtml = '';
+1217-            if (platformSetting && platformSetting.logo_url) {
+1218-                logoHtml = `<img src="${platformSetting.logo_url}" style="width:16px; height:16px; object-fit:cover; border-radius:50%; vertical-align:middle; margin-right:4px;" loading="lazy">`;
+1219-            }
+1220-            
+1221-            
+1222-            const pmStatus = item.platform_metrics && item.platform_metrics[p] ? item.platform_metrics[p].status : ((item.published_platforms || []).includes(p) ? 'published' : 'pending');
+1223-            let bgColor = 'rgba(244, 63, 94, 0.05)', color = 'var(--primary-color)', badge = '';
+1224-            if (pmStatus === 'published') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#16a34a'; badge = `<span style="font-size:0.7rem; margin-left:4px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></span>`; }
+1225-            else if (pmStatus === 'scheduled') { bgColor = '#fef3c7'; color = '#d97706'; badge = `<span style="font-size:0.7rem; margin-left:4px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg></span>`; }
+1226-            const style = `cursor:pointer; background: ${bgColor}; color: ${color}; padding: 2px 8px; border-radius: 4px; font-size: 1rem; display:inline-flex; align-items:center; border: 1px solid transparent; transition: 0.2s;`;
+1227-            
+1228-            return `<span style="${style}" title="${p}" onclick="event.stopPropagation(); togglePlatformPublished(${item.id}, '${p}', '${pmStatus}')">
+1229-                ${badge}${logoHtml || (platformSetting && platformSetting.icon ? platformSetting.icon : '')} <span style="margin-right: 4px; font-size: 0.85rem;">${p}</span>
+1230-            </span>`;
+1231-        }).join(' ');
+1232-    }
+1233-
+1234-    const safeCaption = (item.caption || '').replace(/"/g, '&quot;');
+1235-    const safeVideoLink = (item.video_link || '').replace(/"/g, '&quot;');
+1236-    const safeCoverLink = (item.cover_link || '').replace(/"/g, '&quot;');
+1237-
+1238-    const isValidUrl = (str) => {
+1239-        try { new URL(str); return true; } catch (e) { return false; }
+1240-    };
+1241-    
+1242-    const renderLinkGroup = (title, field, value) => {
+1243-        const isValid = value && isValidUrl(value);
+1244-        const icon = isValid ? '<span style="color: green; font-weight:bold;">✔</span>' : (value ? `<span style="color: red; font-weight:bold;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></span>` : '<span style="color: #94a3b8;">-</span>');
+1245-        
+1246-        return `
+1247-            <div style="background: rgba(128, 128, 128, 0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display:flex; align-items:center; gap: 12px; flex-wrap:wrap;">
