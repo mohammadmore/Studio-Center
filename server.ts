@@ -108,7 +108,9 @@ app.use((req, res, next) => {
   res.locals.nonce = crypto.randomBytes(16).toString("base64");
   next();
 });
+const isPreviewEnv = process.env.ALLOW_PREVIEW_FRAME === 'true';
 app.use(helmet({
+  frameguard: isPreviewEnv ? false : { action: 'sameorigin' },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -119,6 +121,7 @@ app.use(helmet({
       connectSrc: ["'self'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
+      "frame-ancestors": isPreviewEnv ? ["'self'", "https://aistudio.google.com"] : ["'self'"],
     }
   }
 }));
