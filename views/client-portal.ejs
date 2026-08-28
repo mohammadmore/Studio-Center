@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -27,7 +27,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | پورتال کارفرمایان (پنل مدیریت)</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         .org-card {
             background: var(--card-bg);
             border-radius: 12px;
@@ -74,7 +74,7 @@
             font-weight: bold;
         }
     </style>
-<script>
+<script nonce="<%= nonce %>">
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -115,7 +115,7 @@
     </main>
 
     <script src="assets/js/app.js?v=4"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         setTimeout( () => {
             loadClientPortals();
         });

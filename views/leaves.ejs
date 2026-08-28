@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -24,7 +24,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | مدیریت مرخصی‌ها</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         .leave-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; margin-bottom: 15px; display: flex; flex-direction: column; transition: 0.2s; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .leave-card:hover { border-color: var(--primary-color); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .leave-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
@@ -121,7 +121,7 @@
     </main>
 
     <script src="assets/js/app.js?v=4"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         setTimeout(() => {
             loadColleagues();
             loadLeaves('upcoming', 1);

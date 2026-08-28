@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -116,9 +116,9 @@
     <link rel="stylesheet" href="assets/css/style.css?v=6">
     <script src="assets/js/chart.js" defer></script>
     <script src="assets/js/html2pdf.bundle.min.js?v=2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="/assets/js/xlsx.full.min.js"></script>
     <script src="assets/js/jalaali.min.js?v=2"></script>
-    <style>
+    <style nonce="<%= nonce %>">
         
         .dashboard-container {
             padding: 30px;
@@ -315,10 +315,10 @@
             .chart-box canvas { display: none !important; } /* We rely on the injected img now */
         }
     </style>
-    <link rel="stylesheet" href="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
-    <script src="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+    <link rel="stylesheet" href="/assets/css/jalalidatepicker.min.css">
+    <script src="/assets/js/jalalidatepicker.min.js"></script>
 
-<script>
+<script nonce="<%= nonce %>">
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -607,7 +607,7 @@
         </div>
     </main>
 
-    <script>
+    <script nonce="<%= nonce %>">
         let typeChartInst = null;
         let statusChartInst = null;
         let platformChartInst = null;

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -28,7 +28,7 @@
     <title><%= STUDIO_NAME %> | انتخاب مناسبت‌های تقویمی</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
     <script src="assets/js/jalaali.min.js?v=2"></script>
-    <style>
+    <style nonce="<%= nonce %>">
         body { background-color: var(--bg-color); padding: 20px; }
         .container { width: 100%; max-width: 800px; box-sizing: border-box; margin: 0 auto; background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .event-row { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-color); transition: 0.2s; }
@@ -92,7 +92,7 @@
         }
 
 </style>
-<script>
+<script nonce="<%= nonce %>">
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -206,7 +206,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="<%= nonce %>">
         const monthNames = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
         const urlParams = new URLSearchParams(window.location.search);
         const j = typeof jalaali !== 'undefined' ? jalaali : window.jalaali; const year = urlParams.get('year') || (j ? j.toJalaali(new Date()).jy : 1403);
@@ -350,7 +350,7 @@
 <%- include('ux-script') %>
 
 
-<script>
+<script nonce="<%= nonce %>">
     if (!window.toEnglishDigits) {
         window.toEnglishDigits = function(str) {
             if (!str) return str;
@@ -360,7 +360,7 @@
 </script>
 
 
-<script>
+<script nonce="<%= nonce %>">
     // بستن مودال با کلیک در پس‌زمینه
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal')) {

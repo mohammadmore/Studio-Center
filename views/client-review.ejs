@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -114,7 +114,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | تایید و بازبینی محتوا</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         body { background-color: var(--bg-color); padding: 20px; }
         .container { width: 100%; max-width: 900px; box-sizing: border-box; margin: 0 auto; background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .content-card { border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin-bottom: 20px; transition: 0.3s; }
@@ -194,7 +194,7 @@
             }
         }
 </style>
-<script>
+<script nonce="<%= nonce %>">
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -315,7 +315,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="<%= nonce %>">
         const allSettings = <%- JSON.stringify(typeof settings !== 'undefined' ? settings : {}) %>;
         const urlParams = new URLSearchParams(window.location.search);
         const org_id = urlParams.get('org_id');
@@ -551,7 +551,7 @@
 <%- include('ux-script') %>
 
 
-<script>
+<script nonce="<%= nonce %>">
     if (!window.toEnglishDigits) {
         window.toEnglishDigits = function(str) {
             if (!str) return str;
@@ -561,7 +561,7 @@
 </script>
 
 
-<script>
+<script nonce="<%= nonce %>">
     // بستن مودال با کلیک در پس‌زمینه
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal')) {

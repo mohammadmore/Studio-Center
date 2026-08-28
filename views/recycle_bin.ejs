@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -26,7 +26,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سطل زباله - استودیو آسوا</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         .bin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
         .bin-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
         .bin-title { font-size: 1.1rem; font-weight: bold; color: var(--text-color); }
@@ -55,7 +55,7 @@
         </div>
     </main>
 
-    <script>
+    <script nonce="<%= nonce %>">
         async function loadBin() {
             try {
                 const res = await fetch('/api/recycle_bin').then(r => r.json());

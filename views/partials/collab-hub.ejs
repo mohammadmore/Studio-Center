@@ -1,0 +1,285 @@
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style nonce="<%= nonce %>">
+.collab-hub {
+    margin-top: 24px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 24px;
+}
+.collab-hub-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.collab-tab {
+    padding: 8px 16px;
+    background: rgba(128,128,128,0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-gray);
+}
+.collab-tab.active {
+    background: var(--primary-color);
+    color: white;
+}
+.collab-pane {
+    display: none;
+    background: rgba(128,128,128,0.02);
+    border-radius: 8px;
+    padding: 16px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+.collab-pane.active {
+    display: block;
+}
+.comment-item, .history-item, .attachment-item {
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 0;
+}
+.comment-item:last-child, .history-item:last-child, .attachment-item:last-child {
+    border-bottom: none;
+}
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-gray);
+    margin-bottom: 4px;
+}
+.comment-text {
+    font-size: 0.95rem;
+}
+</style>
+<script nonce="<%= nonce %>">
+(function() {
+    // 1. Initialize Socket
+    const socket = io({
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      transports: ['polling', 'websocket']
+    });
+    
+    // 2. Request Notification Permission
+    let notificationsEnabled = false;
+    if ("Notification" in window) {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                notificationsEnabled = true;
+            }
+        });
+    }
+
+    function showNotification(title, options) {
+        if (notificationsEnabled) {
+            new Notification(title, options);
+        }
+    }
+
+    // 3. Socket listeners
+    
+    
+    socket.on("content_updated", (data) => {
+        if (typeof loadDepot === "function") {
+            if (window.currentEditingContentId != data.contentId) {
+                loadDepot(true); // silent refresh
+            }
+        }
+        showNotification("محتوا بروز شد", { body: `محتوای ${data.card?.title || 'بدون عنوان'} تغییر کرد.` });
+    });
+
+
+
+    
+    
+    socket.on("new_comment", (data) => {
+        // Update local state immediately
+        if (window.allDepotItems) {
+            const item = window.allDepotItems.find(i => i.id == data.contentId);
+            if (item) {
+                if (!item.comments) item.comments = [];
+                // Prevent duplicate if already added
+                if (!item.comments.find(c => c.id == data.comment.id)) {
+                    item.comments.push(data.comment);
+                }
+            }
+        }
+
+        if (window.currentEditingContentId == data.contentId) {
+            renderCollabHub(data.contentId);
+        }
+        showNotification("کامنت جدید", { body: `${data.comment.user}: ${data.comment.text}` });
+    });
+
+
+
+    
+    
+    socket.on("new_attachment", (data) => {
+        // Update local state immediately
+        if (window.allDepotItems) {
+            const item = window.allDepotItems.find(i => i.id == data.contentId);
+            if (item) {
+                if (!item.attachments) item.attachments = [];
+                if (!item.attachments.find(a => a.id == data.attachment.id)) {
+                    item.attachments.push(data.attachment);
+                }
+            }
+        }
+
+        if (window.currentEditingContentId == data.contentId) {
+            renderCollabHub(data.contentId);
+        }
+        showNotification("فایل جدید ضمیمه شد", { body: `فایل ${data.attachment.name} افزوده شد.` });
+    });
+
+
+
+    // 4. Hook into openContentDetails
+    setTimeout(() => {
+        if (window.openContentDetails) {
+            const orig = window.openContentDetails;
+            window.openContentDetails = function(id, editMode) {
+                orig(id, editMode);
+                setTimeout(() => {
+                    renderCollabHub(id);
+                }, 100);
+            };
+        }
+    }, 1000);
+
+    window.renderCollabHub = function(id) {
+        const detailsContent = document.getElementById('detailsContent');
+        if (!detailsContent) return;
+        
+        let existing = document.getElementById('collabHubWrapper');
+        if (existing) existing.remove();
+
+        const item = (window.allDepotItems || []).find(i => i.id == id);
+        if (!item) return;
+
+        const comments = item.comments || [];
+        const attachments = item.attachments || [];
+        const history = item.version_history || [];
+
+        const wrapper = document.createElement('div');
+        wrapper.id = 'collabHubWrapper';
+        wrapper.className = 'collab-hub';
+        
+        wrapper.innerHTML = `
+            <h3>همکاری و تعامل</h3>
+            <div class="collab-hub-tabs">
+                <div class="collab-tab active" onclick="switchCollabTab('comments')">نظرات (${comments.length})</div>
+                <div class="collab-tab" onclick="switchCollabTab('attachments')">فایل‌ها (${attachments.length})</div>
+                <div class="collab-tab" onclick="switchCollabTab('history')">تاریخچه (${history.length})</div>
+            </div>
+            
+            <div id="collab-pane-comments" class="collab-pane active">
+                <div style="margin-bottom:16px; display:flex; gap:8px;">
+                    <input type="text" id="newCommentInput" class="input-text" style="flex:1;" placeholder="نظر خود را بنویسید (منشن با @)...">
+                    <button class="btn-primary" onclick="submitComment(${id})">ارسال</button>
+                </div>
+                <div id="commentsList">
+                    ${comments.map(c => `
+                        <div class="comment-item" style="display:flex; gap:12px; align-items:flex-start;">
+                            <img src="${c.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.user) + '&background=random'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${c.user}">
+                            <div style="flex:1;">
+                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${c.user}</span><span style="font-size:0.75rem;">${new Date(c.timestamp).toLocaleString('fa-IR')}</span></div>
+                                <div class="comment-text" style="margin-top:4px;">${c.text}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                    ${comments.length === 0 ? '<div style="color:var(--text-gray); text-align:center;">نظری ثبت نشده است.</div>' : ''}
+                </div>
+            </div>
+
+            <div id="collab-pane-attachments" class="collab-pane">
+                <div style="margin-bottom:16px; display:flex; gap:8px;">
+                    <input type="text" id="newAttachName" class="input-text" style="flex:1;" placeholder="نام فایل">
+                    <input type="text" id="newAttachUrl" class="input-text" style="flex:2;" placeholder="لینک (Google Drive یا ...)">
+                    <button class="btn-primary" onclick="submitAttachment(${id})">افزودن لینک</button>
+                </div>
+                <div id="attachmentsList">
+                    ${attachments.map(a => `
+                        <div class="attachment-item" style="display:flex; gap:12px; align-items:flex-start;">
+                            <img src="${a.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(a.uploader) + '&background=random'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${a.uploader}">
+                            <div style="flex:1;">
+                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${a.uploader}</span><span style="font-size:0.75rem;">${new Date(a.timestamp).toLocaleString('fa-IR')}</span></div>
+                                <a href="${a.url}" target="_blank" style="color:var(--primary-color); text-decoration:none; display:inline-block; margin-top:4px;">🔗 ${a.name}</a>
+                            </div>
+                        </div>
+                    `).join('')}
+                    ${attachments.length === 0 ? '<div style="color:var(--text-gray); text-align:center;">فایلی ضمیمه نشده است.</div>' : ''}
+                </div>
+            </div>
+
+            <div id="collab-pane-history" class="collab-pane">
+                <div id="historyList">
+                    ${history.map(h => `
+                        <div class="history-item" style="display:flex; gap:12px; align-items:flex-start;">
+                            <img src="${h.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(h.user) + '&background=random'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${h.user}">
+                            <div style="flex:1;">
+                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${h.user}</span><span style="font-size:0.75rem;">${new Date(h.timestamp).toLocaleString('fa-IR')}</span></div>
+                                <div class="comment-text" style="margin-top:4px;">فیلد <b>${h.field}</b> تغییر کرد.</div>
+                                <div style="font-size:0.8rem; color:var(--text-gray); margin-top:4px;">قبلی: ${h.old_value || '-'}</div>
+                                <div style="font-size:0.8rem; color:var(--text-gray);">جدید: ${h.new_value || '-'}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                    ${history.length === 0 ? '<div style="color:var(--text-gray); text-align:center;">تاریخچه‌ای موجود نیست.</div>' : ''}
+                </div>
+            </div>
+        `;
+        
+        detailsContent.appendChild(wrapper);
+    };
+
+    window.switchCollabTab = function(tabName) {
+        document.querySelectorAll('.collab-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.collab-pane').forEach(p => p.classList.remove('active'));
+        
+        event.currentTarget.classList.add('active');
+        document.getElementById('collab-pane-' + tabName).classList.add('active');
+    };
+
+    window.submitComment = function(id) {
+        const input = document.getElementById('newCommentInput');
+        const text = input.value.trim();
+        if (!text) return;
+        
+        fetch('/api/contents/' + id + '/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        }).then(res => res.json()).then(res => {
+            if (res.status === 'success') {
+                input.value = '';
+                // Wait for socket to trigger refresh or refresh manually
+            }
+        });
+    };
+
+    window.submitAttachment = function(id) {
+        const nameInput = document.getElementById('newAttachName');
+        const urlInput = document.getElementById('newAttachUrl');
+        const name = nameInput.value.trim();
+        const url = urlInput.value.trim();
+        if (!name || !url) return;
+        
+        fetch('/api/contents/' + id + '/attachments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, url })
+        }).then(res => res.json()).then(res => {
+            if (res.status === 'success') {
+                nameInput.value = '';
+                urlInput.value = '';
+            }
+        });
+    };
+
+})();
+</script>

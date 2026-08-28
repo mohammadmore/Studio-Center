@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -28,7 +28,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | کتابخانه دارایی‌های دیجیتال</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         .media-controls {
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;
             background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);
@@ -130,7 +130,7 @@
     </div>
 
     <script src="assets/js/app.js?v=4"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         // لود اولیه
         setTimeout( async () => {
             loadOrganizations();
@@ -254,7 +254,7 @@
             }
         }
     </script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/assets/js/xlsx.full.min.js"></script>
 <!-- Excel Guide Modal -->
 <div class="modal-overlay" id="excelGuideModal">
     <div class="modal-box" style="width: 100%; max-width: 600px; box-sizing: border-box;">
@@ -301,7 +301,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="<%= nonce %>">
     let pendingExcelMedia = [];
 
     function openExcelGuideModal() {

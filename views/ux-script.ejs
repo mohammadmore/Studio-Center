@@ -1,4 +1,4 @@
-<style>
+<style nonce="<%= nonce %>">
 /* Global UX Elements */
 #global-toast-container {
     position: fixed;
@@ -76,7 +76,7 @@
     <div class="loader-text" id="global-loader-text">لطفا کمی صبر کنید...</div>
 </div>
 
-<script>
+<script nonce="<%= nonce %>">
 window.showToast = function(message, type = 'info') {
     if (window.toPersianDigits && typeof message === 'string') message = window.toPersianDigits(message);
     if (window.toPersianDigits && typeof message === 'number') message = window.toPersianDigits(message.toString());
@@ -118,7 +118,7 @@ window.hideLoading = function() {
 };
 </script>
 
-<style>
+<style nonce="<%= nonce %>">
 ::view-transition-group(root) {
     z-index: 2147483647 !important;
 }
@@ -128,7 +128,7 @@ window.hideLoading = function() {
   mix-blend-mode: normal;
 }
 </style>
-<script>
+<script nonce="<%= nonce %>">
 window.toggleTheme = function(event) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const target = isDark ? 'light' : 'dark';

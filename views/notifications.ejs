@@ -3,7 +3,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -29,7 +29,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>صندوق پیام‌ها - <%= STUDIO_NAME %></title>
     <link href="assets/css/style.css?v=6" rel="stylesheet" type="text/css" />
-    <style>
+    <style nonce="<%= nonce %>">
         /* کد جدید و اصلاح شده: */
 body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; padding: 20px; padding-right: 280px; }
         .notif-container { width: 100%; max-width: 900px; box-sizing: border-box; margin: 0 auto; background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 25px; }
@@ -91,7 +91,7 @@ body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; p
     </div>
     
     <script src="assets/js/app.js?v=4"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         setTimeout( () => {
             loadNotifications();
         });

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -27,7 +27,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | سیستم یکپارچه (ERP)</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         body { font-family: 'Vazirmatn', Tahoma, Arial, sans-serif !important; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;  }
         .login-card { background: var(--card-bg); padding: 40px; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); width: 100%; width: 100%; max-width: 400px; box-sizing: border-box; }
         .login-header { text-align: center; margin-bottom: 30px; }
@@ -66,7 +66,7 @@
         </form>
     </div>
 
-    <script>
+    <script nonce="<%= nonce %>">
         async function doLogin(e) {
             e.preventDefault();
             const btn = document.getElementById('loginBtn');

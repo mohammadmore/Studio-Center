@@ -9,7 +9,7 @@
   </defs>
 </svg>
 
-<script>
+<script nonce="<%= nonce %>">
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -91,7 +91,7 @@
         }
     });
 </script>
-<style>
+<style nonce="<%= nonce %>">
     #asva-pro-sidebar {
         box-sizing: border-box; width: 260px; color: var(--text-dark); 
         background: var(--glass-bg, rgba(30, 41, 59, 0.7)); 
@@ -367,7 +367,7 @@
             <% } else { %>
                 <img id="sidebarStudioLogo" src="" data-light="" data-dark="" alt="لوگو استودیو" style="width: 38px; height: 38px; min-width: 38px; min-height: 38px; border-radius: 8px; object-fit: contain; display: none; background: transparent; flex-shrink: 0;">
             <% } %>
-            <script>
+            <script nonce="<%= nonce %>">
                 (function() {
                     const sidebarLogo = document.getElementById('sidebarStudioLogo');
                     if (sidebarLogo) {
@@ -953,7 +953,7 @@
     </nav>
 </aside>
 
-<script>
+<script nonce="<%= nonce %>">
     window.toPersianDigits = function(num) {
         if (num === null || num === undefined) return '';
         const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
@@ -1140,7 +1140,7 @@
         </div>
     </div>
 </div>
-<script>
+<script nonce="<%= nonce %>">
 window.customConfirm = function(message) {
     return new Promise((resolve) => {
         const modal = document.getElementById('custom-confirm');
@@ -1167,7 +1167,7 @@ window.customConfirm = function(message) {
 
 <link rel="stylesheet" href="assets/css/jalalidatepicker.min.css">
 <script src="assets/js/jalalidatepicker.min.js" defer></script>
-<script>
+<script nonce="<%= nonce %>">
     let checkJdpIntervalSidebar = setInterval(function() {
         if (typeof jalaliDatepicker !== 'undefined') {
             clearInterval(checkJdpIntervalSidebar);
@@ -1220,7 +1220,7 @@ window.customConfirm = function(message) {
     }, 50); // end setInterval
 </script>
 
-<style>
+<style nonce="<%= nonce %>">
 /* Global UX Elements */
 #global-toast-container {
     position: fixed;
@@ -1298,7 +1298,7 @@ window.customConfirm = function(message) {
     <div class="loader-text" id="global-loader-text">لطفا کمی صبر کنید...</div>
 </div>
 
-<script>
+<script nonce="<%= nonce %>">
 window.showToast = function(message, type = 'info', action = null) {
     if (window.toPersianDigits && typeof message === 'string') message = window.toPersianDigits(message);
     if (window.toPersianDigits && typeof message === 'number') message = window.toPersianDigits(message.toString());
@@ -1370,7 +1370,7 @@ window.hideLoading = function() {
 };
 </script>
 
-<script>
+<script nonce="<%= nonce %>">
     // بستن مودال با کلیک در پس‌زمینه
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal')) {
@@ -1395,7 +1395,7 @@ window.hideLoading = function() {
     });
 </script>
 
-<script>
+<script nonce="<%= nonce %>">
     if (!window.toPersianDigits) {
         window.toPersianDigits = function(str) {
             if (str === null || str === undefined) return "";
@@ -1412,7 +1412,7 @@ window.hideLoading = function() {
 </script>
 
 
-<script>
+<script nonce="<%= nonce %>">
 (function() {
     function enforcePersianDigits(input) {
         if (!input || !window.toPersianDigits) return;
@@ -1449,7 +1449,7 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
 </script>
 
 
-        <script>
+        <script nonce="<%= nonce %>">
             function updateThemeIcon(animate = false) {
                 const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
                 const btn = document.getElementById('theme-toggle-btn');
@@ -1487,7 +1487,7 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
     </div>
 </div>
 
-<script>
+<script nonce="<%= nonce %>">
     // Omnibar Logic
     let omnibarDebounceTimer = null;
     
@@ -1712,13 +1712,13 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
         div.innerHTML = html;
     }
 </script>
-<style>
+<style nonce="<%= nonce %>">
     @keyframes rotate { 100% { transform: rotate(360deg); } }
     @keyframes dash { 0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; } 50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; } 100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; } }
 </style>
 
 
-<script>
+<script nonce="<%= nonce %>">
 window.ASVA_CURRENT_USER = '<%= typeof user !== "undefined" && user ? user.username : "guest" %>';
 // --- Global Keyboard Shortcuts ---
 const defaultShortcuts = {

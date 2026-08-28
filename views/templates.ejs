@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -27,7 +27,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | موتور قالبساز هوشمند</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         .template-controls { display: flex; gap: 15px; margin-bottom: 30px; align-items: center; background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 15px -3px rgba(0,0,0,0.04); transition: box-shadow 0.3s ease, transform 0.3s ease; }
         .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
         .template-card { background: var(--card-bg); padding: 25px; border-radius: 15px; box-shadow: 0 2px 15px -3px rgba(0,0,0,0.04); transition: box-shadow 0.3s ease, transform 0.3s ease; display: flex; flex-direction: column; gap: 15px; position: relative; overflow: hidden; transition: 0.3s; }
@@ -192,9 +192,9 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="/assets/js/xlsx.full.min.js"></script>
     <!-- Types for select -->
-    <script>
+    <script nonce="<%= nonce %>">
         let contentTypes = [];
         let allTemplates = [];
         

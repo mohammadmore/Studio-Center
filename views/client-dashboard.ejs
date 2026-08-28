@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -28,7 +28,7 @@
     <title><%= STUDIO_NAME %> | پورتال اختصاصی کارفرما</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
     <script src="assets/js/jalaali.min.js?v=2"></script>
-    <style>
+    <style nonce="<%= nonce %>">
         .dashboard-container {
             padding: 30px;
             max-width: 1200px;
@@ -138,7 +138,7 @@
         }
     }
     </style>
-<script>
+<script nonce="<%= nonce %>">
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -255,7 +255,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="<%= nonce %>">
     var notifLoaded = false;
     async function fetchNotifications() {
         try {
@@ -346,7 +346,7 @@
 <%- include('ux-script') %>
 
 
-<script>
+<script nonce="<%= nonce %>">
     if (!window.toPersianDigits) {
         window.toPersianDigits = function(str) {
             if (str === null || str === undefined) return "";
@@ -363,7 +363,7 @@
 </script>
 
 
-<script>
+<script nonce="<%= nonce %>">
     // بستن مودال با کلیک در پس‌زمینه
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal')) {

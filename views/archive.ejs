@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -27,7 +27,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | آرشیو محتوا</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
         .content-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; position: relative; transition: 0.2s; }
         .content-card:hover { border-color: var(--primary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.05); transform: translateY(-3px); }
@@ -75,7 +75,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="<%= nonce %>">
         let allContents = [];
         let allCollections = [];
         let allOrgs = [];

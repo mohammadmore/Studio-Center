@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "outDir": "./dist"
   },
-  "include": ["server.ts", "convert.js", "global.d.ts"]
+  "include": ["server.ts", "convert.js", "global.d.ts", "src/**/*.ts"]
 }

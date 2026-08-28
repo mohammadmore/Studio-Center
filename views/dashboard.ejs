@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -28,7 +28,7 @@
     <title><%= STUDIO_NAME %> | داشبورد تحلیلی مدیر کل</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
     <script src="assets/js/chart.js" defer></script>
-    <style>
+    <style nonce="<%= nonce %>">
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .time-filter { background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-family: inherit; font-weight: bold; color: var(--text-dark); cursor: pointer; box-shadow: 0 2px 8px -1px rgba(0,0,0,0.03); }
         .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
@@ -155,7 +155,7 @@
         </div>
     </div>
 <script src="assets/js/app.js?v=4"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         let dashboardDetails = null;
         let bottleneckChartInstance = null;
         let platformsChartInstance = null;

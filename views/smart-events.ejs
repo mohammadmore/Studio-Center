@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -28,7 +28,7 @@
     <title><%= STUDIO_NAME %> | سامانه مناسبت‌های هوشمند</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
     <script src="assets/js/jalaali.min.js?v=2"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         const USER_ROLE = "<%= (typeof user !== "undefined" && user) ? user.role_id : '' %>";
         function toggleAllEvents(source) {
             const checkboxes = document.querySelectorAll('.ev-cb');
@@ -120,7 +120,7 @@
             document.getElementById('finalBtn').disabled = false;
         }
 </script>
-    <style>
+    <style nonce="<%= nonce %>">
         .calendar-container {
             background: var(--card-bg);
             border-radius: 12px;
@@ -644,7 +644,7 @@
     </div>
 
     <script src="assets/js/app.js?v=4"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         const monthNames = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
         const dayNames = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"];
         
@@ -1142,7 +1142,7 @@
         </div>
     </div>
     
-    <script>
+    <script nonce="<%= nonce %>">
     function showEventInfoModal(evStr) {
         const ev = JSON.parse(decodeURIComponent(evStr));
         if (!ev.description) return;

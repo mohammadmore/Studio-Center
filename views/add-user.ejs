@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="assets/css/style.css?v=6">
         <link href="assets/css/cropper.min.css" rel="stylesheet">
     <script src="assets/js/cropper.min.js" defer></script>
-    <style>
+    <style nonce="<%= nonce %>">
                 .upload-trigger { border: 2px dashed #ddd; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; color: #666; margin-bottom: 10px; }
         .upload-trigger:hover { border-color: var(--primary-color); background: rgba(128, 128, 128, 0.05); }
         .img-container { width: 100%; max-height: 300px; display: none; margin-bottom: 15px; }
@@ -163,7 +163,7 @@
 
     <script src="assets/js/app.js?v=4"></script>
     
-    <script>
+    <script nonce="<%= nonce %>">
         let cropper = null;
         function initCropper(input) {
             if (input.files && input.files[0]) {

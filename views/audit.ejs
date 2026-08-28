@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -28,7 +28,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | تاریخچه فعالیت‌ها (Audit Trail)</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         .audit-controls {
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;
             background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);
@@ -67,7 +67,7 @@
         .badge-danger { background: var(--error-color); }
     </style>
 
-<style>
+<style nonce="<%= nonce %>">
 .batch-desc-cell {
     position: relative;
     cursor: help;
@@ -215,7 +215,7 @@
 </main>
 
     <script src="assets/js/app.js?v=4"></script>
-<script>
+<script nonce="<%= nonce %>">
     async function loadBatchOperations() {
         const tbody = document.getElementById('batch-table-body');
         try {
@@ -310,7 +310,7 @@
 
 </script>
     <script src="assets/js/jalaali.min.js?v=2"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         let allLogs = [];
 
         setTimeout( async () => {

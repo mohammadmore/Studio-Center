@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -26,7 +26,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | لیست فاکتور‌ها</title>
     <link href="assets/css/style.css?v=6" rel="stylesheet">
-    <style>
+    <style nonce="<%= nonce %>">
         .invoice-card { background: var(--card-bg); border-radius: 12px; padding: 20px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .badge { padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; }
         .badge-draft { background: rgba(128, 128, 128, 0.1); color: var(--text-gray); }
@@ -75,7 +75,7 @@
     </main>
 
     <script src="assets/js/app.js?v=4"></script>
-    <script>
+    <script nonce="<%= nonce %>">
         function toPersianDigits(num) {
             const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
             return num.toString().replace(/\d/g, x => farsiDigits[x]);

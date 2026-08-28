@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -29,7 +29,7 @@
     <title><%= STUDIO_NAME %> | تقویم محتوایی دیواری</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
     <script src="assets/js/jalaali.min.js?v=2"></script>
-<script>
+<script nonce="<%= nonce %>">
         // --- Excel Schedule Modal Logic ---
         let parsedExcelScheduleRows = [];
         let excelScheduleWarnings = [];
@@ -154,7 +154,7 @@
         }
 
 </script>
-    <style>
+    <style nonce="<%= nonce %>">
         .calendar-container {
             background: var(--card-bg);
             border-radius: 12px;
@@ -470,7 +470,7 @@
         }
 
     </style>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/assets/js/xlsx.full.min.js"></script>
 </head>
 <body>
     <%- include('sidebar') %>
@@ -789,7 +789,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="<%= nonce %>">
     window.selectedBatchIds = [];
     
     function toggleBatchSelect(id, isChecked) {

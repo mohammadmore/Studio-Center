@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -31,7 +31,7 @@
     <link href="assets/css/style.css?v=6" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css?v=6">
     <script src="assets/js/jalaali.min.js?v=2"></script>
-<script>
+<script nonce="<%= nonce %>">
 
     function handleHeaderClick(event, headerElem) {
         if (event.target.closest('button')) return; 
@@ -475,11 +475,11 @@ async function submitBatchEdit() {
 }
 
 </script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-    <link rel="stylesheet" href="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
-    <script src="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js" defer></script>
+    <script src="/assets/js/xlsx.full.min.js" defer></script>
+    <link rel="stylesheet" href="/assets/css/jalalidatepicker.min.css">
+    <script src="/assets/js/jalalidatepicker.min.js" defer></script>
     
-    <style>
+    <style nonce="<%= nonce %>">
         .kanban-board { display: flex; gap: 24px; padding: 24px 0; overflow-x: auto; height: calc(100vh - 180px); }
         
         /* حالت گسترده ستون‌ها (تمام صفحه) */
@@ -920,7 +920,7 @@ async function submitBatchEdit() {
     </div>
 </div>
 
-<script>
+<script nonce="<%= nonce %>">
     let checkJdpInterval = setInterval(function() {
         if (typeof jalaliDatepicker !== 'undefined') {
             clearInterval(checkJdpInterval);
@@ -1061,7 +1061,10 @@ const statusNames = {
     'review': 'ارزیابی استودیو',
     'client_review': 'ارزیابی کارفرما',
     'needs_revision': 'نیاز به اصلاح',
-    'done': 'آماده انتشار'
+    'done': 'تکمیل شده',
+    'approved_by_client': 'تایید کارفرما',
+    'ready_to_publish': 'آماده انتشار',
+    'published': 'منتشر شده'
 };
 
 async function drop(ev, newStatus) {
@@ -1319,7 +1322,7 @@ function renderKanban(allItems) {
         let orgsList = Array.from(orgsSet).sort();
         
         let html = `
-            <style>
+            <style nonce="<%= nonce %>">
                 .swimlane-container { border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px; background: var(--bg-color); overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
                 .swimlane-header { background: var(--card-bg); padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; transition: background 0.2s; }
                 .swimlane-header:hover { background: rgba(128,128,128,0.02); }
@@ -1578,21 +1581,22 @@ window.filterTeam = function() {
 
 
 ;
+;
+setTimeout(() => {
+    if (window.openContentDetails && !window._depotIntercepted2) {
+        window._depotIntercepted2 = true;
+        const orig = window.openContentDetails;
+        window.openContentDetails = function(id, editMode = false) {
+            orig(id, editMode);
+            if (editMode) {
+                setTimeout(() => {
+                    if (window.handleManagerChange) window.handleManagerChange();
+                }, 50);
+            }
+        };
+    }
+}, 500);
 
-const originalOpenContentDetails = window.openContentDetails;
-
-    ;
-
-    
-    
-    window.openContentDetails = function(id, editMode = false) {
-        originalOpenContentDetails(id, editMode);
-        if (editMode) {
-            setTimeout(() => {
-                if (window.handleManagerChange) window.handleManagerChange();
-            }, 50);
-        }
-    };
 
     // Excel Import Logic
     let parsedExcelRows = [];
@@ -1915,7 +1919,7 @@ const originalOpenContentDetails = window.openContentDetails;
 <!-- Modal for Platform Metrics -->
 
 
-<script>
+<script nonce="<%= nonce %>">
 ;
 
 
@@ -1963,7 +1967,7 @@ function autoFillPmDate() {
     <%- include('partials/content-identity') %>
 
 <!-- Mobile specific overrides guaranteed to apply -->
-<style>
+<style nonce="<%= nonce %>">
 @media (max-width: 768px) {
     /* Hide expand button */
     .kanban-board button.col-expand-btn,

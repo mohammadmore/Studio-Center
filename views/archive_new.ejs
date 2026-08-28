@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
+<script nonce="<%= nonce %>">
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -27,7 +27,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | مدیریت مجموعه‌ها</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style>
+    <style nonce="<%= nonce %>">
         .org-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
         .collection-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; position: relative; transition: 0.2s; cursor: pointer; min-height: 175px; }
         .collection-card:hover { border-color: var(--primary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.05); transform: translateY(-3px); }
@@ -128,7 +128,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="<%= nonce %>">
         
         window.allOrgs = [];
         window.allSettings = {};
@@ -625,7 +625,7 @@ window.filterTeam = function() {
 </script>
 
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/assets/js/xlsx.full.min.js"></script>
 <!-- Excel Guide Modal -->
 <div class="modal-overlay" id="excelGuideModal">
     <div class="modal-box" style="width: 100%; max-width: 600px; box-sizing: border-box;">
@@ -668,7 +668,7 @@ window.filterTeam = function() {
     </div>
 </div>
 
-<script>
+<script nonce="<%= nonce %>">
     let pendingExcelCols = [];
 
     function openExcelGuideModal() {
