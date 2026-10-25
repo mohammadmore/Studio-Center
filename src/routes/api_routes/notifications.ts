@@ -1,82 +1,61 @@
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
-import multer from "multer";
-import * as jalaali from "jalaali-js";
-import bcrypt from "bcrypt";
-import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
-} from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { audit_logs, notifications } from "../../store/state.js";
+import { saveDatabase } from "../../store/db.js";
+import { checkPermission } from "../../middleware/auth.js";
+import { isAdmin } from "../../utils/authUtils.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
-
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
+
+function readerKey(user: any) {
+  return user.role_id === "client" ? `org:${user.org_id ?? user.id}` : `user:${user.id}`;
+}
+
+function isVisibleTo(n: any, user: any) {
+  if (user.role_id === "client") {
+    const orgId = user.org_id ?? user.id;
+    return n.role_target === "client" && n.user_id != null && n.user_id == orgId;
+  }
+  if (n.role_target === "colleague") return n.user_id == null || n.user_id == user.id;
+  if (n.role_target === "admin") return isAdmin(user);
+  // Legacy entries without a target were meant for the studio team.
+  return !n.role_target;
+}
+
+function isRead(n: any, user: any) {
+  // read_by tracks readers individually; older entries only have a shared status.
+  if (Array.isArray(n.read_by)) return n.read_by.includes(readerKey(user));
+  return n.status === "read";
+}
 
 subRouter.get("/get_logs", checkPermission("audit"), (req, res) => {
   res.json({ status: "success", data: audit_logs });
 });
 
-subRouter.get("/get_notifications", (req, res) => {
-  const session2 = req.session;
-  if (!session2 || !session2.user)
-    return res.status(401).json({ status: "error" });
-  const user = session2.user;
-  let userNotifs = notifications
-    .filter((n) => {
-      if (!n.role_target) return true;
-      if (n.role_target === "client" && user?.role_id === "client") {
-        return !n.user_id || n.user_id === user.id;
-      }
-      if (n.role_target === "colleague" && user?.role_id !== "client") {
-        return !n.user_id || n.user_id === user.id;
-      }
-      if (n.role_target === "admin" && user?.role_id === 1) {
-        return true;
-      }
-      return false;
-    })
+subRouter.get("/get_notifications", (req: any, res) => {
+  const user = req.user;
+  const visible = notifications
+    .filter((n) => isVisibleTo(n, user))
     .reverse()
-    .slice(0, 50);
-  const unread_count = userNotifs.filter((n) => n.status === "unread").length;
-  res.json({ status: "success", notifications: userNotifs, unread_count });
+    .slice(0, 50)
+    .map((n) => {
+      const { read_by, ...rest } = n;
+      return { ...rest, status: isRead(n, user) ? "read" : "unread" };
+    });
+  const unread_count = visible.filter((n) => n.status === "unread").length;
+  res.json({ status: "success", notifications: visible, unread_count });
 });
 
-subRouter.post("/read_notifications", (req, res) => {
-  const session2 = req.session;
-  if (!session2 || !session2.user)
-    return res.status(401).json({ status: "error" });
-  const user = session2.user;
-  notifications.forEach((n) => {
-    let isMine = false;
-    if (!n.role_target) isMine = true;
-    else if (
-      n.role_target === "client" &&
-      user?.role_id === "client" &&
-      (!n.user_id || n.user_id === user.id)
-    )
-      isMine = true;
-    else if (
-      n.role_target === "colleague" &&
-      user?.role_id !== "client" &&
-      (!n.user_id || n.user_id === user.id)
-    )
-      isMine = true;
-    else if (n.role_target === "admin" && user?.role_id === 1) isMine = true;
-    if (isMine) n.status = "read";
-  });
+subRouter.post("/read_notifications", (req: any, res) => {
+  const user = req.user;
+  const key = readerKey(user);
+  for (const n of notifications) {
+    if (!isVisibleTo(n, user)) continue;
+    if (!Array.isArray(n.read_by)) {
+      if (n.status === "read") continue;
+      n.read_by = [];
+    }
+    if (!n.read_by.includes(key)) n.read_by.push(key);
+  }
   saveDatabase();
   res.json({ status: "success" });
 });

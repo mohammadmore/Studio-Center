@@ -1,396 +1,304 @@
-import { getIO } from "../../utils/socket.js";
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
 import multer from "multer";
-import * as jalaali from "jalaali-js";
-import bcrypt from "bcrypt";
 import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
+import {
+  batch_operations,
+  colleagues,
+  collections,
+  contents,
+  contentTemplates,
+  organizations,
+  recycle_bin,
+  settings,
+  templateSuggestions,
 } from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { saveDatabase } from "../../store/db.js";
+import { checkPermission } from "../../middleware/auth.js";
+import { hasPermission, isAdmin } from "../../utils/authUtils.js";
+import { addAuditLog, addNotification, logContentActivity } from "../../utils/logger.js";
+import {
+  addDaysToJalali,
+  nextId,
+  normalizeJalaliDate,
+  toInt,
+} from "../../utils/helpers.js";
+import {
+  cardColleagueIds,
+  moveToRecycleBin,
+  reDeleteBinItem,
+  resolveColleagueIds,
+  restoreBinItem,
+} from "../../utils/contentUtils.js";
+import { emitToStaff } from "../../utils/socket.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
-
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const subRouter = express.Router();
 
-subRouter.get("/get_depot_contents", (req, res) => {
-  const orgMap = new Map();
-  organizations.forEach((o) => orgMap.set(o.id.toString(), o));
-  const dataWithOrgs = contents.map((c) => {
-    const parsedOrgId = c.org_id ? parseInt(c.org_id, 10) : null;
-    const org =
-      orgMap.get(c.org_id?.toString()) ||
-      (parsedOrgId && orgMap.get(parsedOrgId.toString()));
-    return {
-      ...c,
-      org_id: org ? org.id : parsedOrgId || c.org_id,
-      org_name: org
-        ? org.org_name
-        : c.org_name ||
-          "بدون سازمان",
-      org_color: org ? org.color : c.org_color || "#3b82f6",
-      org_logo: org ? org.logo_url : c.org_logo || "",
-    };
-  });
-  res.json({ status: "success", data: dataWithOrgs });
+export const CONTENT_PERMS = ["depot", "calendar", "collections", "archive"];
+const MAX_RECURRENCES = 366;
+
+function actorName(req: any) {
+  return req.user?.username || "system";
+}
+
+/** Content managers may edit any card; other colleagues only cards assigned to them. */
+function canEditCard(req: any, card: any) {
+  return hasPermission(req.user, CONTENT_PERMS) || cardColleagueIds(card).includes(Number(req.user?.id));
+}
+
+function forbidden(res: any) {
+  return res.status(403).json({ status: "error", message: "عدم دسترسی" });
+}
+
+function withOrg(c: any, orgMap: Map<string, any>) {
+  const parsedOrgId = c.org_id ? toInt(c.org_id) : null;
+  const org = orgMap.get(String(c.org_id)) || (parsedOrgId && orgMap.get(String(parsedOrgId)));
+  return {
+    ...c,
+    org_id: org ? org.id : parsedOrgId || c.org_id,
+    org_name: org ? org.org_name : c.org_name || "بدون سازمان",
+    org_color: org ? org.color : c.org_color || "#3b82f6",
+    org_logo: org ? org.logo_url : c.org_logo || "",
+  };
+}
+
+function orgMap() {
+  const map = new Map<string, any>();
+  organizations.forEach((o) => map.set(String(o.id), o));
+  return map;
+}
+
+/** Creates the follow-up cards of a recurring card (bounded, with padded dates). */
+function addRecurrences(card: any, interval: any, count: any) {
+  const days = toInt(interval) || 0;
+  const total = Math.min(toInt(count) || 0, MAX_RECURRENCES);
+  if (days <= 0 || total <= 1 || !normalizeJalaliDate(card.publish_date)) return;
+  for (let i = 1; i < total; i++) {
+    contents.push({
+      ...JSON.parse(JSON.stringify(card)),
+      id: nextId(contents),
+      publish_date: addDaysToJalali(card.publish_date, i * days),
+      is_recurrence_instance: true,
+      parent_id: card.id,
+      activity_log: [],
+      comments: [],
+    });
+  }
+}
+
+subRouter.get("/get_depot_contents", checkPermission(CONTENT_PERMS), (req, res) => {
+  const map = orgMap();
+  res.json({ status: "success", data: contents.map((c) => withOrg(c, map)) });
 });
 
-subRouter.get("/get_my_projects", (req, res) => {
-  const orgMap = new Map();
-  organizations.forEach((o) => orgMap.set(o.id.toString(), o));
-  req.app.locals._orgMap = orgMap;
-  const user = req.session.user;
-  if (!user)
-    return res.status(401).json({ status: "error", message: "Unauthorized" });
-  const userId = user.id;
-  const username = user.username;
-  const fullName = user.full_name;
+subRouter.get("/get_my_projects", (req: any, res) => {
+  const user = req.user;
+  const map = orgMap();
   const myProjects = contents
-    .filter((c) => {
-      if (
-        c.project_manager === username ||
-        c.project_manager == userId ||
-        c.project_manager === fullName
-      )
-        return true;
-      if (c.assigned_colleagues && Array.isArray(c.assigned_colleagues)) {
-        if (
-          c.assigned_colleagues.includes(userId) ||
-          c.assigned_colleagues.includes(userId.toString()) ||
-          c.assigned_colleagues.includes(username) ||
-          c.assigned_colleagues.includes(fullName)
-        )
-          return true;
-      }
-      return false;
-    })
-    .map((c) => {
-      const parsedOrgId = c.org_id ? parseInt(c.org_id, 10) : null;
-      const org = req.app.locals._orgMap
-        ? req.app.locals._orgMap.get(c.org_id?.toString()) ||
-          (parsedOrgId && req.app.locals._orgMap.get(parsedOrgId.toString()))
-        : organizations.find(
-            (o) => o.id == c.org_id || (parsedOrgId && o.id == parsedOrgId),
-          );
-      return {
-        ...c,
-        org_id: org ? org.id : parsedOrgId || c.org_id,
-        org_name: org
-          ? org.org_name
-          : c.org_name ||
-            "بدون سازمان",
-        org_color: org ? org.color : c.org_color || "#3b82f6",
-        org_logo: org ? org.logo_url : c.org_logo || "",
-      };
-    });
+    .filter((c) => cardColleagueIds(c).includes(Number(user.id)) || c.project_manager === user.username)
+    .map((c) => withOrg(c, map));
   res.json({ status: "success", data: myProjects });
 });
 
-subRouter.get("/get_org_contents", (req, res) => {
-  const org_id = parseInt(req.query.org_id as string);
-  const col_id = req.query.col_id;
-  const status = req.query.status;
-  const platformFilter = req.query.platform;
-  const start_date = req.query.start_date;
-  const end_date = req.query.end_date;
+subRouter.get("/get_org_contents", checkPermission(["calendar", "depot"]), (req, res) => {
+  const org_id = toInt(req.query.org_id);
+  const { col_id, status, platform: platformFilter } = req.query;
+  const start_date = normalizeJalaliDate(req.query.start_date);
+  const end_date = normalizeJalaliDate(req.query.end_date);
   const orgContents = contents.filter((c) => {
     if (c.org_id != org_id) return false;
     if (col_id && c.collection_id != col_id) return false;
     if (status && c.status != status) return false;
     if (platformFilter) {
-      if (
-        platformFilter ===
-        "بدون پلتفرم"
-      ) {
+      if (platformFilter === "بدون پلتفرم") {
         if (c.publish_platforms && c.publish_platforms.length > 0) return false;
-      } else {
-        if (
-          !c.publish_platforms ||
-          !c.publish_platforms.includes(platformFilter)
-        )
-          return false;
+      } else if (!c.publish_platforms || !c.publish_platforms.includes(platformFilter)) {
+        return false;
       }
     }
-    if (start_date && c.publish_date && c.publish_date < start_date)
-      return false;
-    if (end_date && c.publish_date && c.publish_date > end_date) return false;
+    const date = normalizeJalaliDate(c.publish_date);
+    if (start_date && date && date < start_date) return false;
+    if (end_date && date && date > end_date) return false;
     return true;
   });
   res.json({ status: "success", data: orgContents });
 });
 
-subRouter.post(
-  "/bulk_schedule_contents",
-  checkPermission("depot"),
-  (req, res) => {
-    const { items, force } = req.body;
-    if (!items || !Array.isArray(items))
-      return res.json({
-        status: "error",
-        message:
-          "اطلاعات نامعتبر",
-      });
-    const warnings = [];
-    const validUpdates = [];
-    items.forEach((item, index) => {
-      let rowNum = index + 2;
-      const contentId = parseInt(item.content_id);
-      if (!contentId || isNaN(contentId)) return;
-      if (!item.org_name || !item.org_name.trim()) return;
-      const card = contents.find((c) => c.id === contentId);
-      if (!card) return;
-      const cardOrg = organizations.find((o) => o.id === card.org_id);
-      const expectedOrgName = cardOrg
-        ? cardOrg.org_name.trim()
-        : "بدون سازمان";
-      const providedOrgName = item.org_name.trim();
-      if (expectedOrgName !== providedOrgName) {
-        warnings.push(
-          `ردیف ${rowNum}: شناسه ${contentId} مربوط به \xAB${expectedOrgName}\xBB است، اما شما \xAB${providedOrgName}\xBB را وارد کرده‌اید.`,
-        );
-      }
-      validUpdates.push({ card, item });
-    });
-    if (validUpdates.length === 0 && warnings.length === 0) {
-      return res.json({
-        status: "error",
-        message:
-          "هیچ ردیف معتبری برای بروزرسانی یافت نشد.",
-      });
+subRouter.post("/bulk_schedule_contents", checkPermission(["calendar", "depot"]), (req, res) => {
+  const { items, force } = req.body;
+  if (!items || !Array.isArray(items)) {
+    return res.json({ status: "error", message: "اطلاعات نامعتبر" });
+  }
+  const warnings: string[] = [];
+  const validUpdates: { card: any; item: any }[] = [];
+  items.forEach((item, index) => {
+    const rowNum = index + 2;
+    const contentId = toInt(item?.content_id);
+    if (!contentId) return;
+    if (!item.org_name || !String(item.org_name).trim()) return;
+    const card = contents.find((c) => c.id === contentId);
+    if (!card) return;
+    const cardOrg = organizations.find((o) => o.id == card.org_id);
+    const expectedOrgName = cardOrg ? String(cardOrg.org_name).trim() : "بدون سازمان";
+    const providedOrgName = String(item.org_name).trim();
+    if (expectedOrgName !== providedOrgName) {
+      warnings.push(
+        `ردیف ${rowNum}: شناسه ${contentId} مربوط به «${expectedOrgName}» است، اما شما «${providedOrgName}» را وارد کرده‌اید.`,
+      );
     }
-    if (warnings.length > 0 && !force) {
-      return res.json({ status: "warning", warnings });
-    }
-    validUpdates.forEach((update) => {
-      const { card, item } = update;
-      if (item.publish_date) card.publish_date = item.publish_date;
-      if (item.publish_time) card.publish_time = item.publish_time;
-    });
-    saveDatabase();
-    return res.json({
-      status: "success",
-      message: `${validUpdates.length} محتوا با موفقیت برنامه‌ریزی شدند.`,
-    });
-  },
-);
+    validUpdates.push({ card, item });
+  });
+  if (validUpdates.length === 0 && warnings.length === 0) {
+    return res.json({ status: "error", message: "هیچ ردیف معتبری برای بروزرسانی یافت نشد." });
+  }
+  if (warnings.length > 0 && !force) {
+    return res.json({ status: "warning", warnings });
+  }
+  validUpdates.forEach(({ card, item }) => {
+    const date = normalizeJalaliDate(item.publish_date);
+    if (date) card.publish_date = date;
+    if (item.publish_time) card.publish_time = String(item.publish_time);
+  });
+  saveDatabase();
+  return res.json({
+    status: "success",
+    message: `${validUpdates.length} محتوا با موفقیت برنامه‌ریزی شدند.`,
+  });
+});
 
-subRouter.post(
-  "/schedule_content",
-  checkPermission("depot"),
-  (req, res) => {
-    const {
-      id,
-      publish_date,
-      publish_time,
-      is_recurring,
-      recurrence_interval_days,
-      recurrence_count,
-      count_in_stats,
-    } = req.body;
-    const cardIndex = contents.findIndex((c) => c.id == id);
-    if (cardIndex !== -1) {
-      const card = contents[cardIndex];
-      card.publish_date = publish_date;
-      if (publish_time !== void 0) card.publish_time = publish_time;
-      if (req.body.status) card.status = req.body.status;
-      card.is_recurring = is_recurring || false;
-      card.recurrence_interval_days = recurrence_interval_days;
-      card.recurrence_count = recurrence_count;
-      card.count_in_stats = count_in_stats;
-      if (
-        is_recurring &&
-        recurrence_count > 1 &&
-        recurrence_interval_days > 0
-      ) {
-        for (let i = 1; i < recurrence_count; i++) {
-          const nextDate = addDaysToJalali(
-            publish_date,
-            i * recurrence_interval_days,
-          );
-          const newCard = {
-            ...card,
-            id:
-              contents.length > 0
-                ? Math.max(...contents.map((x) => x.id)) + 1
-                : 1,
-            publish_date: nextDate,
-            is_recurrence_instance: true,
-            parent_id: card.id,
-          };
-          contents.push(newCard);
-        }
-      }
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "محتوا برنامه‌ریزی شد",
-      });
-    }
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message:
-          "کارت یافت نشد",
-      });
-  },
-);
-
-subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
+subRouter.post("/schedule_content", checkPermission(["calendar", "depot"]), (req, res) => {
   const {
-    action,
     id,
-    status,
-    title,
-    type,
-    org_id,
+    publish_date,
+    publish_time,
     is_recurring,
     recurrence_interval_days,
     recurrence_count,
     count_in_stats,
   } = req.body;
+  const card = contents.find((c) => c.id == id);
+  if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
+  card.publish_date = normalizeJalaliDate(publish_date) || "";
+  if (publish_time !== undefined) card.publish_time = publish_time;
+  if (req.body.status) card.status = req.body.status;
+  card.is_recurring = !!is_recurring;
+  card.recurrence_interval_days = recurrence_interval_days;
+  card.recurrence_count = recurrence_count;
+  card.count_in_stats = count_in_stats;
+  logContentActivity(card, req, `زمان انتشار را روی ${card.publish_date || "بدون تاریخ"} تنظیم کرد`);
+  if (is_recurring) addRecurrences(card, recurrence_interval_days, recurrence_count);
+  saveDatabase();
+  emitToStaff("content_updated", { contentId: card.id, card });
+  return res.json({ status: "success", message: "محتوا برنامه‌ریزی شد" });
+});
+
+subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) => {
+  const { action, id, status, title, type, org_id, is_recurring, recurrence_interval_days, recurrence_count, count_in_stats } =
+    req.body;
   if (action === "delete") {
-    const itemToDelete = contents.find((c) => c.id == id);
-    if (itemToDelete) {
-      const binId = Date.now();
-      const usernameStr =
-        req.session && req.session.user && req.session.user.username
-          ? req.session.user.username
-          : "admin";
-      batch_operations.unshift({
-        id: "batch_" + Date.now(),
-        type: "batch_delete",
-        title: "حذف محتوا",
-        description: `محتوای "${itemToDelete.title}" حذف شد.`,
-        deleted_bin_ids: [binId],
-        user: usernameStr,
-        timestamp: new Date().toISOString(),
-        is_undone: false,
-      });
-      recycle_bin.unshift({
-        id: binId,
-        table: "contents",
-        item_title:
-          itemToDelete.title ||
-          "محتوای بدون عنوان",
-        data: itemToDelete,
-        deleted_at: new Date().toISOString(),
-        deleted_by:
-          req.session && req.session.user && req.session.user.username
-            ? req.session.user.username
-            : "admin",
-      });
-      const idx = contents.findIndex(c => c.id == id); if (idx > -1) contents.splice(idx, 1);
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "محتوا به سطل زباله منتقل شد",
-        bin_id: binId,
-      });
-    }
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message: "یافت نشد",
-      });
+    const idx = contents.findIndex((c) => c.id == id);
+    if (idx === -1) return res.status(404).json({ status: "error", message: "یافت نشد" });
+    const item = contents[idx];
+    const binId = moveToRecycleBin("contents", item, item.title || "محتوای بدون عنوان", req.user);
+    batch_operations.unshift({
+      id: "batch_" + Date.now(),
+      type: "batch_delete",
+      title: "حذف محتوا",
+      description: `محتوای "${item.title}" حذف شد.`,
+      deleted_bin_ids: [binId],
+      user: actorName(req),
+      timestamp: new Date().toISOString(),
+      is_undone: false,
+    });
+    contents.splice(idx, 1);
+    saveDatabase();
+    return res.json({ status: "success", message: "محتوا به سطل زباله منتقل شد", bin_id: binId });
   }
   if (action === "update_status") {
     const card = contents.find((c) => c.id == id);
-    if (card) {
-      const usernameStr =
-        req.session && req.session.user && req.session.user.username
-          ? req.session.user.username
-          : "admin";
-      batch_operations.unshift({
-        id: "batch_" + Date.now(),
-        type: "batch_edit",
-        title:
-          "تغییر وضعیت محتوا",
-        description: `وضعیت "${card.title}" از ${card.status || "ورودی خام"} به ${status} تغییر یافت.`,
-        previous_states: [JSON.parse(JSON.stringify(card))],
-        user: usernameStr,
-        timestamp: new Date().toISOString(),
-        is_undone: false,
-      });
-      logContentActivity(card, req, `وضعیت را از ${card.status || "ورودی خام"} به ${status} تغییر داد`);
-      card.status = status;
-      saveDatabase();
-      const io = getIO();
-      if (io) io.emit("content_updated", { contentId: card.id, card });
-      return res.json({ status: "success" });
+    if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
+    if (!status || typeof status !== "string") {
+      return res.status(400).json({ status: "error", message: "وضعیت نامعتبر" });
     }
+    batch_operations.unshift({
+      id: "batch_" + Date.now(),
+      type: "batch_edit",
+      title: "تغییر وضعیت محتوا",
+      description: `وضعیت "${card.title}" از ${card.status || "ورودی خام"} به ${status} تغییر یافت.`,
+      previous_states: [JSON.parse(JSON.stringify(card))],
+      user: actorName(req),
+      timestamp: new Date().toISOString(),
+      is_undone: false,
+    });
+    logContentActivity(card, req, `وضعیت را از ${card.status || "raw"} به ${status} تغییر داد`);
+    notifyStatusChange(card, status);
+    card.status = status;
+    saveDatabase();
+    emitToStaff("content_updated", { contentId: card.id, card });
+    return res.json({ status: "success" });
   }
-  const batchId = "batch_" + Date.now();
-  const newContent = {
-    batch_id: batchId,
-    id: contents.length > 0 ? Math.max(...contents.map((x) => x.id)) + 1 : 1,
-    title:
-      title ||
-      "محتوای بدون عنوان",
-    org_id: org_id ? parseInt(org_id) : 1,
-    content_type:
-      type ||
-      "پوستر گرافیکی",
+  if (action) return res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
+
+  const orgId = org_id ? toInt(org_id) : null;
+  const newContent: any = {
+    batch_id: "batch_" + Date.now(),
+    id: nextId(contents),
+    title: String(title || "").trim() || "محتوای بدون عنوان",
+    org_id: orgId && organizations.some((o) => o.id == orgId) ? orgId : null,
+    content_type: type || "پوستر گرافیکی",
     project_manager: req.body.project_manager || null,
-    assigned_colleagues: req.body.assigned_colleagues || [],
-    stages: req.body.stages || [],
+    assigned_colleagues: Array.isArray(req.body.assigned_colleagues) ? req.body.assigned_colleagues : [],
+    stages: Array.isArray(req.body.stages) ? req.body.stages : [],
     status: req.body.status || "raw",
-    publish_date: req.body.publish_date || "",
+    publish_date: normalizeJalaliDate(req.body.publish_date),
     publish_time: req.body.publish_time || "",
     components_count: req.body.components_count || {},
-    is_recurring: is_recurring || false,
+    is_recurring: !!is_recurring,
     recurrence_interval_days,
     recurrence_count,
     count_in_stats,
+    created_at: new Date().toISOString(),
   };
+  logContentActivity(newContent, req, "محتوا را ایجاد کرد");
   contents.unshift(newContent);
-  if (
-    is_recurring &&
-    recurrence_count > 1 &&
-    recurrence_interval_days > 0 &&
-    newContent.publish_date
-  ) {
-    for (let i = 1; i < recurrence_count; i++) {
-      const nextDate = addDaysToJalali(
-        newContent.publish_date,
-        i * recurrence_interval_days,
-      );
-      const extraCard = {
-        ...newContent,
-        id: Math.max(...contents.map((x) => x.id)) + 1,
-        publish_date: nextDate,
-        is_recurrence_instance: true,
-        parent_id: newContent.id,
-      };
-      contents.push(extraCard);
-    }
-  }
-  saveDatabase().catch(console.error);
-  res.json({
-    status: "success",
-    message:
-      "محتوای جدید اضافه شد",
-    data: newContent,
-  });
+  if (is_recurring) addRecurrences(newContent, recurrence_interval_days, recurrence_count);
+  notifyNewAssignees(newContent, []);
+  saveDatabase();
+  res.json({ status: "success", message: "محتوای جدید اضافه شد", data: newContent });
 });
 
-subRouter.get("/download_content_excel_template", (req, res) => {
+function notifyNewAssignees(card: any, previous: unknown[]) {
+  const before = new Set(resolveColleagueIds(previous));
+  for (const colleagueId of resolveColleagueIds(card.assigned_colleagues)) {
+    if (before.has(colleagueId)) continue;
+    addNotification(
+      "ارجاع کار جدید",
+      `محتوای "${card.title}" به شما ارجاع داده شد.`,
+      "colleague",
+      colleagueId,
+      "/my-projects",
+      "assignment",
+      card.id,
+    );
+  }
+}
+
+function notifyStatusChange(card: any, status: string) {
+  const review = ["client_review", "pending_client_review"];
+  if (card.status !== status && review.includes(status) && card.org_id) {
+    addNotification(
+      "محتوای جدید برای بررسی",
+      `محتوای "${card.title}" تولید شده و آماده بررسی و تایید شماست.`,
+      "client",
+      card.org_id,
+      "/client-review",
+      "client_review",
+      card.id,
+    );
+  }
+}
+
+subRouter.get("/download_content_excel_template", checkPermission("depot"), (req, res) => {
   try {
     const wb = xlsx.utils.book_new();
     const sampleOrg =
@@ -622,10 +530,12 @@ subRouter.post(
         const ws = wb.Sheets[firstSheetName];
         rawItems = xlsx.utils.sheet_to_json(ws);
       } else if (req.body && req.body.items) {
-        rawItems =
-          typeof req.body.items === "string"
-            ? JSON.parse(req.body.items)
-            : req.body.items;
+        try {
+          rawItems =
+            typeof req.body.items === "string" ? JSON.parse(req.body.items) : req.body.items;
+        } catch {
+          return res.status(400).json({ status: "error", message: "اطلاعات ارسالی نامعتبر است" });
+        }
       } else if (req.body && Array.isArray(req.body)) {
         rawItems = req.body;
       }
@@ -638,12 +548,13 @@ subRouter.post(
               "هیچ ردیفی جهت ورود پیدا نشد",
           });
       }
-      const defaultOrgId =
-        organizations && organizations.length > 0 ? organizations[0].id : 1;
       const addedContents = [];
-      let startId =
-        contents.length > 0 ? Math.max(...contents.map((x) => x.id)) + 1 : 1;
+      if (rawItems.length > 5000) {
+        return res.status(400).json({ status: "error", message: "حداکثر ۵۰۰۰ ردیف در هر بار مجاز است" });
+      }
+      let startId = nextId(contents);
       for (const raw of rawItems) {
+        if (!raw || typeof raw !== "object") continue;
         const title =
           raw[
             "عنوان محتوا"
@@ -688,7 +599,7 @@ subRouter.post(
         if (typeInput) {
           const typeStr = typeInput.toString().trim();
           const foundType = (settings.content_type || []).find(
-            (t) => t.setting_key.toLowerCase() === typeStr.toLowerCase(),
+            (t) => String(t.setting_key || "").toLowerCase() === typeStr.toLowerCase(),
           );
           targetType = foundType ? foundType.setting_key : typeStr;
         }
@@ -815,15 +726,7 @@ subRouter.post(
         ) {
           targetStatus = "raw";
         }
-        const publishDate = (
-          raw[
-            "تاریخ انتشار"
-          ] ||
-          raw["publish_date"] ||
-          ""
-        )
-          .toString()
-          .trim();
+        const publishDate = normalizeJalaliDate(raw["تاریخ انتشار"] || raw["publish_date"] || "");
         const publishTime = (
           raw[
             "ساعت انتشار"
@@ -861,7 +764,7 @@ subRouter.post(
         const newContent = {
           id: startId++,
           title: title.toString().trim(),
-          org_id: parseInt(targetOrgId),
+          org_id: targetOrgId,
           content_type: targetType,
           project_manager: targetPM,
           assigned_colleagues: assignedColleagues,
@@ -879,7 +782,7 @@ subRouter.post(
         addedContents.push(newContent);
       }
       if (addedContents.length > 0) {
-        const username = req.session?.user?.username || "system";
+        const username = actorName(req);
         batch_operations.unshift({
           id: "batch_" + Date.now(),
           type: "bulk_import",
@@ -905,553 +808,319 @@ subRouter.post(
         .status(500)
         .json({
           status: "error",
-          message:
-            "خطا در پردازش فایل یا اطلاعات اکسل: " +
-            err.message,
+          message: "خطا در پردازش فایل یا اطلاعات اکسل",
         });
     }
   },
 );
 
-subRouter.get(
-  "/recycle_bin",
-  checkPermission("recycle_bin"),
-  (req, res) => {
-    const session2 = req.session;
-    if (!session2 || !session2.user)
-      return res.status(401).json({ status: "error" });
-    if (
-      typeof session2.user !== "string" &&
-      session2.user?.role_id === "client"
-    )
-      return res.status(403).json({ status: "error" });
-    res.json({ status: "success", data: recycle_bin });
-  },
-);
-
-subRouter.post(
-  "/recycle_bin",
-  checkPermission("recycle_bin"),
-  (req, res) => {
-    const { action, bin_id } = req.body;
-    const idx = recycle_bin.findIndex((r) => r.id == bin_id);
-    if (idx === -1)
-      return res
-        .status(404)
-        .json({
-          status: "error",
-          message: "یافت نشد",
-        });
-    const binItem = recycle_bin[idx];
-    if (action === "restore") {
-      if (binItem.table === "contents") {
-        contents.push(binItem.data);
-      } else if (binItem.table === "organizations") {
-        organizations.push(binItem.data);
-      } else if (binItem.table === "smartEventsBank") {
-        smartEventsBank.push(binItem.data);
-      } else if (binItem.table === "contentTemplates") {
-        contentTemplates.push(binItem.data);
-      } else if (binItem.table === "collections") {
-        collections.push(binItem.data);
-      }
-      binItem.restored = true;
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "با موفقیت بازیابی شد",
-      });
-    } else if (action === "delete_permanent") {
-      recycle_bin.splice(idx, 1);
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "برای همیشه حذف شد",
-      });
-    }
-    res.status(400).json({ status: "error" });
-  },
-);
-
-subRouter.get("/get_templates", (req, res) => {
-  res.json({ status: "success", templates: templatesData });
+subRouter.get("/recycle_bin", checkPermission("recycle_bin"), (req, res) => {
+  res.json({ status: "success", data: recycle_bin });
 });
 
-subRouter.post(
-  "/manage_content_template",
-  checkPermission("templates"),
-  (req, res) => {
-    const { action, template, templates } = req.body;
-    if (action === "batch_add") {
-      let currentId =
-        contentTemplates.length > 0
-          ? Math.max(...contentTemplates.map((t) => t.id)) + 1
-          : 1;
-      templates.forEach((tpl) => {
-        contentTemplates.push({
-          id: currentId++,
-          name: tpl.name,
-          items: tpl.items.map((i) => ({ ...i, count: i.count || 1 })),
-        });
-      });
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "قالب‌ها اضافه شدند",
-      });
-    } else if (action === "add") {
-      const newId =
-        contentTemplates.length > 0
-          ? Math.max(...contentTemplates.map((t) => t.id)) + 1
-          : 1;
-      contentTemplates.push({
-        id: newId,
-        name: template.name,
-        items: template.items.map((i) => ({ ...i, count: i.count || 1 })),
-      });
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "قالب جدید اضافه شد",
-      });
-    } else if (action === "update") {
-      const tpl = contentTemplates.find((t) => t.id === parseInt(template.id));
-      if (tpl) {
-        tpl.name = template.name;
-        tpl.items = template.items.map((i) => ({ ...i, count: i.count || 1 }));
-        saveDatabase();
-        return res.json({
-          status: "success",
-          message:
-            "قالب ویرایش شد",
-        });
-      }
-      return res.json({
-        status: "error",
-        message:
-          "قالب یافت نشد",
-      });
-    } else if (action === "delete") {
-      const tplToDelete = contentTemplates.find(
-        (t) => t.id === parseInt(template.id),
-      );
-      if (tplToDelete) {
-        recycle_bin.unshift({
-          id: Date.now(),
-          table: "contentTemplates",
-          item_title:
-            tplToDelete.title ||
-            "قالب محتوا",
-          data: tplToDelete,
-          deleted_at: new Date().toISOString(),
-          deleted_by:
-            req.session && req.session.user && req.session.user.username
-              ? req.session.user.username
-              : "admin",
-        });
-        const idx = contentTemplates.findIndex(t => t.id === parseInt(template.id));
-        if (idx > -1) contentTemplates.splice(idx, 1);
-        saveDatabase();
-        return res.json({
-          status: "success",
-          message:
-            "قالب به سطل زباله منتقل شد",
-        });
-      }
-      return res.status(404).json({ status: "error" });
+subRouter.post("/recycle_bin", (req: any, res) => {
+  const { action, bin_id } = req.body;
+  const binItem = recycle_bin.find((r) => r.id == bin_id);
+  if (!binItem) return res.status(404).json({ status: "error", message: "یافت نشد" });
+  const isManager = hasPermission(req.user, "recycle_bin");
+  // Whoever deleted something may undo it right away (the "undo" toast).
+  const isOwnDeletion = binItem.deleted_by === req.user.username;
+  if (action === "restore") {
+    if (!isManager && !isOwnDeletion) return forbidden(res);
+    if (!restoreBinItem(binItem)) {
+      return res.status(400).json({ status: "error", message: "این مورد قبلا بازیابی شده است" });
     }
-    res.json({
-      status: "error",
-      message:
-        "عملیات نامعتبر",
-    });
-  },
-);
+    saveDatabase();
+    return res.json({ status: "success", message: "با موفقیت بازیابی شد" });
+  }
+  if (action === "delete_permanent") {
+    if (!isManager) return forbidden(res);
+    recycle_bin.splice(recycle_bin.indexOf(binItem), 1);
+    saveDatabase();
+    return res.json({ status: "success", message: "برای همیشه حذف شد" });
+  }
+  res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
+});
 
-subRouter.get("/get_content_templates", (req, res) => {
+function normalizeTemplateItems(items: unknown) {
+  if (!Array.isArray(items)) return null;
+  return items
+    .filter((i) => i && typeof i === "object")
+    .map((i: any) => ({ ...i, count: toInt(i.count) || 1 }));
+}
+
+subRouter.post("/manage_content_template", checkPermission("templates"), (req: any, res) => {
+  const { action, template, templates } = req.body;
+  if (action === "batch_add") {
+    if (!Array.isArray(templates)) {
+      return res.status(400).json({ status: "error", message: "اطلاعات نامعتبر" });
+    }
+    let currentId = nextId(contentTemplates);
+    for (const tpl of templates) {
+      const items = normalizeTemplateItems(tpl?.items);
+      if (!tpl?.name || !items) continue;
+      contentTemplates.push({ id: currentId++, name: String(tpl.name), items });
+    }
+    saveDatabase();
+    return res.json({ status: "success", message: "قالب‌ها اضافه شدند" });
+  }
+  const items = normalizeTemplateItems(template?.items);
+  if (action === "add") {
+    if (!template?.name || !items) {
+      return res.status(400).json({ status: "error", message: "اطلاعات قالب نامعتبر است" });
+    }
+    contentTemplates.push({ id: nextId(contentTemplates), name: String(template.name), items });
+    saveDatabase();
+    return res.json({ status: "success", message: "قالب جدید اضافه شد" });
+  }
+  const tpl = contentTemplates.find((t) => t.id == template?.id);
+  if (action === "update") {
+    if (!tpl) return res.json({ status: "error", message: "قالب یافت نشد" });
+    if (template.name) tpl.name = String(template.name);
+    if (items) tpl.items = items;
+    saveDatabase();
+    return res.json({ status: "success", message: "قالب ویرایش شد" });
+  }
+  if (action === "delete") {
+    if (!tpl) return res.status(404).json({ status: "error", message: "قالب یافت نشد" });
+    moveToRecycleBin("contentTemplates", tpl, tpl.name || "قالب محتوا", req.user);
+    contentTemplates.splice(contentTemplates.indexOf(tpl), 1);
+    saveDatabase();
+    return res.json({ status: "success", message: "قالب به سطل زباله منتقل شد" });
+  }
+  res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
+});
+
+subRouter.get("/get_content_templates", checkPermission(["templates", "calendar", "depot"]), (req, res) => {
   res.json(contentTemplates);
 });
 
-subRouter.post(
-  "/apply_content_template",
-  checkPermission("depot"),
-  (req, res) => {
-    const { template_id, org_id, year, month } = req.body;
-    const tpl = contentTemplates.find((t) => t.id === parseInt(template_id));
-    if (!tpl)
-      return res.json({
-        status: "error",
-        message:
-          "قالب یافت نشد",
-      });
-    let tplItems =
-      typeof tpl.items === "string" ? JSON.parse(tpl.items) : tpl.items;
-    if (!Array.isArray(tplItems))
-      return res.json({ status: "error", message: "Invalid template items" });
-    tplItems.forEach((item) => {
-      const newId =
-        templateSuggestions.length > 0
-          ? Math.max(...templateSuggestions.map((s) => s.id)) + 1
-          : 1;
-      templateSuggestions.push({
-        id: newId,
-        org_id: parseInt(org_id),
-        year: parseInt(year),
-        month: parseInt(month),
-        day: item.dayOffset,
-        content_type: item.type,
-        topic: item.topic,
-        status: "pending",
-      });
-    });
-    saveDatabase().catch(console.error);
-    res.json({
-      status: "success",
-      message:
-        "قالب با موفقیت اعمال شد",
-    });
-  },
-);
-
-subRouter.post("/dismiss_template_suggestion", (req, res) => {
-  const { suggestion_id } = req.body;
-  const sug = templateSuggestions.find((s) => s.id === parseInt(suggestion_id));
-  if (sug) {
-    sug.status = "dismissed";
-    saveDatabase();
-    res.json({ status: "success" });
-  } else {
-    res.json({ status: "error" });
+subRouter.post("/apply_content_template", checkPermission(["templates", "calendar", "depot"]), (req, res) => {
+  const { template_id, org_id, year, month } = req.body;
+  const tpl = contentTemplates.find((t) => t.id == template_id);
+  if (!tpl) return res.json({ status: "error", message: "قالب یافت نشد" });
+  let tplItems = tpl.items;
+  if (typeof tplItems === "string") {
+    try {
+      tplItems = JSON.parse(tplItems);
+    } catch {
+      tplItems = null;
+    }
   }
+  const y = toInt(year);
+  const m = toInt(month);
+  if (!Array.isArray(tplItems) || !y || !m || m < 1 || m > 12) {
+    return res.json({ status: "error", message: "اطلاعات قالب نامعتبر است" });
+  }
+  for (const item of tplItems) {
+    templateSuggestions.push({
+      id: nextId(templateSuggestions),
+      org_id: toInt(org_id),
+      year: y,
+      month: m,
+      day: toInt(item.dayOffset) || 1,
+      content_type: item.type,
+      topic: item.topic,
+      status: "pending",
+    });
+  }
+  saveDatabase();
+  res.json({ status: "success", message: "قالب با موفقیت اعمال شد" });
 });
 
-subRouter.post("/fulfill_template_suggestion", (req, res) => {
+subRouter.post("/dismiss_template_suggestion", checkPermission(["calendar", "depot"]), (req, res) => {
+  const sug = templateSuggestions.find((s) => s.id == req.body.suggestion_id);
+  if (!sug) return res.json({ status: "error" });
+  sug.status = "dismissed";
+  saveDatabase();
+  res.json({ status: "success" });
+});
+
+subRouter.post("/fulfill_template_suggestion", checkPermission(["calendar", "depot"]), (req, res) => {
   const { suggestion_id, content_id } = req.body;
-  const sug = templateSuggestions.find((s) => s.id === parseInt(suggestion_id));
-  if (sug) {
-    sug.status = "fulfilled";
-    const c = contents.find((x) => x.id === parseInt(content_id));
-    if (c) {
-      const m = sug.month.toString().padStart(2, "0");
-      const d = sug.day.toString().padStart(2, "0");
-      c.publish_date = `${sug.year}/${m}/${d}`;
-      if (c.status === "raw") c.status = "todo";
-    }
-    saveDatabase();
-    res.json({ status: "success" });
+  const sug = templateSuggestions.find((s) => s.id == suggestion_id);
+  if (!sug) return res.json({ status: "error" });
+  sug.status = "fulfilled";
+  const c = contents.find((x) => x.id == content_id);
+  if (c) {
+    const m = String(sug.month).padStart(2, "0");
+    const d = String(sug.day || 1).padStart(2, "0");
+    c.publish_date = `${sug.year}/${m}/${d}`;
+    if (c.status === "raw") c.status = "todo";
+  }
+  saveDatabase();
+  res.json({ status: "success" });
+});
+
+subRouter.post("/update_platform_metrics", checkPermission(CONTENT_PERMS), (req, res) => {
+  const { id, platform, data } = req.body;
+  const card = contents.find((c) => c.id == id);
+  if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
+  if (!platform || typeof platform !== "string" || !data || typeof data !== "object") {
+    return res.status(400).json({ status: "error", message: "اطلاعات نامعتبر" });
+  }
+  if (!card.platform_metrics) card.platform_metrics = {};
+  card.platform_metrics[platform] = data;
+  if (!card.published_platforms) card.published_platforms = [];
+  if (data.status === "published" || data.status === "scheduled") {
+    if (!card.published_platforms.includes(platform)) card.published_platforms.push(platform);
   } else {
-    res.json({ status: "error" });
+    card.published_platforms = card.published_platforms.filter((p) => p !== platform);
   }
+  saveDatabase();
+  return res.json({ status: "success", message: "اطلاعات پلتفرم به‌روزرسانی شد" });
 });
 
-subRouter.post("/apply_template", checkPermission("depot"), (req, res) => {
-  const { template_id, org_id } = req.body;
-  const template = templatesData.find((t) => t.id == template_id);
-  const org = organizations.find((o) => o.id == org_id);
-  if (!template || !org) {
-    return res.json({
-      status: "error",
-      message:
-        "اطلاعات نامعتبر است.",
-    });
+subRouter.post("/toggle_platform_published", checkPermission(CONTENT_PERMS), (req, res) => {
+  const { id, platform, status } = req.body;
+  const card = contents.find((c) => c.id == id);
+  if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
+  if (!card.published_platforms) card.published_platforms = [];
+  if (status) {
+    if (!card.published_platforms.includes(platform)) card.published_platforms.push(platform);
+  } else {
+    card.published_platforms = card.published_platforms.filter((p) => p !== platform);
   }
-  let checklist = { tasks: [] };
-  try {
-    checklist = JSON.parse(template.checklist_data);
-  } catch (e) {
-    console.error("Error parsing checklist:", e);
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "داده‌های الگو نامعتبر است.",
-      });
-  }
-  let createdCount = 0;
-  checklist.tasks.forEach((taskName) => {
-    contents.unshift({
-      id:
-        contents.length > 0
-          ? Math.max(...contents.map((c) => c.id)) + 1 + createdCount
-          : 1,
-      title: `${template.template_name} - ${taskName}`,
-      org_id: org.id,
-      content_type: template.industry_category,
-      status: "raw",
-      publish_date: new Date().toLocaleDateString("fa-IR"),
-      publish_time: "12:00:00",
-    });
-    createdCount++;
-  });
-  saveDatabase().catch(console.error);
-  res.json({
-    status: "success",
-    message: `${createdCount} تسک با موفقیت در دپو ایجاد شد.`,
-  });
+  saveDatabase();
+  return res.json({ status: "success", message: "وضعیت پلتفرم به‌روزرسانی شد" });
 });
 
-subRouter.post(
-  "/update_platform_metrics",
-  checkPermission("depot"),
-  (req, res) => {
-    const { id, platform, data } = req.body;
-    const card = contents.find((c) => c.id == id);
-    if (card) {
-      if (!card.platform_metrics) card.platform_metrics = {};
-      card.platform_metrics[platform] = data;
-      if (!card.published_platforms) card.published_platforms = [];
-      if (data.status === "published" || data.status === "scheduled") {
-        if (!card.published_platforms.includes(platform)) {
-          card.published_platforms.push(platform);
-        }
-      } else {
-        card.published_platforms = card.published_platforms.filter(
-          (p) => p !== platform,
-        );
-      }
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "اطلاعات پلتفرم به‌روزرسانی شد",
-      });
-    }
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message:
-          "کارت یافت نشد",
-      });
-  },
-);
-
-subRouter.post(
-  "/toggle_platform_published",
-  checkPermission("depot"),
-  (req, res) => {
-    const { id, platform, status } = req.body;
-    const card = contents.find((c) => c.id == id);
-    if (card) {
-      if (!card.published_platforms) card.published_platforms = [];
-      if (status) {
-        if (!card.published_platforms.includes(platform)) {
-          card.published_platforms.push(platform);
-        }
-      } else {
-        card.published_platforms = card.published_platforms.filter(
-          (p) => p !== platform,
-        );
-      }
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "وضعیت پلتفرم به‌روزرسانی شد",
-      });
-    }
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message:
-          "کارت یافت نشد",
-      });
-  },
-);
-
-subRouter.post("/toggle_stage", checkPermission("depot"), (req, res) => {
+subRouter.post("/toggle_stage", (req, res) => {
   const { id, stage, isChecked } = req.body;
   const card = contents.find((c) => c.id == id);
-  if (card) {
-    if (!card.completed_stages) card.completed_stages = [];
-    if (isChecked) {
-      if (!card.completed_stages.includes(stage)) {
-        card.completed_stages.push(stage);
-      }
-    } else {
-      card.completed_stages = card.completed_stages.filter((s) => s !== stage);
-    }
-    saveDatabase();
-    return res.json({
-      status: "success",
-      message:
-        "مرحله به‌روزرسانی شد",
-    });
+  if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
+  if (!canEditCard(req, card)) return forbidden(res);
+  if (!card.completed_stages) card.completed_stages = [];
+  if (isChecked) {
+    if (!card.completed_stages.includes(stage)) card.completed_stages.push(stage);
+  } else {
+    card.completed_stages = card.completed_stages.filter((s) => s !== stage);
   }
-  return res
-    .status(404)
-    .json({
-      status: "error",
-      message:
-        "کارت یافت نشد",
-    });
+  logContentActivity(card, req, `مرحله «${stage}» را ${isChecked ? "تکمیل" : "باز"} کرد`);
+  saveDatabase();
+  emitToStaff("content_updated", { contentId: card.id, card });
+  return res.json({ status: "success", message: "مرحله به‌روزرسانی شد" });
 });
 
-subRouter.post(
-  "/batch_edit_contents",
-  checkPermission("depot"),
-  (req, res) => {
-    try {
-      const {
-        ids,
-        action,
-        status,
-        org_id,
-        collection_title,
-        content_type,
-        project_manager,
-        team,
-        platforms,
-        stages,
-        components,
-      } = req.body;
-      const batchId = "batch_" + Date.now();
-      const previousStates = [];
-      if (!ids || !Array.isArray(ids) || ids.length === 0) {
-        return res.json({
-          status: "error",
-          message:
-            "هیچ محتوایی انتخاب نشده است.",
-        });
-      }
-      const username = req.session?.user?.username || "system";
-      let updatedCount = 0;
-      let deletedBinIds = [];
-      if (action === "delete") {
-        for (const id of ids) {
-          const idx = contents.findIndex((c) => c.id === parseInt(id));
-          if (idx !== -1) {
-            const itemToDelete = contents[idx];
-            const binId = Date.now() + Math.floor(Math.random() * 1e6) + idx;
-            deletedBinIds.push(binId);
-            recycle_bin.unshift({
-              id: binId,
-              table: "contents",
-              item_title:
-                itemToDelete.title ||
-                "محتوای بدون عنوان",
-              data: itemToDelete,
-              deleted_at: new Date().toISOString(),
-              deleted_by: username,
-            });
-            contents.splice(idx, 1);
-            updatedCount++;
-          }
+function findOrCreateCollection(title: string, orgId: any) {
+  let col = collections.find((c) => c.title === title && c.org_id == orgId);
+  if (!col) {
+    col = {
+      id: nextId(collections),
+      title,
+      org_id: orgId ?? null,
+      created_at: new Intl.DateTimeFormat("fa-IR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+      is_active: 1,
+    };
+    collections.push(col);
+  }
+  return col;
+}
+
+subRouter.post("/batch_edit_contents", checkPermission(["depot", "calendar"]), (req: any, res) => {
+  const { ids, action, status, org_id, collection_title, content_type, project_manager, team, platforms, stages, components } =
+    req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.json({ status: "error", message: "هیچ محتوایی انتخاب نشده است." });
+  }
+  const batchId = "batch_" + Date.now();
+  const username = actorName(req);
+  const previousStates: any[] = [];
+  const deletedBinIds: number[] = [];
+  let updatedCount = 0;
+
+  if (action === "delete") {
+    for (const id of ids) {
+      const idx = contents.findIndex((c) => c.id == id);
+      if (idx === -1) continue;
+      const item = contents[idx];
+      deletedBinIds.push(moveToRecycleBin("contents", item, item.title || "محتوای بدون عنوان", req.user));
+      contents.splice(idx, 1);
+      updatedCount++;
+    }
+    addAuditLog(username, "حذف گروهی محتوا", req.ip);
+  } else {
+    for (const id of ids) {
+      const card = contents.find((c) => c.id == id);
+      if (!card) continue;
+      const before = JSON.parse(JSON.stringify(card));
+      let changed = true;
+      if (action === "archive") {
+        card.status = "archived";
+      } else if (action === "status" && status) {
+        logContentActivity(card, req, `وضعیت را دسته‌جمعی به ${status} تغییر داد`);
+        notifyStatusChange(card, status);
+        card.status = status;
+      } else if (action === "org") {
+        const o = organizations.find((x) => x.id == org_id);
+        if (o) {
+          card.org_id = o.id;
+          card.org_name = o.org_name;
+          card.org_color = o.color;
+          card.org_logo = o.logo_url;
+          logContentActivity(card, req, "سازمان محتوا را تغییر داد");
+        } else if (org_id === "" || org_id === null) {
+          card.org_id = null;
+          card.org_name = "";
+          card.org_color = "#4f46e5";
+          card.org_logo = "";
+        } else {
+          changed = false;
         }
-        addAuditLog(username, "batch_delete", req.ip);
+      } else if (action === "collection" && typeof collection_title === "string") {
+        const colName = collection_title.trim();
+        card.collection_id = colName ? findOrCreateCollection(colName, card.org_id).id : null;
+        logContentActivity(card, req, "مجموعه را دسته‌جمعی تغییر داد");
+      } else if (action === "type" && content_type) {
+        card.content_type = content_type;
+        logContentActivity(card, req, "نوع محتوا را تغییر داد");
+      } else if (action === "manager" && project_manager !== undefined) {
+        card.project_manager = project_manager;
+        logContentActivity(card, req, "مدیر پروژه را دسته‌جمعی تغییر داد");
+      } else if (action === "team" && Array.isArray(team)) {
+        const previous = card.assigned_colleagues || [];
+        card.assigned_colleagues = team
+          .map((tId) => colleagues.find((c) => c.id == tId)?.full_name)
+          .filter(Boolean);
+        notifyNewAssignees(card, previous);
+        logContentActivity(card, req, "تیم اجرایی را تغییر داد");
+      } else if (action === "platforms" && Array.isArray(platforms)) {
+        card.publish_platforms = platforms;
+      } else if (action === "stages" && Array.isArray(stages)) {
+        card.stages = stages;
+      } else if (action === "components" && components && typeof components === "object") {
+        card.components_count = components;
+        logContentActivity(card, req, "تعداد اجزا را دسته‌جمعی تغییر داد");
+      } else if (action === "shift_dates" && req.body.shift_days) {
+        const shiftDays = toInt(req.body.shift_days);
+        const date = normalizeJalaliDate(card.publish_date);
+        if (shiftDays && date) {
+          card.publish_date = addDaysToJalali(date, shiftDays);
+          const [, m, d] = card.publish_date.split("/").map(Number);
+          card.publish_day = d;
+          card.publish_month = m;
+        } else {
+          changed = false;
+        }
       } else {
-        for (const id of ids) {
-          const card = contents.find((c) => c.id === parseInt(id));
-          if (!card) continue;
-          previousStates.push(JSON.parse(JSON.stringify(card)));
-          if (action === "archive") {
-            card.status = "archived";
-            updatedCount++;
-          } else if (action === "status" && status) {
-            card.status = status;
-            logContentActivity(card, req, `وضعیت را دستهجمعی به ${status} تغییر داد`);
-            updatedCount++;
-          } else if (action === "org") {
-            const o = organizations.find((x) => x.id === parseInt(org_id));
-            if (o) {
-              card.org_id = o.id;
-              card.org_name = o.org_name;
-              card.org_color = o.color;
-              card.org_logo = o.logo_url;
-              logContentActivity(card, req, "ویرایش");
-              updatedCount++;
-            } else if (org_id === "") {
-              card.org_id = null;
-              card.org_name = "";
-              card.org_color = "#4f46e5";
-              card.org_logo = "";
-              updatedCount++;
-            }
-          } else if (action === "collection" && collection_title !== void 0) {
-            const colName = collection_title.trim();
-            if (colName) {
-              let existingCol = collections.find(
-                (c) => c.title === colName && c.org_id === card.org_id,
-              );
-              if (!existingCol) {
-                existingCol = {
-                  id: collections.length
-                    ? Math.max(...collections.map((c) => c.id)) + 1
-                    : 1,
-                  title: colName,
-                  org_id: card.org_id,
-                  created_at: new Intl.DateTimeFormat("fa-IR", {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                  }).format(new Date()),
-                  is_active: 1,
-                };
-                collections.push(existingCol);
-              }
-              card.collection_id = existingCol.id;
-            } else {
-              card.collection_id = null;
-            }
-            logContentActivity(card, req, `مجموعه را دستهجمعی تغییر داد`);
-            updatedCount++;
-          } else if (action === "type" && content_type) {
-            card.content_type = content_type;
-            logContentActivity(card, req, "ویرایش");
-            updatedCount++;
-          } else if (action === "manager" && project_manager !== void 0) {
-            card.project_manager = project_manager;
-            logContentActivity(card, req, `مدیر پروژه را دستهجمعی تغییر داد`);
-            updatedCount++;
-          } else if (action === "team" && Array.isArray(team)) {
-            const teamNames = [];
-            team.forEach((tId) => {
-              const colUser = colleagues.find((c) => c.id === parseInt(tId));
-              if (colUser) teamNames.push(colUser.full_name);
-            });
-            card.assigned_colleagues = teamNames;
-            logContentActivity(card, req, "ویرایش");
-            updatedCount++;
-          } else if (action === "platforms" && Array.isArray(platforms)) {
-            card.publish_platforms = platforms;
-            updatedCount++;
-          } else if (action === "stages" && Array.isArray(stages)) {
-            card.stages = stages;
-            updatedCount++;
-          } else if (action === "components" && components) {
-            card.components_count = components;
-            logContentActivity(card, req, `تعداد اجزا را دستهجمعی تغییر داد`);
-            updatedCount++;
-          } else if (action === "shift_dates" && req.body.shift_days) {
-            let shiftDays = parseInt(req.body.shift_days);
-            if (!isNaN(shiftDays) && card.publish_date) {
-              const [jYear, jMonth, jDay] = card.publish_date.split("/").map(Number);
-              let gDate = jalaali.toGregorian(jYear, jMonth, jDay);
-              let dateObj = new Date(gDate.gy, gDate.gm - 1, gDate.gd);
-              dateObj.setDate(dateObj.getDate() + shiftDays);
-              let newJ = jalaali.toJalaali(
-                dateObj.getFullYear(),
-                dateObj.getMonth() + 1,
-                dateObj.getDate(),
-              );
-              card.publish_date = newJ.jy + "/" + newJ.jm + "/" + newJ.jd;
-              card.publish_day = newJ.jd;
-              card.publish_month = newJ.jm;
-              updatedCount++;
-            }
-          }
-        }
-        addAuditLog(username, "batch_edit", req.ip);
+        changed = false;
       }
-      if (updatedCount > 0) {
-        if (action === "delete") {
-          batch_operations.unshift({
+      if (changed) {
+        previousStates.push(before);
+        updatedCount++;
+      }
+    }
+    addAuditLog(username, "ویرایش گروهی محتوا", req.ip);
+  }
+
+  if (updatedCount > 0) {
+    batch_operations.unshift(
+      action === "delete"
+        ? {
             id: batchId,
             type: "batch_delete",
             title: "حذف گروهی",
@@ -1460,339 +1129,259 @@ subRouter.post(
             user: username,
             timestamp: new Date().toISOString(),
             is_undone: false,
-          });
-        } else {
-          batch_operations.unshift({
+          }
+        : {
             id: batchId,
             type: "batch_edit",
-            title:
-              "ویرایش گروهی",
+            title: "ویرایش گروهی",
             description: `تعداد ${updatedCount} محتوا ویرایش گروهی شدند.`,
             previous_states: previousStates,
             user: username,
             timestamp: new Date().toISOString(),
             is_undone: false,
-          });
-        }
-      }
-      saveDatabase();
-      return res.json({ status: "success", updated: updatedCount });
-    } catch (err) {
-      return res.json({ status: "error", message: err.message });
-    }
-  },
-);
-
-subRouter.post(
-  "/update_content_details",
-  checkPermission("depot"),
-  (req, res) => {
-    const {
-      id,
-      title,
-      caption,
-      video_link,
-      cover_link,
-      org_id,
-      collection_id,
-      content_type,
-      project_manager,
-      assigned_colleagues,
-      publish_date,
-      publish_time,
-      publish_platforms,
-      stages,
-      status,
-    } = req.body;
-    const card = contents.find((c) => c.id == id);
-    if (card) {
-      const prevState = JSON.parse(JSON.stringify(card));
-      let changes = [];
-      const oldStatus = card.status;
-      const oldPublishDate = card.publish_date;
-      const oldTitle = card.title;
-      if (title !== void 0) card.title = title;
-      
-      if (caption !== void 0 && caption !== card.caption) {
-        if (!card.version_history) card.version_history = [];
-        card.version_history.push({
-          id: Date.now() + Math.random(),
-          field: "caption",
-          old_value: card.caption,
-          new_value: caption,
-          user: req.session?.user?.username || "unknown",
-    avatar: req.session?.user?.avatar_url || "/assets/images/default-avatar.png",
-          timestamp: new Date().toISOString()
-        });
-        card.caption = caption;
-      }
-
-      if (video_link !== void 0) card.video_link = video_link;
-      if (cover_link !== void 0) card.cover_link = cover_link;
-      if (org_id !== void 0) card.org_id = org_id ? parseInt(org_id) : null;
-      if (collection_id !== void 0) {
-        if (
-          typeof collection_id === "string" &&
-          isNaN(parseInt(collection_id))
-        ) {
-          const newCol = {
-            id: collections.length
-              ? Math.max(...collections.map((c) => c.id)) + 1
-              : 1,
-            title: collection_id,
-            org_id: card.org_id,
-            created_at: new Intl.DateTimeFormat("fa-IR", {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-            }).format(new Date()),
-            is_active: 1,
-          };
-          collections.push(newCol);
-          card.collection_id = newCol.id;
-        } else {
-          card.collection_id = collection_id ? parseInt(collection_id) : null;
-        }
-      }
-      if (content_type !== void 0) card.content_type = content_type;
-      if (project_manager !== void 0) card.project_manager = project_manager;
-      if (assigned_colleagues !== void 0) {
-        const old_assigned = card.assigned_colleagues || [];
-        card.assigned_colleagues = assigned_colleagues;
-        const newlyAssigned = assigned_colleagues.filter(
-          (x) => !old_assigned.includes(x),
-        );
-        newlyAssigned.forEach((colName) => {
-          const colUser = colleagues.find((c) => c.full_name === colName);
-          if (colUser) {
-            addNotification("ارجاع کار جدید", `محتوای "${card.title}" به شما ارجاع داده شد.`, "colleague", "");
-          }
-        });
-      }
-      if (publish_date !== void 0) card.publish_date = publish_date;
-      if (publish_time !== void 0) card.publish_time = publish_time;
-      if (publish_platforms !== void 0)
-        card.publish_platforms = publish_platforms;
-      if (stages !== void 0) card.stages = stages;
-      if (req.body.components_count !== void 0)
-        card.components_count = req.body.components_count;
-      if (req.body.attachments !== void 0)
-        card.attachments = req.body.attachments;
-      if (status !== void 0) {
-        if (card.status !== "done" && status === "done") {
-          addNotification("محتوای جدید برای بررسی", `محتوای "${card.title}" تولید شده و آماده بررسی و تایید شماست.`, "client", "");
-        }
-        card.status = status;
-      }
-      if (title !== void 0 && oldTitle !== title)
-        changes.push(
-          `عنوان را تغییر داد`,
-        );
-      if (publish_date !== void 0 && oldPublishDate !== publish_date)
-        changes.push(
-          `تاریخ انتشار را از ${oldPublishDate || "نداشت"} به ${publish_date} تغییر داد`,
-        );
-      if (status !== void 0 && oldStatus !== status)
-        changes.push(
-          `وضعیت را از ${oldStatus || "ورودی خام"} به ${status} تغییر داد`,
-        );
-      if (changes.length > 0) {
-        logContentActivity(card, req, changes.join(" و "));
-      } else if (caption !== void 0 && oldTitle === title) {
-        logContentActivity(card, req, "تغییر");
-      } else if (
-        org_id !== void 0 ||
-        collection_id !== void 0 ||
-        content_type !== void 0 ||
-        project_manager !== void 0 ||
-        assigned_colleagues !== void 0 ||
-        publish_time !== void 0 ||
-        publish_platforms !== void 0 ||
-        stages !== void 0 ||
-        req.body.components_count !== void 0
-      ) {
-        logContentActivity(card, req, "جزئیات و مشخصات محتوا را ویرایش کرد");
-      }
-      saveDatabase();
-      const io = getIO();
-      if (io) io.emit("content_updated", { contentId: card.id, card });
-      return res.json({ status: "success" });
-    }
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message:
-          "کارت یافت نشد",
-      });
-  },
-);
-
-subRouter.get("/get_batch_operations", (req, res) => {
-  const user = req.session && req.session.user ? req.session.user : null;
-  const username = user && user.username ? user.username : "admin";
-  let userOps = batch_operations;
-  if (user && user.role_id !== 1) {
-    userOps = batch_operations.filter((op) => op.user === username);
+          },
+    );
+    if (batch_operations.length > 500) batch_operations.splice(500);
   }
-  res.json({ status: "success", data: userOps });
+  saveDatabase();
+  return res.json({ status: "success", updated: updatedCount });
 });
 
-subRouter.post("/undo_batch_operation", (req, res) => {
-  const username =
-    req.session && req.session.user && req.session.user.username
-      ? req.session.user.username
-      : "admin";
-  const { batch_id } = req.body;
-  const operation = batch_operations.find((op) => op.id === batch_id);
-  if (!operation) {
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message:
-          "عملیات یافت نشد",
-      });
+subRouter.post("/update_content_details", (req: any, res) => {
+  const {
+    id,
+    title,
+    caption,
+    video_link,
+    cover_link,
+    org_id,
+    collection_id,
+    content_type,
+    project_manager,
+    assigned_colleagues,
+    publish_date,
+    publish_time,
+    publish_platforms,
+    stages,
+    status,
+  } = req.body;
+  const card = contents.find((c) => c.id == id);
+  if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
+  if (!canEditCard(req, card)) return forbidden(res);
+  // Assigned colleagues without content permissions may only work on the card itself.
+  const isManager = hasPermission(req.user, CONTENT_PERMS);
+  const changes: string[] = [];
+  const oldStatus = card.status;
+  const oldPublishDate = card.publish_date;
+  const oldTitle = card.title;
+
+  if (title !== undefined) card.title = title;
+  if (caption !== undefined && caption !== card.caption) {
+    if (!card.version_history) card.version_history = [];
+    card.version_history.push({
+      id: Date.now() + Math.random(),
+      field: "caption",
+      old_value: card.caption,
+      new_value: caption,
+      user: req.user.username,
+      avatar: req.account?.avatar_url || "/assets/images/default-avatar.png",
+      timestamp: new Date().toISOString(),
+    });
+    if (card.version_history.length > 50) card.version_history.splice(0, card.version_history.length - 50);
+    card.caption = caption;
   }
-  let opUser =
-    typeof operation.user === "object"
-      ? operation.user.username
-      : operation.user;
-  const isGlobalAdmin =
-    (req.session &&
-      req.session.user &&
-      (req.session.user.role_id === 1 ||
-        req.session.user.role_id === "admin")) ||
-    username === "admin";
-  if (opUser !== username && !isGlobalAdmin && opUser !== "system") {
-    return res
-      .status(403)
-      .json({
-        status: "error",
-        message:
-          "شما مجاز به لغو این عملیات نیستید",
-      });
+  if (video_link !== undefined) card.video_link = video_link;
+  if (cover_link !== undefined) card.cover_link = cover_link;
+  if (isManager) {
+    if (org_id !== undefined) card.org_id = org_id ? toInt(org_id) : null;
+    if (collection_id !== undefined) {
+      if (typeof collection_id === "string" && collection_id.trim() && toInt(collection_id) === null) {
+        card.collection_id = findOrCreateCollection(collection_id.trim(), card.org_id).id;
+      } else {
+        card.collection_id = collection_id ? toInt(collection_id) : null;
+      }
+    }
+    if (project_manager !== undefined) card.project_manager = project_manager;
+    if (assigned_colleagues !== undefined && Array.isArray(assigned_colleagues)) {
+      const previous = card.assigned_colleagues || [];
+      card.assigned_colleagues = assigned_colleagues;
+      notifyNewAssignees(card, previous);
+    }
+  }
+  if (content_type !== undefined) card.content_type = content_type;
+  if (publish_date !== undefined) card.publish_date = normalizeJalaliDate(publish_date);
+  if (publish_time !== undefined) card.publish_time = publish_time;
+  if (publish_platforms !== undefined) card.publish_platforms = publish_platforms;
+  if (stages !== undefined) card.stages = stages;
+  if (req.body.components_count !== undefined) card.components_count = req.body.components_count;
+  if (req.body.attachments !== undefined && Array.isArray(req.body.attachments)) {
+    card.attachments = req.body.attachments;
+  }
+  if (status !== undefined && status !== card.status) {
+    notifyStatusChange(card, status);
+    card.status = status;
+  }
+
+  if (title !== undefined && oldTitle !== title) changes.push("عنوان را تغییر داد");
+  if (publish_date !== undefined && oldPublishDate !== card.publish_date) {
+    changes.push(`تاریخ انتشار را از ${oldPublishDate || "نداشت"} به ${card.publish_date || "بدون تاریخ"} تغییر داد`);
+  }
+  if (status !== undefined && oldStatus !== status) {
+    changes.push(`وضعیت را از ${oldStatus || "raw"} به ${status} تغییر داد`);
+  }
+  if (changes.length > 0) {
+    logContentActivity(card, req, changes.join(" و "));
+  } else if (caption !== undefined) {
+    logContentActivity(card, req, "کپشن را ویرایش کرد");
+  } else {
+    logContentActivity(card, req, "جزئیات و مشخصات محتوا را ویرایش کرد");
+  }
+  saveDatabase();
+  emitToStaff("content_updated", { contentId: card.id, card });
+  return res.json({ status: "success" });
+});
+
+function opOwner(op: any) {
+  return typeof op.user === "object" && op.user ? op.user.username : op.user;
+}
+
+function canManageOperation(req: any, op: any) {
+  return isAdmin(req.user) || opOwner(op) === req.user.username;
+}
+
+subRouter.get("/get_batch_operations", (req: any, res) => {
+  const data = isAdmin(req.user)
+    ? batch_operations
+    : batch_operations.filter((op) => opOwner(op) === req.user.username);
+  res.json({ status: "success", data });
+});
+
+subRouter.post("/undo_batch_operation", (req: any, res) => {
+  const operation = batch_operations.find((op) => op.id === req.body.batch_id);
+  if (!operation) return res.status(404).json({ status: "error", message: "عملیات یافت نشد" });
+  if (!canManageOperation(req, operation)) {
+    return res.status(403).json({ status: "error", message: "شما مجاز به لغو این عملیات نیستید" });
   }
   if (operation.is_undone) {
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "این عملیات قبلاً لغو شده است",
-      });
+    return res.status(400).json({ status: "error", message: "این عملیات قبلاً لغو شده است" });
   }
-  let errorMsg = null;
   if (operation.type === "batch_delete") {
-    const binIds = operation.deleted_bin_ids || [];
-    for (const binId of binIds) {
-      const binIndex = recycle_bin.findIndex((b) => b.id === binId);
-      if (binIndex !== -1) {
-        const binItem = recycle_bin[binIndex];
-        if (binItem.restored) continue;
-        if (binItem.table === "contents") contents.unshift(binItem.data);
-        else if (binItem.table === "organizations")
-          organizations.unshift(binItem.data);
-        else if (binItem.table === "smartEventsBank")
-          smartEventsBank.unshift(binItem.data);
-        else if (binItem.table === "contentTemplates")
-          contentTemplates.unshift(binItem.data);
-        binItem.restored = true;
-      }
+    for (const binId of operation.deleted_bin_ids || []) {
+      restoreBinItem(recycle_bin.find((b) => b.id === binId));
     }
   } else if (operation.type === "bulk_import") {
-    const itemIds = operation.item_ids || [];
-    for (const itemId of itemIds) {
+    operation.undo_bin_ids = [];
+    for (const itemId of operation.item_ids || []) {
       const idx = contents.findIndex((c) => c.id === itemId);
-      if (idx !== -1) {
-        recycle_bin.unshift({
-          id: Date.now() + Math.random(),
-          table: "contents",
-          item_title:
-            contents[idx].title ||
-            "محتوای بدون عنوان",
-          data: contents[idx],
-          deleted_at: new Date().toISOString(),
-          deleted_by: username,
-        });
-        contents.splice(idx, 1);
-      }
+      if (idx === -1) continue;
+      operation.undo_bin_ids.push(
+        moveToRecycleBin("contents", contents[idx], contents[idx].title || "محتوای بدون عنوان", req.user),
+      );
+      contents.splice(idx, 1);
     }
   } else if (operation.type === "batch_edit") {
-    const prevStates = operation.previous_states || [];
-    for (const prevState of prevStates) {
-      if (prevState && prevState.id) {
-        const idx = contents.findIndex((c) => c.id === prevState.id);
-        if (idx !== -1) {
-          contents[idx] = { ...prevState };
-        }
-      }
+    // Remember the current values so the change can be re-applied (redo).
+    operation.redo_states = [];
+    for (const prevState of operation.previous_states || []) {
+      const idx = contents.findIndex((c) => c.id === prevState?.id);
+      if (idx === -1) continue;
+      operation.redo_states.push(JSON.parse(JSON.stringify(contents[idx])));
+      contents[idx] = { ...prevState };
     }
   } else {
-    errorMsg =
-      "نوع عملیات برای لغو پشتیبانی نمی‌شود";
-  }
-  if (errorMsg) {
-    return res.status(400).json({ status: "error", message: errorMsg });
+    return res.status(400).json({ status: "error", message: "نوع عملیات برای لغو پشتیبانی نمی‌شود" });
   }
   operation.is_undone = true;
-  saveDatabase().catch(console.error);
-  res.json({
-    status: "success",
-    message:
-      "عملیات با موفقیت لغو شد",
-  });
+  saveDatabase();
+  res.json({ status: "success", message: "عملیات با موفقیت لغو شد" });
 });
 
+subRouter.post("/redo_batch_operation", (req: any, res) => {
+  const operation = batch_operations.find((op) => op.id === req.body.batch_id);
+  if (!operation) return res.status(404).json({ status: "error", message: "عملیات یافت نشد" });
+  if (!canManageOperation(req, operation)) {
+    return res.status(403).json({ status: "error", message: "شما مجاز به انجام این عملیات نیستید" });
+  }
+  if (!operation.is_undone) {
+    return res.status(400).json({ status: "error", message: "این عملیات لغو نشده است" });
+  }
+  if (operation.type === "batch_delete") {
+    for (const binId of operation.deleted_bin_ids || []) {
+      reDeleteBinItem(recycle_bin.find((b) => b.id === binId));
+    }
+  } else if (operation.type === "bulk_import") {
+    for (const binId of operation.undo_bin_ids || []) {
+      restoreBinItem(recycle_bin.find((b) => b.id === binId));
+    }
+  } else if (operation.type === "batch_edit") {
+    if (!Array.isArray(operation.redo_states)) {
+      return res.status(400).json({ status: "error", message: "اطلاعات لازم برای انجام مجدد موجود نیست" });
+    }
+    for (const state of operation.redo_states) {
+      const idx = contents.findIndex((c) => c.id === state?.id);
+      if (idx !== -1) contents[idx] = { ...state };
+    }
+  } else {
+    return res.status(400).json({ status: "error", message: "نوع عملیات پشتیبانی نمی‌شود" });
+  }
+  operation.is_undone = false;
+  saveDatabase();
+  res.json({ status: "success", message: "عملیات دوباره اعمال شد" });
+});
 
-
-// --- NEW COLLABORATION ENDPOINTS ---
-
-subRouter.post("/contents/:id/comments", checkPermission("depot"), (req, res) => {
-  const { id } = req.params;
-  const { text, mentions } = req.body; console.log("Received comment:", text, "for id:", id);
-  const card = contents.find((c) => c.id == id);
+subRouter.post("/contents/:id/comments", (req: any, res) => {
+  const card = contents.find((c) => c.id == req.params.id);
   if (!card) return res.status(404).json({ status: "error", message: "Not found" });
-  
+  if (!canEditCard(req, card)) return forbidden(res);
+  const text = typeof req.body.text === "string" ? req.body.text.trim().slice(0, 5000) : "";
+  if (!text) return res.status(400).json({ status: "error", message: "متن نظر خالی است" });
   if (!card.comments) card.comments = [];
   const comment = {
     id: Date.now() + Math.random(),
-    user: req.session?.user?.username || "unknown",
-    avatar: req.session?.user?.avatar_url || "/assets/images/default-avatar.png",
+    user: req.user.username,
+    avatar: req.account?.avatar_url || "/assets/images/default-avatar.png",
     text,
-    mentions: mentions || [],
-    timestamp: new Date().toISOString()
+    mentions: Array.isArray(req.body.mentions) ? req.body.mentions.slice(0, 50) : [],
+    timestamp: new Date().toISOString(),
   };
   card.comments.push(comment);
+  for (const colleagueId of resolveColleagueIds(comment.mentions)) {
+    if (colleagueId == req.user.id) continue;
+    addNotification(
+      "اشاره در نظر",
+      `${req.account?.full_name || req.user.username} در محتوای "${card.title}" به شما اشاره کرد.`,
+      "colleague",
+      colleagueId,
+      "/my-projects",
+      "mention",
+      card.id,
+    );
+  }
   saveDatabase();
-  
-  const io = getIO();
-  if (io) io.emit("new_comment", { contentId: id, comment });
-  
+  emitToStaff("new_comment", { contentId: card.id, comment });
   res.json({ status: "success", comment });
 });
 
-subRouter.post("/contents/:id/attachments", checkPermission("depot"), (req, res) => {
-  const { id } = req.params;
-  const { name, url } = req.body;
-  const card = contents.find((c) => c.id == id);
+subRouter.post("/contents/:id/attachments", (req: any, res) => {
+  const card = contents.find((c) => c.id == req.params.id);
   if (!card) return res.status(404).json({ status: "error", message: "Not found" });
-  
+  if (!canEditCard(req, card)) return forbidden(res);
+  const { name, url } = req.body;
+  if (typeof url !== "string" || !/^(https?:\/\/|\/uploads\/)/i.test(url.trim())) {
+    return res.status(400).json({ status: "error", message: "آدرس فایل نامعتبر است" });
+  }
   if (!card.attachments) card.attachments = [];
   const attachment = {
     id: Date.now() + Math.random(),
-    name,
-    url,
-    uploader: req.session?.user?.username || "unknown",
-    avatar: req.session?.user?.avatar_url || "/assets/images/default-avatar.png",
-    timestamp: new Date().toISOString()
+    name: String(name || "فایل").slice(0, 200),
+    url: url.trim(),
+    uploader: req.user.username,
+    avatar: req.account?.avatar_url || "/assets/images/default-avatar.png",
+    timestamp: new Date().toISOString(),
   };
   card.attachments.push(attachment);
   saveDatabase();
-  
-  const io = getIO();
-  if (io) io.emit("new_attachment", { contentId: id, attachment });
-  
+  emitToStaff("new_attachment", { contentId: card.id, attachment });
   res.json({ status: "success", attachment });
 });
 

@@ -1,183 +1,158 @@
-import * as repo from "../../db/repository.js";
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
-import multer from "multer";
-import * as jalaali from "jalaali-js";
 import bcrypt from "bcrypt";
-import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
-} from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { colleagues, organizations, roles } from "../../store/state.js";
+import { saveDatabase } from "../../store/db.js";
+import { checkPermission } from "../../middleware/auth.js";
+import { getRoleInfoForUser, isAdmin, stripSecrets } from "../../utils/authUtils.js";
+import { nextId, toInt } from "../../utils/helpers.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
-
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
 
-subRouter.get(
-  "/manage_roles",
-  checkPermission("manage_roles"),
-  async (req, res) => {
-    res.json({ status: "success", data: await repo.getAllRoles() });
-  },
-);
+const ADMIN_ROLE_ID = 1;
+const DEFAULT_ROLE_ID = 3;
+const DEFAULT_AVATAR =
+  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200";
 
-subRouter.post(
-  "/manage_roles",
-  checkPermission("manage_roles"),
-  async (req, res) => {
-    const { action, id, name, permissions } = req.body;
-    if (action === "add") {
-      const newRole = {
-        id: roles.length > 0 ? Math.max(...roles.map((r) => r.id)) + 1 : 1,
-        name,
-        permissions: permissions || [],
-      };
-      roles.push(newRole);
-      saveDatabase().catch(console.error);
-      res.json({
-        status: "success",
-        message:
-          "نقش جدید اضافه شد",
-      });
-    } else if (action === "edit") {
-      if (id == 1) {
-        return res
-          .status(403)
-          .json({
-            status: "error",
-            message:
-              "نقش سیستمی مدیر کل قابل ویرایش نیست",
-          });
-      }
-      const role = roles.find((r) => r.id == id);
-      if (role) {
-        role.name = name || role.name;
-        if (permissions) role.permissions = permissions;
-        saveDatabase().catch(console.error);
-        res.json({
-          status: "success",
-          message:
-            "نقش به‌روزرسانی شد",
-        });
-      } else {
-        res
-          .status(404)
-          .json({
-            status: "error",
-            message:
-              "نقش پیدا نشد",
-          });
-      }
-    } else if (action === "archive") {
-      const col = collections.find((c) => c.id === parseInt(id));
-      if (col) {
-        col.status = "archived";
-        saveDatabase().catch(console.error);
-        res.json({
-          status: "success",
-          message:
-            "مجموعه آرشیو شد",
-        });
-      } else {
-        res
-          .status(404)
-          .json({
-            status: "error",
-            message:
-              "مجموعه یافت نشد",
-          });
-      }
-    } else if (action === "restore") {
-      const col = collections.find((c) => c.id === parseInt(id));
-      if (col) {
-        col.status = "active";
-        saveDatabase().catch(console.error);
-        res.json({
-          status: "success",
-          message:
-            "مجموعه بازگردانی شد",
-        });
-      } else {
-        res
-          .status(404)
-          .json({
-            status: "error",
-            message:
-              "مجموعه یافت نشد",
-          });
-      }
-    } else if (action === "delete") {
-      if (id == 1) {
-        return res
-          .status(400)
-          .json({
-            status: "error",
-            message:
-              "شما نمی‌توانید نقش مدیر کل را حذف کنید",
-          });
-      }
-      const idx = roles.findIndex(r => r.id == id); if (idx > -1) roles.splice(idx, 1);
-      colleagues.forEach((c) => {
-        if (c?.role_id == id) {
-          if (c) c.role_id = 3;
-        }
-      });
-      saveDatabase().catch(console.error);
-      res.json({
-        status: "success",
-        message: "نقش حذف شد",
-      });
-    } else if (action === "reorder") {
-      const { direction } = req.body;
-      const index = roles.findIndex((r) => r.id == id);
-      if (index !== -1) {
-        let targetIndex = -1;
-        if (direction === "up" && index > 0) targetIndex = index - 1;
-        else if (direction === "down" && index < roles.length - 1)
-          targetIndex = index + 1;
-        if (targetIndex !== -1) {
-          const temp = roles[index];
-          roles[index] = roles[targetIndex];
-          roles[targetIndex] = temp;
-          saveDatabase().catch(console.error);
-          return res.json({ status: "success" });
-        }
-      }
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message:
-            "امکان جابجایی وجود ندارد",
-        });
-    } else {
-      res
-        .status(400)
-        .json({
-          status: "error",
-          message:
-            "عملیات نامعتبر",
-        });
+function fail(res: any, status: number, message: string) {
+  return res.status(status).json({ status: "error", message });
+}
+
+export function isUsernameTaken(username: string, except?: { colleagueId?: any; orgId?: any }) {
+  const wanted = username.trim().toLowerCase();
+  if (!wanted) return false;
+  const same = (u: unknown) => typeof u === "string" && u.trim().toLowerCase() === wanted;
+  return (
+    colleagues.some((c) => same(c.username) && c.id != except?.colleagueId) ||
+    organizations.some((o) => same(o.username) && o.id != except?.orgId)
+  );
+}
+
+function roleGrantsAdmin(roleId: any) {
+  if (roleId == ADMIN_ROLE_ID) return true;
+  const role = roles.find((r) => r.id == roleId);
+  return Array.isArray(role?.permissions) && role.permissions.includes("admin");
+}
+
+function withRoleName(c: any) {
+  const role = roles.find((r) => r.id == c?.role_id);
+  return { ...stripSecrets(c), role_name: role ? role.name : "کارشناس" };
+}
+
+function profileFields(body: any) {
+  const fields: Record<string, any> = {};
+  const map: [string, string[]][] = [
+    ["phone", ["phone"]],
+    ["email", ["email"]],
+    ["portfolio", ["portfolio"]],
+    ["work_type", ["workType", "work_type"]],
+    ["capacity", ["capacity"]],
+    ["start_date", ["startDate", "start_date"]],
+    ["shaba", ["shaba"]],
+    ["gender", ["gender"]],
+  ];
+  for (const [field, keys] of map) {
+    const key = keys.find((k) => body[k] !== undefined);
+    if (key) fields[field] = body[key];
+  }
+  return fields;
+}
+
+/** Shared by "add" in /manage_users and /save_user. */
+function createColleague(req: any, res: any) {
+  const body = req.body;
+  const password = typeof body.password === "string" ? body.password.trim() : "";
+  const username = String(body.username || body.email || `user_${Date.now()}`).trim();
+  if (isUsernameTaken(username)) return fail(res, 400, "این نام کاربری قبلا ثبت شده است.");
+  if (password && password.length < 6) return fail(res, 400, "رمز عبور باید حداقل ۶ کاراکتر باشد.");
+  const roleId = toInt(body.role_id) ?? DEFAULT_ROLE_ID;
+  if (roleGrantsAdmin(roleId) && !isAdmin(req.user)) {
+    return fail(res, 403, "فقط مدیر کل می‌تواند نقش مدیریتی اختصاص دهد.");
+  }
+  const profile = profileFields(body);
+  colleagues.push({
+    id: nextId(colleagues),
+    username,
+    passwordHash: password ? bcrypt.hashSync(password, 10) : "",
+    full_name: String(body.full_name || body.fullName || "").trim() || "همکار جدید",
+    role_id: roleId,
+    phone: "",
+    email: "",
+    portfolio: "",
+    work_type: "تمام‌وقت (حضوری)",
+    capacity: "",
+    start_date: "",
+    shaba: "",
+    ...profile,
+    is_active: 1,
+    avatar_url: body.avatar_url || DEFAULT_AVATAR,
+    status: "active",
+  });
+  saveDatabase();
+  res.json({ status: "success", message: "حساب کاربری با موفقیت ساخته شد" });
+}
+
+subRouter.get("/manage_roles", checkPermission("manage_roles"), (req, res) => {
+  res.json({ status: "success", data: roles });
+});
+
+subRouter.post("/manage_roles", checkPermission("manage_roles"), (req: any, res) => {
+  const { action, id, name, permissions } = req.body;
+  const perms = Array.isArray(permissions)
+    ? permissions.filter((p) => typeof p === "string")
+    : undefined;
+  // Only an administrator may create or extend a role with full access.
+  if (perms?.includes("admin") && !isAdmin(req.user)) {
+    return fail(res, 403, "فقط مدیر کل می‌تواند دسترسی کامل اعطا کند.");
+  }
+  if (action === "add") {
+    if (!name || typeof name !== "string") return fail(res, 400, "نام نقش الزامی است");
+    roles.push({ id: nextId(roles), name: name.trim(), permissions: perms || [] });
+    saveDatabase();
+    return res.json({ status: "success", message: "نقش جدید اضافه شد" });
+  }
+  if (action === "edit") {
+    if (id == ADMIN_ROLE_ID) return fail(res, 403, "نقش سیستمی مدیر کل قابل ویرایش نیست");
+    const role = roles.find((r) => r.id == id);
+    if (!role) return fail(res, 404, "نقش پیدا نشد");
+    if (roleGrantsAdmin(role.id) && !isAdmin(req.user)) {
+      return fail(res, 403, "فقط مدیر کل می‌تواند این نقش را ویرایش کند.");
     }
-  },
-);
+    if (name) role.name = String(name).trim();
+    if (perms) role.permissions = perms;
+    saveDatabase();
+    return res.json({ status: "success", message: "نقش به‌روزرسانی شد" });
+  }
+  if (action === "delete") {
+    if (id == ADMIN_ROLE_ID) return fail(res, 400, "شما نمی‌توانید نقش مدیر کل را حذف کنید");
+    const idx = roles.findIndex((r) => r.id == id);
+    if (idx === -1) return fail(res, 404, "نقش پیدا نشد");
+    if (roleGrantsAdmin(roles[idx].id) && !isAdmin(req.user)) {
+      return fail(res, 403, "فقط مدیر کل می‌تواند این نقش را حذف کند.");
+    }
+    roles.splice(idx, 1);
+    const fallback = roles.find((r) => r.id == DEFAULT_ROLE_ID && !roleGrantsAdmin(r.id));
+    colleagues.forEach((c) => {
+      if (c.role_id == id) c.role_id = fallback ? fallback.id : 0;
+    });
+    saveDatabase();
+    return res.json({ status: "success", message: "نقش حذف شد" });
+  }
+  if (action === "reorder") {
+    const index = roles.findIndex((r) => r.id == id);
+    const target =
+      req.body.direction === "up" ? index - 1 : req.body.direction === "down" ? index + 1 : -1;
+    if (index === -1 || target < 0 || target >= roles.length) {
+      return fail(res, 400, "امکان جابجایی وجود ندارد");
+    }
+    [roles[index], roles[target]] = [roles[target], roles[index]];
+    saveDatabase();
+    return res.json({ status: "success" });
+  }
+  return fail(res, 400, "عملیات نامعتبر");
+});
 
-subRouter.get("/get_roles", async (req, res) => {
-  const rolesList = await repo.getAllRoles();
-    const mappedRoles = rolesList.map((r) => ({
+subRouter.get("/get_roles", (req, res) => {
+  const mappedRoles = roles.map((r) => ({
     id: r.id,
     name: r.name,
     role_name: r.name,
@@ -186,343 +161,100 @@ subRouter.get("/get_roles", async (req, res) => {
   res.json({ status: "success", roles: mappedRoles, data: mappedRoles });
 });
 
-subRouter.get("/manage_users", checkPermission("add-user"), async (req, res) => {
-  const includeInactive =
-    req.query.include_inactive === "1" || req.query.all === "1";
-  const allColleagues = await repo.getAllUsers();
-  const allRoles = await repo.getAllRoles();
-  const mapped = allColleagues
+subRouter.get("/manage_users", checkPermission(["add-user", "team"]), (req, res) => {
+  const includeInactive = req.query.include_inactive === "1" || req.query.all === "1";
+  const mapped = colleagues
     .filter((c) => (includeInactive ? true : c.is_active !== 0))
-    .map((c) => {
-      const role = allRoles.find((r) => r.id === c?.role_id);
-      const role_name = role
-        ? role.name
-        : "کارشناس";
-      return { ...c, role_name };
-    });
+    .map(withRoleName);
   res.json({ status: "success", data: mapped, users: mapped });
 });
 
-subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) => {
-  const {
-    action,
-    id,
-    full_name,
-    fullName,
-    role_id,
-    avatar_url,
-    phone,
-    email,
-    portfolio,
-    workType,
-    work_type,
-    capacity,
-    startDate,
-    start_date,
-    shaba,
-    username,
-    password,
-  } = req.body;
-  if (action === "restore" || action === "activate") {
-    const idx = colleagues.findIndex((c) => c.id == id);
-    if (idx !== -1) {
-      colleagues[idx].is_active = 1;
-      colleagues[idx].status = "active";
-      
-      return res.json({
-        status: "success",
-        message:
-          "حساب همکار با موفقیت فعال گردید",
-      });
+subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => {
+  const { action, id } = req.body;
+  const idx = colleagues.findIndex((c) => c.id == id);
+  const target = idx === -1 ? null : colleagues[idx];
+  const actorIsAdmin = isAdmin(req.user);
+  const targetIsAdmin = target ? getRoleInfoForUser(target).permissions.includes("admin") : false;
+
+  if (action === "restore" || action === "activate" || action === "delete") {
+    if (!target) return fail(res, 404, "کاربر یافت نشد");
+    if (targetIsAdmin && !actorIsAdmin) return fail(res, 403, "شما مجاز به تغییر حساب مدیر کل نیستید");
+    if (action === "delete") {
+      if (target.id == 1) return fail(res, 400, "حساب مدیر کل قابل حذف نیست");
+      if (req.user.id == target.id) return fail(res, 400, "شما نمی‌توانید حساب کاربری خود را غیرفعال کنید");
+      target.is_active = 0;
+      target.status = "inactive";
+      saveDatabase();
+      return res.json({ status: "success", message: "کاربر غیرفعال شد" });
     }
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message:
-          "کاربر یافت نشد",
-      });
+    target.is_active = 1;
+    target.status = "active";
+    saveDatabase();
+    return res.json({ status: "success", message: "حساب همکار با موفقیت فعال گردید" });
   }
-  if (action === "delete") {
-    if (id == 1) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message:
-            "حساب مدیر کل قابل حذف نیست",
-        });
-    }
-    if (req.session.user && req.session.user.id == id) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message:
-            "شما نمی‌توانید حساب کاربری خود را غیرفعال کنید",
-        });
-    }
-    const idx = colleagues.findIndex((c) => c.id == id);
-    if (idx !== -1) {
-      colleagues[idx].is_active = 0;
-      colleagues[idx].status = "inactive";
-      
-      return res.json({
-        status: "success",
-        message:
-          "کاربر غیرفعال شد",
-      });
-    }
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message:
-          "کاربر یافت نشد",
-      });
-  }
+
   if (action === "edit") {
-    const idx = colleagues.findIndex((c) => c.id == id);
-    if (idx !== -1) {
-      if (id == 1 && req.session.user && req.session.user.id != 1) {
-        return res
-          .status(403)
-          .json({
-            status: "error",
-            message:
-              "شما مجاز به ویرایش اطلاعات مدیر کل نیستید",
-          });
+    if (!target) return fail(res, 404, "کاربر یافت نشد");
+    if (targetIsAdmin && !actorIsAdmin) return fail(res, 403, "شما مجاز به ویرایش اطلاعات مدیر کل نیستید");
+    const { full_name, fullName, username, password, role_id, avatar_url } = req.body;
+    if (username !== undefined && String(username).trim()) {
+      const newUsername = String(username).trim();
+      if (isUsernameTaken(newUsername, { colleagueId: target.id })) {
+        return fail(res, 400, "این نام کاربری قبلا ثبت شده است.");
       }
-      colleagues[idx].full_name =
-        full_name || fullName || colleagues[idx].full_name;
-      if (username) colleagues[idx].username = username;
-      if (password) {
-        if (password.length < 6)
-          return res
-            .status(400)
-            .json({
-              status: "error",
-              message:
-                "رمز عبور باید حداقل ۶ کاراکتر باشد.",
-            });
-        colleagues[idx].passwordHash = bcrypt.hashSync(password, 10);
-      }
-      if (role_id) {
-        if (
-          req.session.user &&
-          req.session.user.id === id &&
-          parseInt(role_id) !== colleagues[idx]?.role_id
-        ) {
-          return res
-            .status(400)
-            .json({
-              status: "error",
-              message:
-                "شما نمی‌توانید نقش خود را تغییر دهید",
-            });
+      target.username = newUsername;
+    }
+    if (password) {
+      const pw = String(password).trim();
+      if (pw.length < 6) return fail(res, 400, "رمز عبور باید حداقل ۶ کاراکتر باشد.");
+      target.passwordHash = bcrypt.hashSync(pw, 10);
+    }
+    if (role_id !== undefined && role_id !== "") {
+      const newRole = toInt(role_id);
+      if (newRole !== null && newRole != target.role_id) {
+        if (req.user.id == target.id) return fail(res, 400, "شما نمی‌توانید نقش خود را تغییر دهید");
+        if (roleGrantsAdmin(newRole) && !actorIsAdmin) {
+          return fail(res, 403, "فقط مدیر کل می‌تواند نقش مدیریتی اختصاص دهد.");
         }
-        if (colleagues[idx]) colleagues[idx].role_id = parseInt(role_id);
+        target.role_id = newRole;
       }
-      if (avatar_url) colleagues[idx].avatar_url = avatar_url;
-      if (phone !== void 0) colleagues[idx].phone = phone;
-      if (email !== void 0) colleagues[idx].email = email;
-      if (portfolio !== void 0) colleagues[idx].portfolio = portfolio;
-      if (workType !== void 0 || work_type !== void 0)
-        colleagues[idx].work_type = workType || work_type;
-      if (capacity !== void 0) colleagues[idx].capacity = capacity;
-      if (startDate !== void 0 || start_date !== void 0)
-        colleagues[idx].start_date = startDate || start_date;
-      if (shaba !== void 0) colleagues[idx].shaba = shaba;
-      
-      return res.json({
-        status: "success",
-        message:
-          "اطلاعات با موفقیت به‌روزرسانی شد",
-      });
     }
-    return res
-      .status(404)
-      .json({
-        status: "error",
-        message:
-          "کاربر یافت نشد",
-      });
+    const name = String(full_name || fullName || "").trim();
+    if (name) target.full_name = name;
+    if (avatar_url) target.avatar_url = avatar_url;
+    Object.assign(target, profileFields(req.body));
+    saveDatabase();
+    return res.json({ status: "success", message: "اطلاعات با موفقیت به‌روزرسانی شد" });
   }
+
   if (action === "reorder") {
-    const { direction } = req.body;
-    const activeColleagues = colleagues.filter(
-      (c) => c.is_active === 1 || c.status === "active",
-    );
-    const activeIndex = activeColleagues.findIndex((c) => c.id == id);
-    if (activeIndex !== -1) {
-      let targetActiveIndex = -1;
-      if (direction === "up" && activeIndex > 0)
-        targetActiveIndex = activeIndex - 1;
-      else if (
-        direction === "down" &&
-        activeIndex < activeColleagues.length - 1
-      )
-        targetActiveIndex = activeIndex + 1;
-      if (targetActiveIndex !== -1) {
-        const targetId = activeColleagues[targetActiveIndex].id;
-        const realIndex = colleagues.findIndex((c) => c.id == id);
-        const targetRealIndex = colleagues.findIndex((c) => c.id == targetId);
-        const temp = colleagues[realIndex];
-        colleagues[realIndex] = colleagues[targetRealIndex];
-        colleagues[targetRealIndex] = temp;
-        
-        return res.json({
-          status: "success",
-          message:
-            "ترتیب تغییر کرد",
-        });
-      }
+    const active = colleagues.filter((c) => c.is_active === 1 || c.status === "active");
+    const pos = active.findIndex((c) => c.id == id);
+    const targetPos =
+      req.body.direction === "up" ? pos - 1 : req.body.direction === "down" ? pos + 1 : -1;
+    if (pos === -1 || targetPos < 0 || targetPos >= active.length) {
+      return fail(res, 400, "امکان جابجایی وجود ندارد");
     }
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "امکان جابجایی وجود ندارد",
-      });
+    const a = colleagues.indexOf(active[pos]);
+    const b = colleagues.indexOf(active[targetPos]);
+    [colleagues[a], colleagues[b]] = [colleagues[b], colleagues[a]];
+    saveDatabase();
+    return res.json({ status: "success", message: "ترتیب تغییر کرد" });
   }
-  if (password && password.length < 6) {
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "رمز عبور باید حداقل ۶ کاراکتر باشد.",
-      });
-  }
-  const newUser = {
-    id:
-      colleagues.length > 0 ? Math.max(...colleagues.map((c) => c.id)) + 1 : 1,
-    username: username || email || "user_" + Date.now(),
-    passwordHash: password ? bcrypt.hashSync(password, 10) : "",
-    full_name:
-      full_name ||
-      fullName ||
-      "همکار جدید",
-    role_id: role_id ? parseInt(role_id) : 3,
-    phone: phone || "",
-    email: email || "",
-    portfolio: portfolio || "",
-    work_type:
-      workType ||
-      work_type ||
-      "تماموقت (حضوری)",
-    capacity: capacity || "",
-    start_date: startDate || start_date || "",
-    shaba: shaba || "",
-    is_active: 1,
-    avatar_url:
-      avatar_url ||
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-    status: "active",
-  };
-  colleagues.push(newUser);
-  saveDatabase().catch(console.error);
-  res.json({
-    status: "success",
-    message:
-      "حساب کاربری با موفقیت ساخته شد",
-  });
+
+  if (action === "add" || !action) return createColleague(req, res);
+  return fail(res, 400, "عملیات نامعتبر");
 });
 
-subRouter.get("/get_colleagues", async (req, res) => {
-  const allColleagues = await repo.getAllUsers();
-  const allRoles = await repo.getAllRoles();
-  const mapped = allColleagues
-    .filter((c) => c.is_active !== 0)
-    .map((c) => {
-      const role = allRoles.find((r) => r.id === c?.role_id);
-      const role_name = role
-        ? role.name
-        : "کارشناس";
-      const { passwordHash, ...safeC } = c;
-      return { ...safeC, role_name };
-    });
+subRouter.get("/get_colleagues", (req, res) => {
+  const mapped = colleagues.filter((c) => c.is_active !== 0).map((c) => {
+    // Bank and contact details are only needed by user managers.
+    const { shaba, ...rest } = withRoleName(c) as any;
+    return rest;
+  });
   res.json({ status: "success", users: mapped, data: mapped });
 });
 
-subRouter.post("/save_user", checkPermission("add-user"), async (req, res) => {
-  const {
-    full_name,
-    role_id,
-    username,
-    password,
-    fullName,
-    phone,
-    email,
-    portfolio,
-    workType,
-    work_type,
-    capacity,
-    startDate,
-    start_date,
-    shaba,
-    avatar_url,
-  } = req.body;
-  const targetUsername = username || email || "user_" + Date.now();
-  if (
-    colleagues.find((c) => c.username === targetUsername) ||
-    organizations.find((o) => o.username === targetUsername)
-  ) {
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "این نام کاربری قبلا ثبت شده است.",
-      });
-  }
-  if (password && password.length < 6) {
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "رمز عبور باید حداقل ۶ کاراکتر باشد.",
-      });
-  }
-  const newUser = {
-    id:
-      colleagues.length > 0 ? Math.max(...colleagues.map((c) => c.id)) + 1 : 1,
-    username: targetUsername,
-    passwordHash: password ? bcrypt.hashSync(password, 10) : "",
-    full_name:
-      full_name ||
-      fullName ||
-      "همکار جدید",
-    role_id: role_id ? parseInt(role_id) : 3,
-    phone: phone || "",
-    email: email || "",
-    portfolio: portfolio || "",
-    work_type:
-      workType ||
-      work_type ||
-      "تماموقت (حضوری)",
-    capacity: capacity || "",
-    start_date: startDate || start_date || "",
-    shaba: shaba || "",
-    is_active: 1,
-    avatar_url:
-      avatar_url ||
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-    status: "active",
-  };
-  colleagues.push(newUser);
-  saveDatabase().catch(console.error);
-  res.json({
-    status: "success",
-    message:
-      "حساب کاربری با موفقیت ساخته شد",
-  });
-});
-
-subRouter.get("/get_all_roles", async (req, res) => res.json(await repo.getAllRoles()));
-
-subRouter.get("/get_all_users", async (req, res) => res.json(await repo.getAllUsers()));
+subRouter.post("/save_user", checkPermission("add-user"), createColleague);
 
 export default subRouter;

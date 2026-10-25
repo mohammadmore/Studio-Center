@@ -1,232 +1,153 @@
-import { doc, setDoc } from "firebase/firestore";
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
 import multer from "multer";
-import * as jalaali from "jalaali-js";
-import bcrypt from "bcrypt";
-import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
-} from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { mediaAssets, organizations } from "../../store/state.js";
+import { getBlobStore, saveDatabase } from "../../store/db.js";
+import { checkPermission } from "../../middleware/auth.js";
+import { nextId, toInt } from "../../utils/helpers.js";
+import {
+  extensionOf,
+  IMAGE_EXTENSIONS,
+  mimeForFile,
+  randomFileName,
+  UPLOAD_EXTENSIONS,
+} from "../../utils/files.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_BYTES, files: 1 },
+});
 const subRouter = express.Router();
 
-subRouter.post("/upload_image", async (req, res) => {
+// Pages that let staff pick images: profile pictures, logos, studio branding, content.
+const IMAGE_UPLOAD_PERMS = ["add-user", "team", "organizations", "settings", "depot", "calendar", "media"];
+const FILE_UPLOAD_PERMS = ["depot", "calendar", "media", "collections", "archive"];
+
+/** Recognises an image by its first bytes instead of trusting the declared type. */
+function sniffImage(buffer: Buffer) {
+  if (buffer.length < 12) return null;
+  if (buffer[0] === 0x89 && buffer.toString("ascii", 1, 4) === "PNG") return "png";
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "jpg";
+  if (buffer.toString("ascii", 0, 3) === "GIF") return "gif";
+  if (buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP") return "webp";
+  return null;
+}
+
+subRouter.post("/upload_image", checkPermission(IMAGE_UPLOAD_PERMS), async (req, res) => {
   const { image } = req.body;
   if (!image || typeof image !== "string") {
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "فرمت تصویر نامعتبر است",
-      });
+    return res.status(400).json({ status: "error", message: "فرمت تصویر نامعتبر است" });
   }
-  if (image.startsWith("data:image")) {
-    try {
-      const matches = image.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
-      if (matches && matches.length === 3) {
-        const ext = matches[1];
-        const data = matches[2];
-        const allowedExts = ["jpeg", "png", "webp", "gif", "jpg"];
-        if (!allowedExts.includes(ext.toLowerCase())) {
-          return res
-            .status(400)
-            .json({
-              status: "error",
-              message:
-                "فرمت تصویر مجاز نیست",
-            });
-        }
-        if (data.length > 8e5) {
-          return res
-            .status(400)
-            .json({
-              status: "error",
-              message:
-                "حجم تصویر بیش از حد مجاز است",
-            });
-        }
-        const filename =
-          "upload_" +
-          Date.now() +
-          "_" +
-          Math.floor(Math.random() * 1e3) +
-          "." +
-          ext;
-        const buffer = Buffer.from(data, "base64");
-        const fs2 = require("fs");
-        const path2 = require("path");
-        const uploadsDir = path2.join(process.cwd(), "public", "uploads");
-        if (!fs2.existsSync(uploadsDir))
-          fs2.mkdirSync(uploadsDir, { recursive: true });
-        fs2.writeFileSync(path2.join(uploadsDir, filename), buffer);
-        try {
-          const { db } = require("./src/db/index.js");
-          await setDoc(doc(db, "uploads", filename), {
-            data: data,
-            mime: "image/" + ext,
-            createdAt: Date.now()
-          });
-        } catch(fsErr) {
-          console.error("Firestore save error:", fsErr);
-        }
-        const localCdnUrl = "/uploads/" + filename;
-        return res.json({ status: "success", url: localCdnUrl });
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-      return res
-        .status(500)
-        .json({
-          status: "error",
-          message:
-            "خطا در آپلود",
-        });
-    }
-  } else if (image.startsWith("http")) {
+  if (/^https?:\/\//i.test(image)) {
     return res.json({ status: "success", url: image });
   }
-  res
-    .status(400)
-    .json({
-      status: "error",
-      message:
-        "تصویر خالی یا نامعتبر است",
-    });
+  const matches = /^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/s.exec(image);
+  if (!matches) {
+    return res.status(400).json({ status: "error", message: "تصویر خالی یا نامعتبر است" });
+  }
+  const buffer = Buffer.from(matches[2], "base64");
+  const ext = sniffImage(buffer);
+  if (!ext || !IMAGE_EXTENSIONS.includes(matches[1].toLowerCase())) {
+    return res.status(400).json({ status: "error", message: "فرمت تصویر مجاز نیست" });
+  }
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    return res.status(400).json({ status: "error", message: "حجم تصویر بیش از حد مجاز است" });
+  }
+  const filename = randomFileName("upload", ext);
+  await getBlobStore().put("uploads", filename, buffer, mimeForFile(filename));
+  return res.json({ status: "success", url: "/uploads/" + filename });
 });
 
-subRouter.post("/upload_file", upload.single("file"), async (req, res) => {
-  if (!req.file) {
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "فایلی ارسال نشده است",
-      });
-  }
-  try {
-    const extMatch = req.file.originalname.match(/\.([^\.]+)$/);
-    const ext = extMatch ? extMatch[1] : "bin";
-    const filename =
-      "file_" + Date.now() + "_" + Math.floor(Math.random() * 1e3) + "." + ext;
-    const fs2 = require("fs");
-    const path2 = require("path");
-    const uploadsDir = path2.join(process.cwd(), "public", "uploads");
-    if (!fs2.existsSync(uploadsDir))
-      fs2.mkdirSync(uploadsDir, { recursive: true });
-    fs2.writeFileSync(path2.join(uploadsDir, filename), req.file.buffer);
-    try {
-      const { db } = require("./src/db/index.js");
-      await setDoc(doc(db, "uploads", filename), {
-        data: req.file.buffer.toString("base64"),
-        mime: req.file.mimetype || "application/octet-stream",
-        createdAt: Date.now()
-      });
-    } catch(fsErr) {
-      console.error("Firestore save error:", fsErr);
+subRouter.post(
+  "/upload_file",
+  checkPermission(FILE_UPLOAD_PERMS),
+  upload.single("file"),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ status: "error", message: "فایلی ارسال نشده است" });
     }
-    const localCdnUrl = "/uploads/" + filename;
-    return res.json({ status: "success", url: localCdnUrl });
-  } catch (err) {
-    console.error("File upload error:", err);
-    return res
-      .status(500)
-      .json({
-        status: "error",
-        message:
-          "خطا در آپلود فایل",
-      });
-  }
-});
+    const ext = extensionOf(req.file.originalname);
+    if (!UPLOAD_EXTENSIONS.includes(ext)) {
+      return res.status(400).json({ status: "error", message: "نوع فایل مجاز نیست" });
+    }
+    const filename = randomFileName("file", ext);
+    await getBlobStore().put("uploads", filename, req.file.buffer, mimeForFile(filename));
+    return res.json({ status: "success", url: "/uploads/" + filename });
+  },
+);
 
-subRouter.get("/get_media", (req, res) => {
-  const assetsWithOrg = mediaAssets.map((asset) => {
+subRouter.get("/get_media", checkPermission("media"), (req, res) => {
+  const assets = mediaAssets.map((asset) => {
     const org = organizations.find((o) => o.id == asset.org_id);
     return {
       ...asset,
-      org_name: org
-        ? org.org_name
-        : "عمومی / بدون سازمان",
+      org_name: org ? org.org_name : "عمومی / بدون سازمان",
       org_color: org ? org.color : "var(--text-gray)",
       org_logo: org ? org.logo_url : "",
     };
   });
-  res.json({ status: "success", assets: assetsWithOrg });
+  res.json({ status: "success", assets });
 });
 
-subRouter.post("/save_media", (req, res) => {
+function isAllowedUrl(url: unknown) {
+  return typeof url === "string" && /^(https?:\/\/|\/uploads\/)/i.test(url.trim());
+}
+
+subRouter.post("/save_media", checkPermission("media"), (req, res) => {
   const { action, media, org_id, asset_name, asset_type, file_url } = req.body;
   if (action === "batch_add") {
-    let currentId =
-      mediaAssets.length > 0
-        ? Math.max(...mediaAssets.map((x) => x.id)) + 1
-        : 1;
-    media.forEach((m) => {
+    if (!Array.isArray(media)) {
+      return res.status(400).json({ status: "error", message: "اطلاعات نامعتبر" });
+    }
+    let currentId = nextId(mediaAssets);
+    let skipped = 0;
+    for (const m of media) {
+      if (!m || !m.asset_name || !isAllowedUrl(m.file_url)) {
+        skipped++;
+        continue;
+      }
       let numericOrgId = null;
       if (m.org_username) {
         const org = organizations.find((o) => o.username === m.org_username);
         if (org) numericOrgId = org.id;
       } else if (m.org_id) {
-        numericOrgId = parseInt(m.org_id);
+        numericOrgId = toInt(m.org_id);
       }
       mediaAssets.push({
         id: currentId++,
         org_id: numericOrgId,
-        asset_name: m.asset_name,
+        asset_name: String(m.asset_name),
         asset_type: m.asset_type,
-        file_url: m.file_url,
+        file_url: m.file_url.trim(),
         created_at: new Date().toLocaleDateString("fa-IR"),
       });
-    });
-    saveDatabase().catch(console.error);
+    }
+    saveDatabase();
     return res.json({
       status: "success",
-      message:
-        "فایل‌ها با موفقیت ذخیره شدند.",
+      message: skipped
+        ? `فایل‌ها ذخیره شدند (${skipped} ردیف نامعتبر رد شد).`
+        : "فایل‌ها با موفقیت ذخیره شدند.",
     });
   }
   if (!asset_name || !asset_type) {
-    return res.json({
-      status: "error",
-      message:
-        "فیلد‌های ضروری را تکمیل کنید.",
-    });
+    return res.json({ status: "error", message: "فیلد‌های ضروری را تکمیل کنید." });
   }
-  const newAsset = {
-    id:
-      mediaAssets.length > 0
-        ? Math.max(...mediaAssets.map((x) => x.id)) + 1
-        : 1,
-    org_id: org_id || null,
+  if (!isAllowedUrl(file_url)) {
+    return res.status(400).json({ status: "error", message: "آدرس فایل نامعتبر است" });
+  }
+  mediaAssets.push({
+    id: nextId(mediaAssets),
+    org_id: org_id ? toInt(org_id) : null,
     asset_name,
     asset_type,
-    file_url,
+    file_url: file_url.trim(),
     created_at: new Date().toLocaleDateString("fa-IR"),
-  };
-  mediaAssets.push(newAsset);
-  saveDatabase().catch(console.error);
-  res.json({
-    status: "success",
-    message:
-      "فایل با موفقیت در کتابخانه ذخیره شد.",
   });
+  saveDatabase();
+  res.json({ status: "success", message: "فایل با موفقیت در کتابخانه ذخیره شد." });
 });
 
 export default subRouter;

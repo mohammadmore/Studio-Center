@@ -1,35 +1,42 @@
-import { collection, doc, deleteDoc, getDocs } from "firebase/firestore";
-import { db } from "../../db/index.js";
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
-import multer from "multer";
-import * as jalaali from "jalaali-js";
-import bcrypt from "bcrypt";
-import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
-} from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { organizations, settings, tokens } from "../../store/state.js";
+import { getBlobStore, saveDatabase } from "../../store/db.js";
+import { checkPermission, isClient } from "../../middleware/auth.js";
+import { nextId, toInt } from "../../utils/helpers.js";
+import { extensionOf, FONT_EXTENSIONS, isSafeFileName, randomFileName } from "../../utils/files.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
+const DEFAULT_FONT = "vazirmatn";
+const MAX_FONT_BYTES = 5 * 1024 * 1024;
+// Keys of `settings` that hold other data and must never be treated as a list group.
+const RESERVED_SETTING_KEYS = ["studio_info", "fonts", "font_order", "active_font"];
 
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
+function isValidGroup(group: unknown): group is string {
+  return (
+    typeof group === "string" &&
+    /^[a-z][a-z0-9_]{0,40}$/.test(group) &&
+    !RESERVED_SETTING_KEYS.includes(group)
+  );
+}
+
+function looksLikeFont(buffer: Buffer) {
+  const tag = buffer.toString("latin1", 0, 4);
+  return (
+    tag === "\x00\x01\x00\x00" || tag === "OTTO" || tag === "true" || tag === "wOFF" || tag === "wOF2"
+  );
+}
+
+function maskToken(token: unknown) {
+  const value = String(token || "");
+  return value.length <= 8 ? "••••" : `${value.slice(0, 4)}••••${value.slice(-4)}`;
+}
+
 const subRouter = express.Router();
 
 subRouter.get("/manage_settings", (req, res) => {
-  const activeSettings = {};
-  for (let key in settings) {
+  const activeSettings: Record<string, any> = {};
+  for (const key of Object.keys(settings)) {
+    // Clients only need the lists used to label content (types, platforms, ...).
+    if (isClient(req) && !Array.isArray(settings[key])) continue;
     if (Array.isArray(settings[key])) {
       if (key === "routine_holidays") {
         activeSettings[key] = settings[key];
@@ -49,7 +56,10 @@ subRouter.post(
   (req, res) => {
     let { action, id, group, name, key, price, icon, logo_url } = req.body;
     const itemName = name || key;
-    if (group && !settings[group]) settings[group] = [];
+    if (!isValidGroup(group) || (settings[group] !== undefined && !Array.isArray(settings[group]))) {
+      return res.status(400).json({ status: "error", message: "گروه تنظیمات نامعتبر است" });
+    }
+    if (!settings[group]) settings[group] = [];
     if (id !== void 0 && id !== null && id !== "") {
       id = parseInt(id, 10);
     }
@@ -122,11 +132,10 @@ subRouter.post(
       if (logo_url !== void 0) {
         newItem.logo_url = logo_url;
       }
-      if (group && Array.isArray(settings[group])) {
-        settings[group].push(newItem);
-      } else if (group) {
-        settings[group] = [newItem];
+      if (!itemName) {
+        return res.status(400).json({ status: "error", message: "نام آیتم الزامی است" });
       }
+      settings[group].push(newItem);
       saveDatabase();
       return res.json({
         status: "success",
@@ -174,234 +183,176 @@ subRouter.post(
             "امکان جابجایی وجود ندارد",
         });
     }
+    return res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
   },
 );
 
-subRouter.post("/save_token", checkPermission("settings"), (req, res) => {
-  const { org_id, org_name, platform_name, account_username, access_token } =
-    req.body;
+subRouter.post("/save_token", checkPermission("tokens"), (req, res) => {
+  const { org_id, org_name, platform_name, account_username, access_token } = req.body;
+  const orgId = toInt(org_id);
+  const org = organizations.find((o) => o.id == orgId);
+  if (!org || !platform_name || !access_token) {
+    return res.status(400).json({ status: "error", message: "اطلاعات توکن ناقص است" });
+  }
   tokens.push({
-    id: tokens.length > 0 ? Math.max(...tokens.map((t) => t.id)) + 1 : 1,
-    org_id: parseInt(org_id),
-    org_name,
+    id: nextId(tokens),
+    org_id: orgId,
+    org_name: org_name || org.org_name,
     platform_name,
     account_username,
     access_token,
     status: "active",
     expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1e3).toISOString(),
   });
-  saveDatabase().catch(console.error);
+  saveDatabase();
+  res.json({ status: "success", message: "توکن با موفقیت متصل شد" });
+});
+
+subRouter.get("/get_tokens", checkPermission("tokens"), (req, res) => {
+  // The raw access tokens never leave the server.
   res.json({
     status: "success",
-    message:
-      "توکن با موفقیت متصل شد",
+    tokens: tokens.map((t) => ({ ...t, access_token: maskToken(t.access_token) })),
   });
 });
 
-subRouter.get("/get_tokens", (req, res) => {
-  res.json({ status: "success", tokens });
+subRouter.get("/get_fonts", (req, res) => {
+  let files: string[] = [];
+  getBlobStore()
+    .list("fonts")
+    .then((list) => (files = list))
+    .catch((e) => console.error("Could not list fonts:", e))
+    .finally(() => {
+      let fontsList: any[] = [
+        { filename: DEFAULT_FONT, fa_name: "وزیرمتن (پیش‌فرض)", en_name: DEFAULT_FONT },
+      ];
+      if (settings.fonts && settings.fonts[DEFAULT_FONT]) {
+        fontsList[0] = { ...fontsList[0], ...settings.fonts[DEFAULT_FONT] };
+      }
+      for (const file of files) {
+        fontsList.push({
+          filename: file,
+          fa_name: file,
+          en_name: file,
+          ...(settings.fonts && settings.fonts[file]),
+        });
+      }
+      if (Array.isArray(settings.font_order)) {
+        const pos = (f: string) => {
+          const i = settings.font_order.indexOf(f);
+          return i === -1 ? 999 : i;
+        };
+        fontsList = fontsList.sort((a, b) => pos(a.filename) - pos(b.filename));
+      }
+      res.json({ status: "success", fonts: fontsList });
+    });
 });
 
-subRouter.get("/get_fonts", async (req, res) => {
-  let fontDocs = [];
-  try {
-    const q = await getDocs(collection(db, "fonts"));
-    q.forEach((d) => fontDocs.push(d.id));
-  } catch (e) {}
-  let fontsList = [
-    {
-      filename: "vazirmatn",
-      fa_name:
-        "وزیرمتن (پیشفرض)",
-      en_name: "vazirmatn",
-    },
-  ];
-  if (settings.fonts && settings.fonts["vazirmatn"]) {
-    fontsList[0] = { ...fontsList[0], ...settings.fonts["vazirmatn"] };
-  }
-  fontDocs.forEach((file) => {
-    let fontData = { filename: file, fa_name: file, en_name: file };
-    if (settings.fonts && settings.fonts[file]) {
-      fontData = { ...fontData, ...settings.fonts[file] };
-    }
-    fontsList.push(fontData);
-  });
-  if (settings.font_order) {
-    fontsList.sort((a, b) => {
-      let idxA = settings.font_order.indexOf(a.filename);
-      let idxB = settings.font_order.indexOf(b.filename);
-      if (idxA === -1) idxA = 999;
-      if (idxB === -1) idxB = 999;
-      return idxA - idxB;
+subRouter.post("/reorder_fonts", checkPermission("settings"), (req, res) => {
+  const { filename, direction, current_order } = req.body;
+  const order: string[] = Array.isArray(settings.font_order) ? [...settings.font_order] : [];
+  if (Array.isArray(current_order)) {
+    current_order.forEach((f) => {
+      if (typeof f === "string" && !order.includes(f)) order.push(f);
     });
   }
-  res.json({ status: "success", fonts: fontsList });
+  if (typeof filename !== "string") {
+    return res.status(400).json({ status: "error", message: "فونت نامعتبر" });
+  }
+  if (!order.includes(filename)) order.push(filename);
+  const index = order.indexOf(filename);
+  const target = direction === "up" ? index - 1 : direction === "down" ? index + 1 : -1;
+  if (target < 0 || target >= order.length) {
+    return res.status(400).json({ status: "error", message: "امکان جابجایی وجود ندارد" });
+  }
+  [order[index], order[target]] = [order[target], order[index]];
+  settings.font_order = order;
+  saveDatabase();
+  return res.json({ status: "success" });
 });
 
-subRouter.post(
-  "/reorder_fonts",
-  checkPermission("settings"),
-  (req, res) => {
-    const { filename, direction, current_order } = req.body;
-    let order = settings.font_order || current_order || [];
-    if (current_order && Array.isArray(current_order)) {
-      current_order.forEach((f) => {
-        if (!order.includes(f)) order.push(f);
-      });
-    }
-    if (!order.includes(filename)) order.push(filename);
-    const index = order.indexOf(filename);
-    if (index !== -1) {
-      let targetIndex = -1;
-      if (direction === "up" && index > 0) targetIndex = index - 1;
-      else if (direction === "down" && index < order.length - 1)
-        targetIndex = index + 1;
-      if (targetIndex !== -1) {
-        const temp = order[index];
-        order[index] = order[targetIndex];
-        order[targetIndex] = temp;
-        settings.font_order = order;
-        saveDatabase().catch(console.error);
-        return res.json({ status: "success" });
-      }
-    }
-    return res
-      .status(400)
-      .json({
-        status: "error",
-        message:
-          "امکان جابجایی وجود ندارد",
-      });
-  },
-);
+subRouter.post("/upload_font", checkPermission("settings"), async (req, res) => {
+  const { font, filename } = req.body;
+  if (typeof font !== "string" || typeof filename !== "string") {
+    return res.status(400).json({ status: "error", message: "No font provided" });
+  }
+  const ext = extensionOf(filename);
+  if (!FONT_EXTENSIONS.includes(ext)) {
+    return res.status(400).json({ status: "error", message: "فقط فایل‌های ttf، otf، woff و woff2 مجاز هستند" });
+  }
+  const buffer = Buffer.from(font.replace(/^data:[^,]*;base64,/, ""), "base64");
+  if (buffer.length > MAX_FONT_BYTES || !looksLikeFont(buffer)) {
+    return res.status(400).json({ status: "error", message: "فایل فونت نامعتبر یا بیش از حد بزرگ است" });
+  }
+  // The stored name is generated; the original name is kept as the display name.
+  const stored = randomFileName("font", ext);
+  await getBlobStore().put("fonts", stored, buffer, `font/${ext}`);
+  const displayName = filename.replace(/\.[^.]+$/, "").slice(0, 100);
+  if (!settings.fonts) settings.fonts = {};
+  settings.fonts[stored] = { fa_name: displayName, en_name: displayName };
+  settings.active_font = stored;
+  saveDatabase();
+  res.json({ status: "success", message: "فونت با موفقیت آپلود و فعال شد" });
+});
 
-subRouter.post(
-  "/upload_font",
-  checkPermission("settings"),
-  async (req, res) => {
-    const { font, filename } = req.body;
-    if (!font || !filename) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "No font provided" });
-    }
-    const base64Data = font
-      .replace(/^data:font\/\w+;base64,/, "")
-      .replace(/^data:application\/octet-stream;base64,/, "");
-    try {
-      const fs2 = require("fs");
-      const path2 = require("path");
-      const buffer = Buffer.from(base64Data, "base64");
-      const fontsDir = path2.join(process.cwd(), "public", "fonts");
-      if (!fs2.existsSync(fontsDir))
-        fs2.mkdirSync(fontsDir, { recursive: true });
-      fs2.writeFileSync(path2.join(fontsDir, filename), buffer);
-      if (!settings.fonts) settings.fonts = {};
-      settings.fonts[filename] = { fa_name: filename, en_name: filename };
-      settings.active_font = filename;
-      saveDatabase().catch(console.error);
-      res.json({
-        status: "success",
-        message:
-          "فونت با موفقیت آپلود و فعال شد",
-      });
-    } catch (err) {
-      res
-        .status(500)
-        .json({
-          status: "error",
-          message:
-            "خطا در ذخیره فونت",
-        });
-    }
-  },
-);
-
-subRouter.post(
-  "/set_active_font",
-  checkPermission("settings"),
-  (req, res) => {
-    const { filename } = req.body;
-    try {
-      settings.active_font = filename;
-      saveDatabase().catch(console.error);
-      return res.json({
-        status: "success",
-        message:
-          filename === "vazirmatn"
-            ? "فونت پیشفرض فعال شد"
-            : "فونت با موفقیت فعال شد",
-      });
-    } catch (err) {
-      res
-        .status(500)
-        .json({
-          status: "error",
-          message:
-            "خطا در تغییر فونت",
-        });
-    }
-  },
-);
+subRouter.post("/set_active_font", checkPermission("settings"), async (req, res) => {
+  const { filename } = req.body;
+  if (filename !== DEFAULT_FONT) {
+    const exists = isSafeFileName(filename) && (await getBlobStore().get("fonts", filename));
+    if (!exists) return res.status(404).json({ status: "error", message: "فونت یافت نشد" });
+  }
+  settings.active_font = filename;
+  saveDatabase();
+  return res.json({
+    status: "success",
+    message: filename === DEFAULT_FONT ? "فونت پیش‌فرض فعال شد" : "فونت با موفقیت فعال شد",
+  });
+});
 
 subRouter.post("/rename_font", checkPermission("settings"), (req, res) => {
   const { filename, fa_name, en_name } = req.body;
-  if (!filename)
-    return res
-      .status(400)
-      .json({ status: "error", message: "Missing filename" });
+  if (filename !== DEFAULT_FONT && !isSafeFileName(filename)) {
+    return res.status(400).json({ status: "error", message: "Missing filename" });
+  }
   if (!settings.fonts) settings.fonts = {};
   if (!settings.fonts[filename]) settings.fonts[filename] = {};
-  settings.fonts[filename].fa_name = fa_name || filename;
-  settings.fonts[filename].en_name = en_name || filename;
-  saveDatabase().catch(console.error);
-  res.json({
-    status: "success",
-    message:
-      "نام فونت ذخیره شد",
-  });
+  settings.fonts[filename].fa_name = String(fa_name || filename).slice(0, 100);
+  settings.fonts[filename].en_name = String(en_name || filename).slice(0, 100);
+  saveDatabase();
+  res.json({ status: "success", message: "نام فونت ذخیره شد" });
 });
 
-subRouter.post(
-  "/delete_font",
-  checkPermission("settings"),
-  async (req, res) => {
-    const { filename } = req.body;
-    try {
-      await deleteDoc(doc(db, "fonts", filename));
-      if (settings.fonts && settings.fonts[filename]) {
-        delete settings.fonts[filename];
-      }
-      if (settings.active_font === filename) {
-        settings.active_font = "vazirmatn";
-      }
-      saveDatabase().catch(console.error);
-      res.json({
-        status: "success",
-        message: "فونت حذف شد",
-      });
-    } catch (err) {
-      res
-        .status(500)
-        .json({
-          status: "error",
-          message:
-            "خطا در حذف فونت",
-        });
-    }
-  },
-);
+subRouter.post("/delete_font", checkPermission("settings"), async (req, res) => {
+  const { filename } = req.body;
+  if (!isSafeFileName(filename) || filename === DEFAULT_FONT) {
+    return res.status(400).json({ status: "error", message: "فونت نامعتبر" });
+  }
+  await getBlobStore().delete("fonts", filename);
+  if (settings.fonts) delete settings.fonts[filename];
+  if (Array.isArray(settings.font_order)) {
+    settings.font_order = settings.font_order.filter((f: string) => f !== filename);
+  }
+  if (settings.active_font === filename) settings.active_font = DEFAULT_FONT;
+  saveDatabase();
+  res.json({ status: "success", message: "فونت حذف شد" });
+});
 
 subRouter.get("/get_studio_info", (req, res) => {
-  res.json({ status: "success", data: settings.studio_info });
+  res.json({ status: "success", data: settings.studio_info || {} });
 });
 
 subRouter.post(
   "/save_studio_info",
   checkPermission("settings"),
   (req, res) => {
-    if (req.body) {
-      settings.studio_info = { ...settings.studio_info, ...req.body };
+    if (req.body && typeof req.body === "object" && !Array.isArray(req.body)) {
+      const updates: Record<string, any> = {};
+      for (const [k, v] of Object.entries(req.body)) {
+        if (/^[a-z][a-z0-9_]{0,40}$/i.test(k) && (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null)) {
+          updates[k] = v;
+        }
+      }
+      settings.studio_info = { ...settings.studio_info, ...updates };
       saveDatabase();
       return res.json({
         status: "success",

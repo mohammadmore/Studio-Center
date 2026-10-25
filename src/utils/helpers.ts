@@ -1,23 +1,72 @@
 import * as jalaali from "jalaali-js";
 
+/** Next numeric id for a collection (no spread, so it works for any array size). */
+export function nextId(items: any[]) {
+  let max = 0;
+  for (const item of items) {
+    const id = Number(item?.id);
+    if (Number.isFinite(id) && id > max) max = id;
+  }
+  return Math.floor(max) + 1;
+}
+
+export function toLatinDigits(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+}
+
+/**
+ * Normalises a Jalali date such as "۱۴۰۵/۲/۵" or "1405-02-05" to "1405/02/05" so
+ * dates compare correctly as strings. Returns "" for anything else.
+ */
+export function normalizeJalaliDate(value: unknown) {
+  const match = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/.exec(toLatinDigits(value).trim());
+  if (!match) return "";
+  return `${match[1]}/${match[2].padStart(2, "0")}/${match[3].padStart(2, "0")}`;
+}
+
+export function todayJalali(date = new Date()) {
+  const j = jalaali.toJalaali(date);
+  return `${j.jy}/${String(j.jm).padStart(2, "0")}/${String(j.jd).padStart(2, "0")}`;
+}
+
 export function addDaysToJalali(dateStr: string, days: number) {
-  const parts = dateStr.split("/");
-  if (parts.length !== 3) return dateStr;
-  const jy = parseInt(parts[0]);
-  const jm = parseInt(parts[1]);
-  const jd = parseInt(parts[2]);
+  const normalized = normalizeJalaliDate(dateStr);
+  if (!normalized) return dateStr;
+  const [jy, jm, jd] = normalized.split("/").map(Number);
   const { gy, gm, gd } = jalaali.toGregorian(jy, jm, jd);
   const dateObj = new Date(gy, gm - 1, gd);
   dateObj.setDate(dateObj.getDate() + days);
-  const result = jalaali.toJalaali(dateObj);
-  const paddedMonth = result.jm.toString().padStart(2, "0");
-  const paddedDay = result.jd.toString().padStart(2, "0");
-  return `${result.jy}/${paddedMonth}/${paddedDay}`;
+  return todayJalali(dateObj);
+}
+
+/** Days from `a` to `b` (both Jalali dates); NaN if either is invalid. */
+export function jalaliDiffDays(a: string, b: string) {
+  const na = normalizeJalaliDate(a);
+  const nb = normalizeJalaliDate(b);
+  if (!na || !nb) return NaN;
+  const toTime = (s: string) => {
+    const [jy, jm, jd] = s.split("/").map(Number);
+    const g = jalaali.toGregorian(jy, jm, jd);
+    return Date.UTC(g.gy, g.gm - 1, g.gd);
+  };
+  return Math.round((toTime(nb) - toTime(na)) / 86400000);
 }
 
 export function toPersianDigits(num: string | number) {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return num
-    .toString()
-    .replace(/\d/g, (x) => persianDigits[parseInt(x)]);
+  return num.toString().replace(/\d/g, (x) => persianDigits[parseInt(x)]);
+}
+
+export function toInt(value: unknown): number | null {
+  const n = parseInt(toLatinDigits(value), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function escapeHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 }

@@ -1,28 +1,23 @@
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
-import multer from "multer";
-import * as jalaali from "jalaali-js";
-import bcrypt from "bcrypt";
-import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
-} from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { contents, expenses, invoices, organizations, settings } from "../../store/state.js";
+import { saveDatabase } from "../../store/db.js";
+import { checkPermission } from "../../middleware/auth.js";
+import { stripSecrets } from "../../utils/authUtils.js";
+import { nextId, normalizeJalaliDate, toLatinDigits, todayJalali } from "../../utils/helpers.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
+function priceOf(type: string) {
+  const list = Array.isArray(settings.content_type) ? settings.content_type : [];
+  const setting = list.find((t) => t.setting_key === type);
+  return setting ? Number(setting.price) || 0 : 0;
+}
 
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
+function toNumber(value: unknown) {
+  const n = parseFloat(toLatinDigits(value).replace(/,/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+const INVOICE_STATUSES = ["draft", "issued", "paid", "cancelled"];
+
 const subRouter = express.Router();
 
 subRouter.get(
@@ -37,16 +32,12 @@ subRouter.get(
         compKeys.forEach((k) => {
           const count = Math.max(0, parseInt(comps[k]) || 0);
           if (count > 0) {
-            const typeSetting = settings.content_type.find(
-              (t) => t.setting_key === k,
-            );
-            const price = typeSetting ? typeSetting.price || 0 : 0;
-            total_revenue += price * count;
+            total_revenue += priceOf(k) * count;
           }
         });
       }
     });
-    const total_expenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const total_expenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const net_profit = total_revenue - total_expenses;
     res.json({
       status: "success",
@@ -58,25 +49,19 @@ subRouter.get(
 
 subRouter.post("/save_expense", checkPermission("finance"), (req, res) => {
   const { description, project_name, amount, date } = req.body;
-  const newExp = {
-    id: expenses.length > 0 ? Math.max(...expenses.map((x) => x.id)) + 1 : 1,
-    description:
-      description ||
-      "هزینه تولید محتوا",
-    project_name:
-      project_name || "بدون پروژه",
-    amount: amount ? parseInt(amount) : 5e5,
-    date:
-      typeof date !== "undefined"
-        ? date
-        : new Date().toLocaleDateString("fa-IR", { numberingSystem: "latn" }),
-  };
-  expenses.push(newExp);
-  saveDatabase().catch(console.error);
-  res.json({
-    status: "success",
-    message: "هزینه ثبت شد",
+  const value = toNumber(amount);
+  if (value <= 0) {
+    return res.status(400).json({ status: "error", message: "مبلغ هزینه نامعتبر است" });
+  }
+  expenses.push({
+    id: nextId(expenses),
+    description: description || "هزینه تولید محتوا",
+    project_name: project_name || "بدون پروژه",
+    amount: value,
+    date: normalizeJalaliDate(date) || todayJalali(),
   });
+  saveDatabase();
+  res.json({ status: "success", message: "هزینه ثبت شد" });
 });
 
 subRouter.get("/invoices", checkPermission("invoice"), (req, res) => {
@@ -99,13 +84,22 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
     notes,
     paid_amount,
   } = req.body;
+  if (status !== undefined && status !== "" && !INVOICE_STATUSES.includes(status)) {
+    return res.status(400).json({ status: "error", message: "وضعیت فاکتور نامعتبر است" });
+  }
   if (action === "save") {
+    if (org_id && !organizations.some((o) => o.id == org_id)) {
+      return res.status(400).json({ status: "error", message: "سازمان یافت نشد" });
+    }
+    if (items !== undefined && !Array.isArray(items)) {
+      return res.status(400).json({ status: "error", message: "اقلام فاکتور نامعتبر است" });
+    }
     if (id) {
       const inv2 = invoices.find((i) => i.id == id);
       if (inv2) {
         inv2.org_id = org_id;
         inv2.issue_date = issue_date;
-        inv2.due_date = due_date;
+        inv2.due_date = normalizeJalaliDate(due_date) || due_date;
         inv2.status = status || inv2.status;
         inv2.items = items;
         inv2.subtotal = subtotal;
@@ -113,7 +107,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
         inv2.discount = discount;
         inv2.total = total;
         inv2.notes = notes;
-        inv2.paid_amount = paid_amount;
+        inv2.paid_amount = toNumber(paid_amount);
         saveDatabase();
         return res.json({
           status: "success",
@@ -124,13 +118,13 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       }
     }
     const newId =
-      invoices.length > 0 ? Math.max(...invoices.map((i) => i.id)) + 1 : 1;
+      nextId(invoices);
     const inv = {
       id: newId,
       invoice_number: 1e3 + newId,
       org_id,
       issue_date,
-      due_date,
+      due_date: normalizeJalaliDate(due_date) || due_date,
       status: status || "draft",
       items,
       subtotal,
@@ -138,7 +132,8 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       discount,
       total,
       notes,
-      paid_amount: paid_amount || 0,
+      paid_amount: toNumber(paid_amount),
+      created_at: new Date().toISOString(),
     };
     invoices.push(inv);
     saveDatabase();
@@ -164,8 +159,12 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
   if (action === "add_payment") {
     const inv = invoices.find((i) => i.id == id);
     if (inv) {
-      inv.paid_amount =
-        (inv.paid_amount || 0) + parseFloat(req.body.amount || 0);
+      const amount = toNumber(req.body.amount);
+      if (amount <= 0) {
+        return res.status(400).json({ status: "error", message: "مبلغ پرداخت نامعتبر است" });
+      }
+      inv.paid_amount = toNumber(inv.paid_amount) + amount;
+      if (inv.paid_amount >= toNumber(inv.total) && toNumber(inv.total) > 0) inv.status = "paid";
       saveDatabase();
       return res.json({
         status: "success",
@@ -205,7 +204,7 @@ subRouter.get(
         date: inv.issue_date,
         due_date: inv.due_date,
         status_name: inv.status,
-        organization: org2,
+        organization: org2 ? stripSecrets(org2) : null,
         items: inv.items,
         subtotal: inv.subtotal,
         tax: inv.tax,
@@ -231,8 +230,8 @@ subRouter.get(
     const col_id = req.query.col_id;
     const status = req.query.status;
     const platformFilter = req.query.platform;
-    const start_date = req.query.start_date;
-    const end_date = req.query.end_date;
+    const start_date = normalizeJalaliDate(req.query.start_date);
+    const end_date = normalizeJalaliDate(req.query.end_date);
     const orgContents = contents.filter((c) => {
       if (c.org_id != org_id) return false;
       if (col_id && c.collection_id != col_id) return false;
@@ -252,9 +251,9 @@ subRouter.get(
             return false;
         }
       }
-      if (start_date && c.publish_date && c.publish_date < start_date)
-        return false;
-      if (end_date && c.publish_date && c.publish_date > end_date) return false;
+      const date = normalizeJalaliDate(c.publish_date);
+      if (start_date && date && date < start_date) return false;
+      if (end_date && date && date > end_date) return false;
       return true;
     });
     const items = [];
@@ -273,10 +272,7 @@ subRouter.get(
         compKeys.forEach((k) => {
           const count = Math.max(0, parseInt(comps[k]) || 0);
           if (count > 0) {
-            const typeSetting = settings.content_type.find(
-              (t) => t.setting_key === k,
-            );
-            const price = typeSetting ? typeSetting.price || 0 : 0;
+            const price = priceOf(k);
             const row_total = price * count;
             total_amount += row_total;
             items.push({
@@ -289,10 +285,7 @@ subRouter.get(
           }
         });
       } else {
-        const typeSetting = settings.content_type.find(
-          (t) => t.setting_key === content_type,
-        );
-        const price = typeSetting ? typeSetting.price || 0 : 0;
+        const price = priceOf(content_type);
         total_amount += price;
         items.push({
           type: `${c.title} (${content_type})`,
@@ -306,8 +299,8 @@ subRouter.get(
     res.json({
       status: "success",
       invoice_number: "---",
-      date: new Date().toLocaleDateString("fa-IR", { numberingSystem: "latn" }),
-      organization: org,
+      date: todayJalali(),
+      organization: stripSecrets(org),
       items,
       subtotal: total_amount,
       tax: 0,

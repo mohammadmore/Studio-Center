@@ -1,29 +1,25 @@
-import momentHijri from "moment-hijri";
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
 import multer from "multer";
 import * as jalaali from "jalaali-js";
-import bcrypt from "bcrypt";
+import momentHijri from "moment-hijri";
 import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
+import {
+  clientSelections,
+  collections,
+  contents,
+  organizations,
+  settings,
+  smartEventsBank,
+  templateSuggestions,
 } from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { saveDatabase } from "../../store/db.js";
+import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
+import { getRoleInfoForUser, hasPermission, isAdmin } from "../../utils/authUtils.js";
+import { addAuditLog, addNotification } from "../../utils/logger.js";
+import { nextId, toInt } from "../../utils/helpers.js";
+import { moveToRecycleBin } from "../../utils/contentUtils.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
-
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const subRouter = express.Router();
 
 subRouter.post(
@@ -87,12 +83,13 @@ subRouter.post(
           );
           if (!org) {
             org = {
-              id:
-                organizations.length > 0
-                  ? Math.max(...organizations.map((o) => o.id)) + 1
-                  : 1,
+              id: nextId(organizations),
               org_name: cleanOrgName,
               color: "#4f46e5",
+              logo_url: "",
+              username: "",
+              passwordHash: "",
+              is_active: 1,
             };
             organizations.push(org);
           }
@@ -102,9 +99,7 @@ subRouter.post(
         }
         const newEvent = {
           id:
-            smartEventsBank.length > 0
-              ? Math.max(...smartEventsBank.map((e) => e.id)) + 1
-              : 1,
+            nextId(smartEventsBank),
           title: title.toString(),
           calendar_type,
           base_year: baseYear,
@@ -138,7 +133,6 @@ subRouter.post(
   "/manage_smart_events",
   checkPermission("smart-events"),
   async (req, res) => {
-    console.log("manage_smart_events body:", req.body);
     let {
       action,
       title,
@@ -158,7 +152,8 @@ subRouter.post(
     }
     
     if (action === "delete") {
-      if (req.session.user && req.session.user?.role_id != 1 && req.session.user?.role_id != 2) {
+      // Deleting from the shared bank is limited to administrators and role 2 (managers).
+      if (!isAdmin(req.user) && getRoleInfoForUser(req.user).role_id != 2) {
         return res
           .status(403)
           .json({
@@ -171,9 +166,7 @@ subRouter.post(
     if (action === "add") {
       const newEvent = {
         id:
-          smartEventsBank.length > 0
-            ? Math.max(...smartEventsBank.map((e) => e.id)) + 1
-            : 1,
+          nextId(smartEventsBank),
         title,
         description,
         calendar_type,
@@ -196,19 +189,8 @@ subRouter.post(
       const evId = parseInt(id);
       const evIndex = smartEventsBank.findIndex((e) => e.id === evId);
       if (evIndex !== -1) {
-        recycle_bin.unshift({
-          id: Date.now(),
-          table: "smartEventsBank",
-          item_title:
-            smartEventsBank[evIndex].title ||
-            "مناسبت بدون عنوان",
-          data: smartEventsBank[evIndex],
-          deleted_at: new Date().toISOString(),
-          deleted_by:
-            req.session && req.session.user && req.session.user.username
-              ? req.session.user.username
-              : "admin",
-        });
+        const ev = smartEventsBank[evIndex];
+        moveToRecycleBin("smartEventsBank", ev, ev.title || "مناسبت بدون عنوان", req.user);
         smartEventsBank.splice(evIndex, 1);
         saveDatabase().catch(console.error);
         return res.json({
@@ -267,11 +249,16 @@ subRouter.post(
 
 subRouter.post(
   "/add_client_events",
-  checkPermission("smart-events"),
-  (req, res) => {
-    const { org_id, events, year, month, is_draft } = req.body;
-    const numericOrgId = parseInt(org_id, 10);
-    if (numericOrgId && Array.isArray(events) && year && month) {
+  checkPermission(["smart-events", "organizations"], { allowClients: true }),
+  (req: any, res) => {
+    const { events, is_draft } = req.body;
+    // A client can only submit the calendar of its own organisation.
+    const numericOrgId = isClient(req) ? clientOrgId(req) : toInt(req.body.org_id);
+    const year = toInt(req.body.year);
+    const month = toInt(req.body.month);
+    const validEvents =
+      Array.isArray(events) && events.every((ev) => ev && typeof ev.title === "string");
+    if (numericOrgId && validEvents && year && month && month >= 1 && month <= 12) {
       const org = organizations.find((o) => o.id == numericOrgId);
       const existingSelectionIndex = clientSelections.findIndex(
         (cs) =>
@@ -300,8 +287,8 @@ subRouter.post(
       } else {
         clientSelections.push({
           org_id: numericOrgId,
-          year: parseInt(year, 10),
-          month: parseInt(month, 10),
+          year: year,
+          month: month,
           selected_titles: events.map((ev) => ev.title),
           is_final: !is_draft,
         });
@@ -322,20 +309,26 @@ subRouter.post(
           "بهمن",
           "اسفند",
         ];
-        const mName = monthNames[parseInt(month, 10)] || month;
-        addNotification(null, null, "تایید تقویم مناسبت‌ها", `نماینده ${org ? org.org_name : ""} مناسبت‌های ${mName}ماه ${year} را تایید کرد.`);
+        const mName = monthNames[month] || month;
+        addNotification(
+          "تایید تقویم مناسبت‌ها",
+          `نماینده ${org ? org.org_name : ""} مناسبت‌های ${mName}ماه ${year} را تایید کرد.`,
+          "admin",
+          null,
+          "/smart-events",
+          "client_events",
+          numericOrgId,
+        );
         const colName =
           "استوری‌های مناسبتی";
         let existingCol = collections.find(
           (c) =>
             c.title === colName &&
-            (c.org_id === null || c.org_id === numericOrgId),
+            (c.org_id === null || c.org_id == numericOrgId),
         );
         if (!existingCol) {
           existingCol = {
-            id: collections.length
-              ? Math.max(...collections.map((c) => c.id)) + 1
-              : 1,
+            id: nextId(collections),
             title: colName,
             org_id: numericOrgId,
             created_at: new Intl.DateTimeFormat("fa-IR", {
@@ -353,13 +346,15 @@ subRouter.post(
           (t) => !currentTitles.includes(t),
         );
         if (toRemoveTitles.length > 0) {
+          // Deselected events leave the depot through the recycle bin, so work is never lost.
           for (let i = contents.length - 1; i >= 0; i--) {
             const c = contents[i];
             if (
-              c.org_id === numericOrgId &&
+              c.org_id == numericOrgId &&
               c.collection_id === collectionId &&
               toRemoveTitles.includes(c.title)
             ) {
+              moveToRecycleBin("contents", c, c.title, req.user);
               contents.splice(i, 1);
             }
           }
@@ -378,9 +373,7 @@ subRouter.post(
           );
           if (alreadyExists) return;
           const newId =
-            contents.length > 0
-              ? Math.max(...contents.map((c) => c.id)) + 1
-              : 1;
+            nextId(contents);
           const bankEv = smartEventsBank.find(
             (e) =>
               e.title === ev.title &&
@@ -391,8 +384,8 @@ subRouter.post(
           let publishTime = "";
           if (calType === "ghamari") {
             const greg = jalaali.toGregorian(
-              parseInt(year, 10),
-              parseInt(month, 10),
+              year,
+              month,
               parseInt(ev.publish_day, 10) || 1,
             );
             const dateObj = new Date(greg.gy, greg.gm - 1, greg.gd);
@@ -446,12 +439,15 @@ subRouter.post(
   },
 );
 
-subRouter.get("/get_smart_events_monthly", (req, res) => {
+subRouter.get("/get_smart_events_monthly", (req: any, res) => {
+  if (!isClient(req) && !hasPermission(req.user, ["calendar", "smart-events", "organizations"])) {
+    return res.status(403).json({ status: "error", message: "عدم دسترسی" });
+  }
   const { year, month, org_id, for_client } = req.query;
-  const y = parseInt(year as string);
-  const m = parseInt(month as string);
-  const filterOrgId = org_id ? parseInt(org_id as string) : null;
-  const isForClient = for_client === "1";
+  const y = toInt(year);
+  const m = toInt(month);
+  const filterOrgId = isClient(req) ? clientOrgId(req) : org_id ? toInt(org_id) : null;
+  const isForClient = for_client === "1" || isClient(req);
   let selection = null;
   if (filterOrgId && y && m) {
     selection = clientSelections.find(
@@ -463,7 +459,7 @@ subRouter.get("/get_smart_events_monthly", (req, res) => {
     if (filterOrgId) {
       if (e.org_id && e.org_id !== filterOrgId) return false;
       if (selection && !isForClient) {
-        return selection.selected_titles.includes(e.title);
+        return (selection.selected_titles || []).includes(e.title);
       }
       return !e.org_id || e.org_id === filterOrgId;
     } else {
@@ -565,55 +561,11 @@ subRouter.get("/get_smart_events_monthly", (req, res) => {
   });
 });
 
-subRouter.get("/get_events", (req, res) => {
+subRouter.get("/get_events", checkPermission(["calendar", "depot"]), (req, res) => {
   const { year, month } = req.query;
-  if (!year || !month) {
-    const smartEvents = [
-      {
-        id: 1,
-        title: "روز پزشک",
-        event_date: "۱ شهریور",
-        calendar_type: "shamsi",
-      },
-      {
-        id: 2,
-        title: "عید سعید فطر",
-        event_date: "۱ شوال",
-        calendar_type: "ghamari",
-      },
-      {
-        id: 3,
-        title:
-          "روز جهانی گرافیک",
-        event_date: "27 آوریل",
-        calendar_type: "miladi",
-      },
-      {
-        id: 4,
-        title: "شب یلدا",
-        event_date: "۳۰ آذر",
-        calendar_type: "shamsi",
-      },
-      {
-        id: 5,
-        title:
-          "روز جهانی عکاسی",
-        event_date: "19 آگوست",
-        calendar_type: "miladi",
-      },
-      {
-        id: 6,
-        title:
-          "سالگرد تاسیس استودیو",
-        event_date: "۱۵ مهر",
-        calendar_type: "custom",
-      },
-    ];
-    saveDatabase();
-    return res.json({ status: "success", events: smartEvents });
+  if (!toInt(year) || !toInt(month)) {
+    return res.json({ status: "success", data: [], events: [], suggestions: [] });
   }
-  const padMonth = month.toString().padStart(2, "0");
-  const searchPattern = `${year}/${padMonth}/`;
   const filteredContents = contents
     .filter((c) => {
       if (!c.publish_date) return false;
@@ -697,14 +649,10 @@ subRouter.get("/get_events", (req, res) => {
   });
 });
 
-subRouter.post("/unlock_events", (req, res) => {
+subRouter.post("/unlock_events", checkPermission("organizations"), (req: any, res) => {
   const { org_id, type, reason } = req.body;
   if (!org_id || !type) {
-    return res.json({
-      status: "error",
-      message:
-        "اطلاعات ناقص است",
-    });
+    return res.json({ status: "error", message: "اطلاعات ناقص است" });
   }
   const currentJDate = jalaali.toJalaali(new Date());
   let targetYear = currentJDate.jy;
@@ -716,101 +664,65 @@ subRouter.post("/unlock_events", (req, res) => {
       targetYear++;
     }
   }
-  const numericOrgId = parseInt(org_id, 10);
-  const existingSelectionIndex = clientSelections.findIndex(
-    (cs) =>
-      cs.org_id == numericOrgId &&
-      cs.year == targetYear &&
-      cs.month == targetMonth,
+  const numericOrgId = toInt(org_id);
+  const selection = clientSelections.find(
+    (cs) => cs.org_id == numericOrgId && cs.year == targetYear && cs.month == targetMonth,
   );
-  if (existingSelectionIndex >= 0) {
-    clientSelections[existingSelectionIndex].is_final = false;
-    clientSelections[existingSelectionIndex].unlock_reason = reason;
-    const org = organizations.find((o) => o.id === numericOrgId);
-    const orgName = org ? org.org_name : numericOrgId;
-    addNotification(null, numericOrgId.toString(), "باز شدن قفل مناسبت‌ها", reason);
-    const jalaaliDate = new Intl.DateTimeFormat("fa-IR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date());
-    audit_logs.unshift({
-      id:
-        audit_logs.length > 0
-          ? Math.max(...audit_logs.map((a) => a.id)) + 1
-          : 1,
-      username: req.session.user || "admin",
-      action: `بازکردن قفل تقویم ${targetYear}/${targetMonth} سازمان ${orgName} - دلیل: ${reason || "بدون دلیل"}`,
-      ip:
-        req.headers["x-forwarded-for"] ||
-        req.socket.remoteAddress ||
-        "127.0.0.1",
-      created_at: jalaaliDate,
-    });
-    saveDatabase().catch(console.error);
-    return res.json({
-      status: "success",
-      message:
-        "قفل با موفقیت باز شد",
-    });
-  } else {
-    return res.json({
-      status: "success",
-      message:
-        "قفلی برای این ماه یافت نشد",
-    });
+  if (!selection) {
+    return res.json({ status: "success", message: "قفلی برای این ماه یافت نشد" });
   }
+  const reasonText = typeof reason === "string" ? reason.trim().slice(0, 1000) : "";
+  selection.is_final = false;
+  selection.unlock_reason = reasonText;
+  const org = organizations.find((o) => o.id == numericOrgId);
+  addNotification(
+    "باز شدن قفل مناسبت‌ها",
+    reasonText || "انتخاب مناسبت‌های شما برای ویرایش باز شد.",
+    "client",
+    numericOrgId,
+    "/client-events",
+    "events_unlocked",
+  );
+  addAuditLog(
+    req.user,
+    `بازکردن قفل تقویم ${targetYear}/${targetMonth} سازمان ${org ? org.org_name : numericOrgId} - دلیل: ${reasonText || "بدون دلیل"}`,
+    req.ip,
+  );
+  saveDatabase();
+  return res.json({ status: "success", message: "قفل با موفقیت باز شد" });
 });
 
-subRouter.post("/confirm_events", (req, res) => {
-  const { selected_events, org_id } = req.body;
-  if (!selected_events || selected_events.length === 0) {
-    return res.json({
-      status: "error",
-      message:
-        "موردی انتخاب نشد",
-    });
+subRouter.post("/confirm_events", checkPermission("smart-events"), (req: any, res) => {
+  const { selected_events } = req.body;
+  if (!Array.isArray(selected_events) || selected_events.length === 0) {
+    return res.json({ status: "error", message: "موردی انتخاب نشد" });
   }
-  const oId = parseInt(org_id as string) || 1;
+  const oId = toInt(req.body.org_id);
   const org = organizations.find((o) => o.id == oId);
+  if (!org) return res.status(400).json({ status: "error", message: "سازمان یافت نشد" });
   let count = 0;
-  selected_events.forEach((ev) => {
+  for (const ev of selected_events) {
+    if (typeof ev !== "string" || !ev.trim()) continue;
     contents.push({
-      id: contents.length > 0 ? Math.max(...contents.map((x) => x.id)) + 1 : 1,
-      title:
-        "پست مناسبتی: " + ev,
-      org_id: oId,
-      org_name: org ? org.org_name : "",
-      org_color: org ? org.color : "#4f46e5",
-      org_logo: org ? org.logo_url : "",
-      content_type:
-        "پوستر گرافیکی",
+      id: nextId(contents),
+      title: "پست مناسبتی: " + ev.trim(),
+      org_id: org.id,
+      org_name: org.org_name,
+      org_color: org.color || "#4f46e5",
+      org_logo: org.logo_url || "",
+      content_type: "پوستر گرافیکی",
       status: "raw",
       publish_date: "",
       publish_time: "",
+      created_at: new Date().toISOString(),
     });
-    if (req.session && req.session.user)
-      addAuditLog(
-        req.session.user || "سیستم",
-        "افزودن محتوا/کارت جدید",
-        req.ip || "127.0.0.1",
-      );
-    if (req.session && req.session.user)
-      addAuditLog(
-        req.session.user || "سیستم",
-        "افزودن محتوا/کارت جدید",
-        req.ip || "127.0.0.1",
-      );
     count++;
-  });
-  saveDatabase().catch(console.error);
+  }
+  addAuditLog(req.user, `افزودن ${count} کارت مناسبتی برای ${org.org_name}`, req.ip);
+  saveDatabase();
   res.json({
     status: "success",
-    message:
-      count +
-      " مناسبت با موفقیت تایید و به عنوان کارت خام به دپوی تولید استودیو ارسال شد!",
+    message: count + " مناسبت با موفقیت تایید و به عنوان کارت خام به دپوی تولید استودیو ارسال شد!",
   });
 });
 

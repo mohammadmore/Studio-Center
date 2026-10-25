@@ -1,8 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // The server talks to Firestore through the Admin SDK, which is not subject to
+    // these rules. Browsers and anyone holding the public web config get nothing.
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

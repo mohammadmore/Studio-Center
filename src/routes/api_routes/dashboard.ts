@@ -1,31 +1,12 @@
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
-import multer from "multer";
-import * as jalaali from "jalaali-js";
-import bcrypt from "bcrypt";
-import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
-} from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { collections, contents, mediaAssets, organizations, tokens } from "../../store/state.js";
+import { checkPermission } from "../../middleware/auth.js";
+import { hasPermission } from "../../utils/authUtils.js";
+import { jalaliDiffDays, normalizeJalaliDate, todayJalali } from "../../utils/helpers.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
-
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
 
-subRouter.get("/global_search", (req, res) => {
+subRouter.get("/global_search", (req: any, res) => {
   const q = req.query.q ? req.query.q.toString().toLowerCase() : "";
   if (!q || q.length < 2) {
     return res.json({
@@ -33,30 +14,34 @@ subRouter.get("/global_search", (req, res) => {
       results: { contents: [], media: [], collections: [], orgs: [] },
     });
   }
-  const matchedContents = contents.filter(
+  const can = (perm: string | string[]) => hasPermission(req.user, perm);
+  const matchedContents = !can(["depot", "calendar", "collections", "archive"]) ? [] : contents.filter(
     (c) =>
       (c.title && c.title.toString().toLowerCase().includes(q)) ||
       (c.content_type && c.content_type.toString().toLowerCase().includes(q)) ||
       (c.topic && c.topic.toString().toLowerCase().includes(q)),
   );
-  const matchedMedia = mediaAssets.filter(
+  const matchedMedia = !can("media") ? [] : mediaAssets.filter(
     (m) =>
       (m.title && m.title.toString().toLowerCase().includes(q)) ||
       (m.file_name && m.file_name.toString().toLowerCase().includes(q)) ||
-      (m.tags && m.tags.includes(q)),
+      (m.asset_name && m.asset_name.toString().toLowerCase().includes(q)) ||
+      (Array.isArray(m.tags) && m.tags.includes(q)),
   );
-  const matchedOrgs = organizations.filter(
-    (o) =>
-      (o.org_name && o.org_name.toString().toLowerCase().includes(q)) ||
-      (o.contact_name && o.contact_name.toString().toLowerCase().includes(q)),
-  );
-  const matchedCollections = collections.filter(
+  const matchedOrgs = organizations
+    .filter(
+      (o) =>
+        (o.org_name && o.org_name.toString().toLowerCase().includes(q)) ||
+        (o.contact_name && o.contact_name.toString().toLowerCase().includes(q)),
+    )
+    .map((o) => ({ id: o.id, org_name: o.org_name, logo_url: o.logo_url, color: o.color, industry: o.industry }));
+  const matchedCollections = !can(["collections", "depot"]) ? [] : collections.filter(
     (c) => c.title && c.title.toString().toLowerCase().includes(q),
   );
   res.json({
     status: "success",
     results: {
-      contents: matchedContents,
+      contents: matchedContents.slice(0, 50),
       media: matchedMedia,
       orgs: matchedOrgs,
       collections: matchedCollections,
@@ -64,32 +49,23 @@ subRouter.get("/global_search", (req, res) => {
   });
 });
 
-subRouter.get("/get_dashboard_stats", (req, res) => {
+subRouter.get("/get_dashboard_stats", checkPermission("dashboard"), (req, res) => {
   const bottlenecks = {};
   const filter = req.query.filter || "month";
   let filteredContents = contents;
   filteredContents = filteredContents.filter(
     (c) => !(c.is_recurrence_instance && c.count_in_stats === false),
   );
-  const jalaaliDate = new Intl.DateTimeFormat("fa-IR-u-nu-latn", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  const [currentYear, currentMonth, currentDay] = jalaaliDate.split("/");
+  const today = todayJalali();
   if (filter === "month") {
-    filteredContents = filteredContents.filter((c) => {
-      if (!c.publish_date) return false;
-      return c.publish_date.startsWith(`${currentYear}/${currentMonth}`);
-    });
+    const monthPrefix = today.slice(0, 8);
+    filteredContents = filteredContents.filter((c) =>
+      normalizeJalaliDate(c.publish_date).startsWith(monthPrefix),
+    );
   } else if (filter === "week") {
-    const dayNum = parseInt(currentDay);
     filteredContents = filteredContents.filter((c) => {
-      if (!c.publish_date) return false;
-      if (!c.publish_date.startsWith(`${currentYear}/${currentMonth}`))
-        return false;
-      const pubDay = parseInt(c.publish_date.split("/")[2]);
-      return pubDay >= dayNum - 7 && pubDay <= dayNum;
+      const diff = jalaliDiffDays(c.publish_date, today);
+      return diff >= 0 && diff <= 7;
     });
   }
   filteredContents.forEach((c) => {
@@ -125,13 +101,13 @@ subRouter.get("/get_dashboard_stats", (req, res) => {
     return acc;
   }, {});
   const completionDetails = Object.keys(orgCounts).map((orgId) => {
-    const org = organizations.find((o) => o.id === Number(orgId));
+    const org = organizations.find((o) => o.id == orgId);
     const stats = orgCounts[orgId];
     const percent = Math.round((stats.done / stats.total) * 100);
     return `${org ? org.org_name : "نامشخص"}: ${percent}٪`;
   });
   const revisionDetails = Object.keys(orgCounts).map((orgId) => {
-    const org = organizations.find((o) => o.id === Number(orgId));
+    const org = organizations.find((o) => o.id == orgId);
     const stats = orgCounts[orgId];
     const percent = Math.round((stats.revision / stats.total) * 100);
     return `${org ? org.org_name : "نامشخص"}: ${percent}٪ اصلاحیه`;
@@ -142,7 +118,7 @@ subRouter.get("/get_dashboard_stats", (req, res) => {
   let worstOrg = { name: "ندارد", rate: -1 };
   let bestOrg = { name: "ندارد", rate: -1 };
   Object.keys(orgCounts).forEach((orgId) => {
-    const org = organizations.find((o) => o.id === Number(orgId));
+    const org = organizations.find((o) => o.id == orgId);
     const stats = orgCounts[orgId];
     totalContentForCalc += stats.total;
     totalDoneForCalc += stats.done;
@@ -208,7 +184,7 @@ subRouter.get("/get_dashboard_stats", (req, res) => {
   res.json(response);
 });
 
-subRouter.post("/fetch_live_stats", (req, res) => {
+subRouter.post("/fetch_live_stats", checkPermission(["depot", "dashboard", "reports"]), (req, res) => {
   const { org_id, platform, post_link } = req.body;
   if (!post_link) {
     return res.json({
@@ -235,13 +211,5 @@ subRouter.post("/fetch_live_stats", (req, res) => {
     data: { views: 0, likes: 0, comments: 0, shares: 0 },
   });
 });
-
-subRouter.get("/get_counts", (req, res) =>
-  res.json({
-    recycle: recycle_bin.length,
-    batch: batch_operations.length,
-    ops: batch_operations,
-  }),
-);
 
 export default subRouter;

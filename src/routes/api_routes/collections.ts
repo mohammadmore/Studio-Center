@@ -1,41 +1,35 @@
-import { body, validationResult } from "express-validator";
 import express from "express";
-import fs from "fs";
-import path from "path";
-import multer from "multer";
-import * as jalaali from "jalaali-js";
 import bcrypt from "bcrypt";
-import xlsx from "xlsx";
-import { v4 as uuidv4 } from "uuid";
-import { 
-  roles, colleagues, organizations, collections, contents, settings, leaves, audit_logs, 
-  recycle_bin, batch_operations, notifications, tokens, templatesData, 
-  contentTemplates, templateSuggestions, expenses, invoices, mediaAssets, 
-  smartEventsBank, clientSelections 
+import * as jalaali from "jalaali-js";
+import {
+  clientSelections,
+  collections,
+  contents,
+  organizations,
 } from "../../store/state.js";
-import { addDaysToJalali, toPersianDigits } from "../../utils/helpers.js";
-import { getRoleInfoForUser, getPermissionCategories } from "../../utils/authUtils.js";
-import { addAuditLog, logContentActivity, addNotification } from "../../utils/logger.js";
-import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
-import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
+import { saveDatabase } from "../../store/db.js";
+import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
+import { hasPermission, stripSecrets } from "../../utils/authUtils.js";
+import { nextId, toInt } from "../../utils/helpers.js";
+import { moveToRecycleBin } from "../../utils/contentUtils.js";
+import { isUsernameTaken } from "./users.js";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
-
-// We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
 
+const persianDate = () =>
+  new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "2-digit", day: "2-digit" }).format(
+    new Date(),
+  );
+
 subRouter.get("/get_collections", (req, res) => {
-  const org_id = req.query.org_id;
+  const orgId = isClient(req) ? clientOrgId(req) : req.query.org_id;
   let cols = collections;
-  if (org_id) cols = cols.filter((c) => c.org_id == org_id);
+  if (orgId) cols = cols.filter((c) => c.org_id == orgId);
   const data = cols.map((c) => {
     const org = organizations.find((o) => o.id == c.org_id);
     return {
       ...c,
-      org_name: org
-        ? org.org_name
-        : "بدون سازمان",
+      org_name: org ? org.org_name : "بدون سازمان",
       org_color: org ? org.color : "#3b82f6",
       org_logo: org ? org.logo_url : "",
     };
@@ -43,155 +37,105 @@ subRouter.get("/get_collections", (req, res) => {
   res.json({ status: "success", data });
 });
 
-subRouter.post(
-  "/manage_collections",
-  checkPermission("collections"),
-  (req, res) => {
-    const { action, id, title, org_id, cols } = req.body;
-    if (action === "batch_add") {
-      let currentId = collections.length
-        ? Math.max(...collections.map((c) => c.id)) + 1
-        : 1;
-      cols.forEach((col) => {
-        let numericOrgId = null;
-        if (col.org_username) {
-          const org = organizations.find(
-            (o) => o.username === col.org_username,
-          );
-          if (org) numericOrgId = org.id;
-        } else if (col.org_id) {
-          numericOrgId = parseInt(col.org_id);
-        }
-        collections.push({
-          id: currentId++,
-          title: col.title,
-          org_id: numericOrgId,
-          created_at: new Intl.DateTimeFormat("fa-IR", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          }).format(new Date()),
-          is_active: 1,
-        });
-      });
-      saveDatabase().catch(console.error);
-      res.json({
-        status: "success",
-        message:
-          "مجموعه‌ها با موفقیت اضافه شدند",
-      });
-    } else if (action === "add") {
-      const { parent_id } = req.body;
-      const newCol = {
-        id: collections.length
-          ? Math.max(...collections.map((c) => c.id)) + 1
-          : 1,
-        title,
-        org_id: org_id ? parseInt(org_id) : null,
-        parent_id: parent_id ? parseInt(parent_id) : null,
-        created_at: new Intl.DateTimeFormat("fa-IR", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date()),
-        is_active: 1,
-      };
-      collections.push(newCol);
-      saveDatabase().catch(console.error);
-      res.json({
-        status: "success",
-        message:
-          "مجموعه اضافه شد",
-      });
-    } else if (action === "edit") {
-      const { parent_id } = req.body;
-      const col = collections.find((c) => c.id === parseInt(id));
-      if (col) {
-        if (title) col.title = title;
-        if (parent_id !== void 0)
-          col.parent_id = parent_id ? parseInt(parent_id) : null;
-        if (org_id !== void 0) {
-          const parsedOrgId = org_id ? parseInt(org_id) : null;
-          col.org_id = parsedOrgId;
-          contents.forEach((c) => {
-            if (c.collection_id === col.id) {
-              c.org_id = parsedOrgId;
-            }
-          });
-        }
-        saveDatabase().catch(console.error);
-        res.json({
-          status: "success",
-          message:
-            "مجموعه ویرایش شد",
-        });
-      } else {
-        res
-          .status(404)
-          .json({
-            status: "error",
-            message:
-              "مجموعه یافت نشد",
-          });
-      }
-    } else if (action === "delete") {
-      const colToDelete = collections.find((c) => c.id === parseInt(id));
-      if (colToDelete) {
-        const binId = Date.now();
-        recycle_bin.unshift({
-          id: binId,
-          table: "collections",
-          item_title:
-            colToDelete.title || "مجموعه",
-          data: colToDelete,
-          deleted_at: new Date().toISOString(),
-          deleted_by:
-            req.session && req.session.user && req.session.user.username
-              ? req.session.user.username
-              : "admin",
-        });
-        const idx = collections.findIndex(c => c.id === parseInt(id)); if (idx > -1) collections.splice(idx, 1);
-        collections.forEach((c) => {
-          if (c.parent_id === parseInt(id)) {
-            c.parent_id = null;
-          }
-        });
-        saveDatabase().catch(console.error);
-        res.json({
-          status: "success",
-          message:
-            "مجموعه حذف شد",
-          bin_id: binId,
-        });
-      } else {
-        res
-          .status(404)
-          .json({
-            status: "error",
-            message:
-              "مجموعه یافت نشد",
-          });
-      }
-    } else {
-      res
-        .status(400)
-        .json({
-          status: "error",
-          message:
-            "عملیات نامعتبر",
-        });
+subRouter.post("/manage_collections", checkPermission("collections"), (req: any, res) => {
+  const { action, id, title, org_id, cols } = req.body;
+  if (action === "batch_add") {
+    if (!Array.isArray(cols)) {
+      return res.status(400).json({ status: "error", message: "اطلاعات نامعتبر" });
     }
-  },
-);
-
-subRouter.get("/get_orgs", (req, res) => {
-  const safeData = organizations
-    .filter((o) => o.is_active === 1)
-    .map((o) => {
-      const { passwordHash, ...safeO } = o;
-      return safeO;
+    let currentId = nextId(collections);
+    for (const col of cols) {
+      if (!col || !col.title) continue;
+      let numericOrgId = null;
+      if (col.org_username) {
+        const org = organizations.find((o) => o.username === col.org_username);
+        if (org) numericOrgId = org.id;
+      } else if (col.org_id) {
+        numericOrgId = toInt(col.org_id);
+      }
+      collections.push({
+        id: currentId++,
+        title: String(col.title),
+        org_id: numericOrgId,
+        created_at: persianDate(),
+        is_active: 1,
+      });
+    }
+    saveDatabase();
+    return res.json({ status: "success", message: "مجموعه‌ها با موفقیت اضافه شدند" });
+  }
+  if (action === "add") {
+    if (!title || typeof title !== "string") {
+      return res.status(400).json({ status: "error", message: "عنوان مجموعه الزامی است" });
+    }
+    collections.push({
+      id: nextId(collections),
+      title: title.trim(),
+      org_id: org_id ? toInt(org_id) : null,
+      parent_id: req.body.parent_id ? toInt(req.body.parent_id) : null,
+      created_at: persianDate(),
+      is_active: 1,
     });
-  res.json({ status: "success", data: safeData });
+    saveDatabase();
+    return res.json({ status: "success", message: "مجموعه اضافه شد" });
+  }
+  if (action === "edit") {
+    const col = collections.find((c) => c.id == id);
+    if (!col) return res.status(404).json({ status: "error", message: "مجموعه یافت نشد" });
+    const { parent_id } = req.body;
+    if (title) col.title = String(title);
+    if (parent_id !== undefined) {
+      const parentId = parent_id ? toInt(parent_id) : null;
+      // A collection can't become its own (grand)parent.
+      let cursor = parentId;
+      for (let depth = 0; cursor && depth < 100; depth++) {
+        if (cursor == col.id) {
+          return res.status(400).json({ status: "error", message: "مجموعه والد نامعتبر است" });
+        }
+        cursor = collections.find((c) => c.id == cursor)?.parent_id ?? null;
+      }
+      col.parent_id = parentId;
+    }
+    if (org_id !== undefined) {
+      const parsedOrgId = org_id ? toInt(org_id) : null;
+      col.org_id = parsedOrgId;
+      contents.forEach((c) => {
+        if (c.collection_id == col.id) c.org_id = parsedOrgId;
+      });
+    }
+    saveDatabase();
+    return res.json({ status: "success", message: "مجموعه ویرایش شد" });
+  }
+  if (action === "delete") {
+    const idx = collections.findIndex((c) => c.id == id);
+    if (idx === -1) return res.status(404).json({ status: "error", message: "مجموعه یافت نشد" });
+    const col = collections[idx];
+    const binId = moveToRecycleBin("collections", col, col.title || "مجموعه", req.user);
+    collections.splice(idx, 1);
+    collections.forEach((c) => {
+      if (c.parent_id == col.id) c.parent_id = null;
+    });
+    saveDatabase();
+    return res.json({ status: "success", message: "مجموعه حذف شد", bin_id: binId });
+  }
+  res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
+});
+
+const PUBLIC_ORG_FIELDS = ["id", "org_name", "industry", "logo_url", "color", "is_active"];
+
+subRouter.get("/get_orgs", (req: any, res) => {
+  let list = organizations.filter((o) => o.is_active === 1 || o.is_active === true);
+  if (isClient(req)) {
+    list = list.filter((o) => o.id == clientOrgId(req));
+  }
+  // Contact details and login names are only for organisation managers.
+  const full = !isClient(req) && hasPermission(req.user, ["organizations", "invoice", "client-portal", "reports", "media"]);
+  const data = list.map((o) =>
+    full
+      ? stripSecrets(o)
+      : Object.fromEntries(PUBLIC_ORG_FIELDS.map((k) => [k, o[k]])),
+  );
+  res.json({ status: "success", data });
 });
 
 subRouter.get(
@@ -229,206 +173,127 @@ subRouter.get(
   },
 );
 
-subRouter.post(
-  "/manage_orgs",
-  checkPermission("organizations"),
-  (req, res) => {
-    const {
-      action,
-      org_name,
-      industry,
-      logo_url,
-      id,
-      color,
-      contact_name,
-      phone_number,
-      has_telegram,
-      telegram_number,
-      extra_phones,
-      emails,
-      addresses,
-      username,
-      password,
-      orgs,
-    } = req.body;
-    if (action === "batch_add") {
-      let currentId =
-        organizations.length > 0
-          ? Math.max(...organizations.map((o) => o.id)) + 1
-          : 1;
-      orgs.forEach((org) => {
-        const targetUsername = org.username || "";
-        if (
-          targetUsername &&
-          (colleagues.find((c) => c.username === targetUsername) ||
-            organizations.find((o) => o.username === targetUsername))
-        ) {
-          return;
-        }
-        const newOrg = {
-          id: currentId++,
-          org_name:
-            org.org_name || "بدون نام",
-          industry: org.industry || "سایر",
-          logo_url: org.logo_url || "",
-          color: org.color || "#6366F1",
-          contact_name: org.contact_name || "",
-          phone_number: org.phone_number || "",
-          has_telegram: org.has_telegram || false,
-          telegram_number: org.telegram_number || "",
-          extra_phones: org.extra_phones || [],
-          emails: org.emails || [],
-          addresses: org.addresses || [],
-          username: targetUsername,
-          passwordHash: org.password ? bcrypt.hashSync(org.password, 10) : "",
-          is_active: 1,
-        };
-        organizations.unshift(newOrg);
-      });
-      saveDatabase();
-      return res.json({
-        status: "success",
-        message:
-          "سازمان‌ها با موفقیت اضافه شدند",
-      });
-    } else if (action === "add") {
-      const targetUsername = username || "";
-      if (
-        targetUsername &&
-        (colleagues.find((c) => c.username === targetUsername) ||
-          organizations.find((o) => o.username === targetUsername))
-      ) {
-        return res
-          .status(400)
-          .json({
-            status: "error",
-            message:
-              "این نام کاربری قبلا ثبت شده است.",
-          });
-      }
-      if (password && password.length < 6) {
-        return res
-          .status(400)
-          .json({
-            status: "error",
-            message:
-              "رمز عبور باید حداقل ۶ کاراکتر باشد.",
-          });
-      }
-      const newOrg = {
-        id:
-          organizations.length > 0
-            ? Math.max(...organizations.map((o) => o.id)) + 1
-            : 1,
-        org_name,
-        industry,
-        logo_url,
-        color,
-        contact_name,
-        phone_number,
-        has_telegram,
-        telegram_number,
-        extra_phones,
-        emails,
-        addresses,
-        username: username || "",
-        passwordHash: password ? bcrypt.hashSync(password, 10) : "",
-        is_active: 1,
-      };
-      organizations.unshift(newOrg);
-      saveDatabase();
-      res.json({ status: "success" });
-    } else if (action === "delete") {
-      const orgToDelete = organizations.find((o) => o.id == id);
-      if (orgToDelete) {
-        const binId = Date.now();
-        recycle_bin.unshift({
-          id: binId,
-          table: "organizations",
-          item_title:
-            orgToDelete.org_name || "سازمان",
-          data: orgToDelete,
-          deleted_at: new Date().toISOString(),
-          deleted_by:
-            req.session && req.session.user && req.session.user.username
-              ? req.session.user.username
-              : "admin",
-        });
-        const idx = organizations.findIndex(o => o.id === id); if (idx > -1) organizations.splice(idx, 1);
-        for(let i=contents.length-1; i>=0; i--) { if(contents[i].org_id === id) contents.splice(i, 1); }
-        saveDatabase();
-        res.json({
-          status: "success",
-          message:
-            "به سطل زباله منتقل شد",
-          bin_id: binId,
-        });
-      } else {
-        res.status(404).json({ status: "error" });
-      }
-    } else if (action === "toggle_active") {
-      const orgIndex = organizations.findIndex((o) => o.id == id);
-      if (orgIndex !== -1) {
-        organizations[orgIndex].is_active = req.body.is_active;
-        saveDatabase();
-        res.json({ status: "success" });
-      } else {
-        res
-          .status(404)
-          .json({
-            status: "error",
-            message:
-              "سازمان یافت نشد",
-          });
-      }
-    } else if (action === "edit") {
-      const orgIndex = organizations.findIndex((o) => o.id == id);
-      if (orgIndex !== -1) {
-        organizations[orgIndex].org_name = org_name;
-        organizations[orgIndex].industry = industry;
-        if (logo_url) organizations[orgIndex].logo_url = logo_url;
-        if (color) organizations[orgIndex].color = color;
-        if (contact_name !== void 0)
-          organizations[orgIndex].contact_name = contact_name;
-        if (phone_number !== void 0)
-          organizations[orgIndex].phone_number = phone_number;
-        if (has_telegram !== void 0)
-          organizations[orgIndex].has_telegram = has_telegram;
-        if (telegram_number !== void 0)
-          organizations[orgIndex].telegram_number = telegram_number;
-        if (extra_phones !== void 0)
-          organizations[orgIndex].extra_phones = extra_phones;
-        if (emails !== void 0) organizations[orgIndex].emails = emails;
-        if (addresses !== void 0) organizations[orgIndex].addresses = addresses;
-        if (username !== void 0) organizations[orgIndex].username = username;
-        if (password) {
-          if (password.length < 6)
-            return res
-              .status(400)
-              .json({
-                status: "error",
-                message:
-                  "رمز عبور باید حداقل ۶ کاراکتر باشد.",
-              });
-          organizations[orgIndex].passwordHash = bcrypt.hashSync(password, 10);
-        }
-        saveDatabase();
-        res.json({ status: "success" });
-      } else {
-        res.json({ status: "error", message: "Org not found" });
-      }
-    } else {
-      res.json({ status: "error", message: "Invalid action" });
-    }
-  },
-);
+const ORG_FIELDS = [
+  "org_name",
+  "industry",
+  "logo_url",
+  "color",
+  "contact_name",
+  "phone_number",
+  "has_telegram",
+  "telegram_number",
+  "extra_phones",
+  "emails",
+  "addresses",
+];
 
-subRouter.get("/get_orgs_public", (req, res) => {
-  res.json(organizations);
+function buildOrg(input: any, id: number) {
+  const password = typeof input.password === "string" ? input.password.trim() : "";
+  return {
+    id,
+    org_name: input.org_name || "بدون نام",
+    industry: input.industry || "سایر",
+    logo_url: input.logo_url || "",
+    color: input.color || "#6366F1",
+    contact_name: input.contact_name || "",
+    phone_number: input.phone_number || "",
+    has_telegram: input.has_telegram || false,
+    telegram_number: input.telegram_number || "",
+    extra_phones: input.extra_phones || [],
+    emails: input.emails || [],
+    addresses: input.addresses || [],
+    username: String(input.username || "").trim(),
+    passwordHash: password ? bcrypt.hashSync(password, 10) : "",
+    is_active: 1,
+  };
+}
+
+subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res) => {
+  const { action, id, username, password, orgs } = req.body;
+  const pw = typeof password === "string" ? password.trim() : "";
+  if (action === "batch_add") {
+    if (!Array.isArray(orgs)) {
+      return res.status(400).json({ status: "error", message: "اطلاعات نامعتبر" });
+    }
+    let currentId = nextId(organizations);
+    let skipped = 0;
+    for (const org of orgs) {
+      const orgPw = typeof org?.password === "string" ? org.password.trim() : "";
+      if (!org || (org.username && isUsernameTaken(String(org.username))) || (orgPw && orgPw.length < 6)) {
+        skipped++;
+        continue;
+      }
+      organizations.unshift(buildOrg(org, currentId++));
+    }
+    saveDatabase();
+    return res.json({
+      status: "success",
+      message: skipped
+        ? `سازمان‌ها اضافه شدند (${skipped} ردیف به دلیل نام کاربری تکراری یا رمز نامعتبر رد شد)`
+        : "سازمان‌ها با موفقیت اضافه شدند",
+    });
+  }
+  if (action === "add") {
+    if (username && isUsernameTaken(String(username))) {
+      return res.status(400).json({ status: "error", message: "این نام کاربری قبلا ثبت شده است." });
+    }
+    if (pw && pw.length < 6) {
+      return res.status(400).json({ status: "error", message: "رمز عبور باید حداقل ۶ کاراکتر باشد." });
+    }
+    organizations.unshift(buildOrg(req.body, nextId(organizations)));
+    saveDatabase();
+    return res.json({ status: "success" });
+  }
+  const org = organizations.find((o) => o.id == id);
+  if (!org) return res.status(404).json({ status: "error", message: "سازمان یافت نشد" });
+  if (action === "delete") {
+    // The organisation's content goes to the recycle bin with it, so restoring brings it back.
+    const related = contents.filter((c) => c.org_id == org.id);
+    const binId = moveToRecycleBin("organizations", org, org.org_name || "سازمان", req.user, {
+      related_contents: related,
+    });
+    organizations.splice(organizations.indexOf(org), 1);
+    for (let i = contents.length - 1; i >= 0; i--) {
+      if (contents[i].org_id == org.id) contents.splice(i, 1);
+    }
+    saveDatabase();
+    return res.json({ status: "success", message: "به سطل زباله منتقل شد", bin_id: binId });
+  }
+  if (action === "toggle_active") {
+    const active = req.body.is_active;
+    org.is_active = active === true || active === 1 || active === "1" ? 1 : 0;
+    saveDatabase();
+    return res.json({ status: "success" });
+  }
+  if (action === "edit") {
+    if (username !== undefined && String(username).trim() !== (org.username || "")) {
+      const newUsername = String(username).trim();
+      if (newUsername && isUsernameTaken(newUsername, { orgId: org.id })) {
+        return res.status(400).json({ status: "error", message: "این نام کاربری قبلا ثبت شده است." });
+      }
+      org.username = newUsername;
+    }
+    if (pw) {
+      if (pw.length < 6) {
+        return res.status(400).json({ status: "error", message: "رمز عبور باید حداقل ۶ کاراکتر باشد." });
+      }
+      org.passwordHash = bcrypt.hashSync(pw, 10);
+    }
+    for (const field of ORG_FIELDS) {
+      const value = req.body[field];
+      if (value === undefined) continue;
+      // Empty name / logo / color in the form mean "unchanged".
+      if (["org_name", "logo_url", "color"].includes(field) && !value) continue;
+      org[field] = value;
+    }
+    saveDatabase();
+    return res.json({ status: "success" });
+  }
+  res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
 });
 
-subRouter.get("/get_org_report", checkPermission("reports"), (req, res) => {
-  const org_id = req.query.org_id;
+subRouter.get("/get_org_report", checkPermission("reports", { allowClients: true }), (req, res) => {
+  const org_id = isClient(req) ? clientOrgId(req) : req.query.org_id;
   const start_date = req.query.start_date;
   const end_date = req.query.end_date;
   const col_id = req.query.col_id;
@@ -442,9 +307,14 @@ subRouter.get("/get_org_report", checkPermission("reports"), (req, res) => {
     return res.json({ status: "error", message: "Organization not found" });
   let orgContents = contents
     .filter((c) => c.org_id == org_id)
-    .map((c) => ({ ...c }));
+    .map((c) => {
+      if (!isClient(req)) return { ...c };
+      // Internal notes and history stay inside the studio.
+      const { activity_log, version_history, comments, ...rest } = c;
+      return rest;
+    });
   if (col_id) {
-    orgContents = orgContents.filter((c) => c.col_id == col_id);
+    orgContents = orgContents.filter((c) => c.collection_id == col_id);
   }
   if (status_filter) {
     orgContents = orgContents.filter(
@@ -523,7 +393,7 @@ subRouter.get("/get_org_report", checkPermission("reports"), (req, res) => {
   });
   res.json({
     status: "success",
-    organization: org,
+    organization: stripSecrets(org),
     contents: orgContents,
     stats: {
       typeCounts,
