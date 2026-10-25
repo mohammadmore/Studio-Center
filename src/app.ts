@@ -70,7 +70,7 @@ export function createApp() {
     trustProxy === "true" ? true : trustProxy === "false" ? false : /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy,
   );
   app.set("view engine", "ejs");
-  app.set("views", path.join(process.cwd(), "views"));
+  app.set("views", path.join(config.appRoot, "views"));
 
   const frameAncestors = config.allowPreviewFrame
     ? ["'self'", "https://aistudio.google.com"]
@@ -144,7 +144,7 @@ export function createApp() {
     app.use(p, uploadLimiter);
   }
 
-  app.use(express.static(path.join(process.cwd(), "center"), { index: false }));
+  app.use(express.static(path.join(config.appRoot, "center"), { index: false }));
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ limit: "10mb", extended: true }));
   app.use(hpp());

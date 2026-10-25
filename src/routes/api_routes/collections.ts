@@ -339,9 +339,9 @@ subRouter.get("/get_org_report", checkPermission("reports", { allowClients: true
       );
     }
   }
-  const typeCounts = {};
-  const statusCounts = {};
-  const platformCounts = {};
+  const typeCounts: Record<string, number> = {};
+  const statusCounts: Record<string, number> = {};
+  const platformCounts: Record<string, number> = {};
   let total_components = 0;
   let stats_counted_length = 0;
   orgContents.forEach((c) => {
@@ -354,7 +354,7 @@ subRouter.get("/get_org_report", checkPermission("reports", { allowClients: true
       stats_counted_length++;
       if (c.content_type)
         typeCounts[c.content_type] = (typeCounts[c.content_type] || 0) + 1;
-      const statusMap = {
+      const statusMap: Record<string, string> = {
         raw: "ورودی خام",
         todo: "در صف انتظار",
         in_progress:
@@ -375,7 +375,7 @@ subRouter.get("/get_org_report", checkPermission("reports", { allowClients: true
       let s = statusMap[c.status || "raw"] || c.status || "raw";
       statusCounts[s] = (statusCounts[s] || 0) + 1;
       if (c.publish_platforms) {
-        c.publish_platforms.forEach((p) => {
+        c.publish_platforms.forEach((p: any) => {
           platformCounts[p] = (platformCounts[p] || 0) + 1;
         });
       }

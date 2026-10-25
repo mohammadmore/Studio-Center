@@ -50,7 +50,7 @@ subRouter.get("/global_search", (req: any, res) => {
 });
 
 subRouter.get("/get_dashboard_stats", checkPermission("dashboard"), (req, res) => {
-  const bottlenecks = {};
+  const bottlenecks: Record<string, number> = {};
   const filter = req.query.filter || "month";
   let filteredContents = contents;
   filteredContents = filteredContents.filter(
@@ -74,10 +74,10 @@ subRouter.get("/get_dashboard_stats", checkPermission("dashboard"), (req, res) =
     if (statusKey === "done") statusKey = "approved_by_client";
     bottlenecks[statusKey] = (bottlenecks[statusKey] || 0) + 1;
   });
-  const platforms = {};
+  const platforms: Record<string, number> = {};
   filteredContents.forEach((c) => {
     if (c.publish_platforms && Array.isArray(c.publish_platforms)) {
-      c.publish_platforms.forEach((p) => {
+      c.publish_platforms.forEach((p: any) => {
         platforms[p] = (platforms[p] || 0) + 1;
       });
     }

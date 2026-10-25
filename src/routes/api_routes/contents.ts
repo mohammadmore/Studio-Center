@@ -370,7 +370,7 @@ subRouter.get("/download_content_excel_template", checkPermission("depot"), (req
       .map((o) => o.org_name)
       .join(" | ");
     const availableTypes = ((settings && settings.content_type) || [])
-      .map((t) => t.setting_key)
+      .map((t: any) => t.setting_key)
       .join(" | ");
     const availableColleagues = (colleagues || [])
       .map((c) => c.full_name || c.username)
@@ -599,7 +599,7 @@ subRouter.post(
         if (typeInput) {
           const typeStr = typeInput.toString().trim();
           const foundType = (settings.content_type || []).find(
-            (t) => String(t.setting_key || "").toLowerCase() === typeStr.toLowerCase(),
+            (t: any) => String(t.setting_key || "").toLowerCase() === typeStr.toLowerCase(),
           );
           targetType = foundType ? foundType.setting_key : typeStr;
         }
@@ -633,9 +633,9 @@ subRouter.post(
           const parts = colleaguesInput
             .toString()
             .split(/[,،|]/)
-            .map((s) => s.trim())
+            .map((s: any) => s.trim())
             .filter(Boolean);
-          assignedColleagues = parts.map((p) => {
+          assignedColleagues = parts.map((p: any) => {
             const found = colleagues.find(
               (c) =>
                 c.id == p ||
@@ -663,7 +663,7 @@ subRouter.post(
             stages = stagesInput
               .toString()
               .split(/[,،|]/)
-              .map((s) => s.trim())
+              .map((s: any) => s.trim())
               .filter(Boolean);
           }
         }
@@ -965,7 +965,7 @@ subRouter.post("/update_platform_metrics", checkPermission(CONTENT_PERMS), (req,
   if (data.status === "published" || data.status === "scheduled") {
     if (!card.published_platforms.includes(platform)) card.published_platforms.push(platform);
   } else {
-    card.published_platforms = card.published_platforms.filter((p) => p !== platform);
+    card.published_platforms = card.published_platforms.filter((p: any) => p !== platform);
   }
   saveDatabase();
   return res.json({ status: "success", message: "اطلاعات پلتفرم به‌روزرسانی شد" });
@@ -979,7 +979,7 @@ subRouter.post("/toggle_platform_published", checkPermission(CONTENT_PERMS), (re
   if (status) {
     if (!card.published_platforms.includes(platform)) card.published_platforms.push(platform);
   } else {
-    card.published_platforms = card.published_platforms.filter((p) => p !== platform);
+    card.published_platforms = card.published_platforms.filter((p: any) => p !== platform);
   }
   saveDatabase();
   return res.json({ status: "success", message: "وضعیت پلتفرم به‌روزرسانی شد" });
@@ -994,7 +994,7 @@ subRouter.post("/toggle_stage", (req, res) => {
   if (isChecked) {
     if (!card.completed_stages.includes(stage)) card.completed_stages.push(stage);
   } else {
-    card.completed_stages = card.completed_stages.filter((s) => s !== stage);
+    card.completed_stages = card.completed_stages.filter((s: any) => s !== stage);
   }
   logContentActivity(card, req, `مرحله «${stage}» را ${isChecked ? "تکمیل" : "باز"} کرد`);
   saveDatabase();

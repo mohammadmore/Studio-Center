@@ -7,7 +7,7 @@ import { nextId, normalizeJalaliDate, toLatinDigits, todayJalali } from "../../u
 
 function priceOf(type: string) {
   const list = Array.isArray(settings.content_type) ? settings.content_type : [];
-  const setting = list.find((t) => t.setting_key === type);
+  const setting = list.find((t: any) => t.setting_key === type);
   return setting ? Number(setting.price) || 0 : 0;
 }
 
@@ -256,7 +256,7 @@ subRouter.get(
       if (end_date && date && date > end_date) return false;
       return true;
     });
-    const items = [];
+    const items: any[] = [];
     let total_amount = 0;
     orgContents.forEach((c) => {
       let platform = c.publish_platforms

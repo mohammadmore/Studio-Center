@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { BlobKind, BlobStore, StorageDriver } from "./types.js";
+import { config } from "../../config.js";
 import { mimeForFile } from "../../utils/files.js";
 
 const CHUNK_SIZE = 900_000;
@@ -18,7 +19,7 @@ function isValidDocId(name: unknown): name is string {
 }
 
 function readConfigFile() {
-  const file = path.join(process.cwd(), "firebase-applet-config.json");
+  const file = path.join(config.appRoot, "firebase-applet-config.json");
   if (!fs.existsSync(file)) return {};
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }

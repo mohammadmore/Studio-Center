@@ -26,7 +26,7 @@ subRouter.post(
     body("username").isString().trim().isLength({ min: 3, max: 100 }).withMessage("نام کاربری نامعتبر است"),
     body("password").isString().isLength({ min: 6, max: 200 }).withMessage("رمز عبور باید حداقل ۶ کاراکتر باشد"),
   ],
-  async (req, res) => {
+  async (req: any, res: any) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ status: "error", message: errors.array()[0].msg });

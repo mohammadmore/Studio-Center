@@ -40,7 +40,7 @@ subRouter.post(
       const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const data = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+      const data = xlsx.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
       const rows = data.slice(1);
       let addedCount = 0;
       rows.forEach((row) => {
@@ -111,7 +111,7 @@ subRouter.post(
         smartEventsBank.push(newEvent);
         addedCount++;
       });
-      saveDatabase().catch(console.error);
+      saveDatabase();
       res.json({
         status: "success",
         message: `${addedCount} مناسبت با موفقیت وارد شد.`,
@@ -177,7 +177,7 @@ subRouter.post(
         org_id: org_id ? parseInt(org_id as string) : null,
       };
       smartEventsBank.push(newEvent);
-      saveDatabase().catch(console.error);
+      saveDatabase();
       return res.json({
         status: "success",
         message:
@@ -192,7 +192,7 @@ subRouter.post(
         const ev = smartEventsBank[evIndex];
         moveToRecycleBin("smartEventsBank", ev, ev.title || "مناسبت بدون عنوان", req.user);
         smartEventsBank.splice(evIndex, 1);
-        saveDatabase().catch(console.error);
+        saveDatabase();
         return res.json({
           status: "success",
           message:
@@ -222,7 +222,7 @@ subRouter.post(
           shamsi_day: parseInt(shamsi_day),
           org_id: org_id ? parseInt(org_id as string) : null,
         };
-        saveDatabase().catch(console.error);
+        saveDatabase();
         return res.json({
           status: "success",
           message:
@@ -343,7 +343,7 @@ subRouter.post(
         const collectionId = existingCol.id;
         const currentTitles = events.map((ev) => ev.title);
         const toRemoveTitles = previousSyncedTitles.filter(
-          (t) => !currentTitles.includes(t),
+          (t: any) => !currentTitles.includes(t),
         );
         if (toRemoveTitles.length > 0) {
           // Deselected events leave the depot through the recycle bin, so work is never lost.
@@ -446,6 +446,9 @@ subRouter.get("/get_smart_events_monthly", (req: any, res) => {
   const { year, month, org_id, for_client } = req.query;
   const y = toInt(year);
   const m = toInt(month);
+  if (!y || !m) {
+    return res.json({ status: "success", data: [], client_selection: [], is_final: false, routine_holidays: [] });
+  }
   const filterOrgId = isClient(req) ? clientOrgId(req) : org_id ? toInt(org_id) : null;
   const isForClient = for_client === "1" || isClient(req);
   let selection = null;
@@ -454,7 +457,6 @@ subRouter.get("/get_smart_events_monthly", (req: any, res) => {
       (cs) => cs.org_id === filterOrgId && cs.year === y && cs.month === m,
     );
   }
-  const currentJDate = jalaali.toJalaali(new Date());
   const rawEvents = smartEventsBank.filter((e) => {
     if (filterOrgId) {
       if (e.org_id && e.org_id !== filterOrgId) return false;
@@ -466,7 +468,7 @@ subRouter.get("/get_smart_events_monthly", (req: any, res) => {
       return !e.org_id;
     }
   });
-  const events = [];
+  const events: any[] = [];
   rawEvents.forEach((e) => {
     let baseYear = parseInt(e.base_year);
     if (!baseYear || isNaN(baseYear)) {
@@ -548,8 +550,8 @@ subRouter.get("/get_smart_events_monthly", (req: any, res) => {
   });
   const routine_holidays = settings.routine_holidays
     ? settings.routine_holidays
-        .filter((h) => h.is_active === 1)
-        .map((h) => h.id)
+        .filter((h: any) => h.is_active === 1)
+        .map((h: any) => h.id)
     : [5];
   res.json({
     status: "success",
@@ -572,7 +574,7 @@ subRouter.get("/get_events", checkPermission(["calendar", "depot"]), (req, res) 
       const parts = c.publish_date.split("/");
       return (
         parts.length >= 2 &&
-        parts[0] == year.toString() &&
+        parts[0] == String(year) &&
         parseInt(parts[1]) === parseInt(month as string)
       );
     })
@@ -621,11 +623,10 @@ subRouter.get("/get_events", checkPermission(["calendar", "depot"]), (req, res) 
   });
   const routine_holidays = settings.routine_holidays
     ? settings.routine_holidays
-        .filter((h) => h.is_active === 1)
-        .map((h) => h.id)
+        .filter((h: any) => h.is_active === 1)
+        .map((h: any) => h.id)
     : [5];
-  const special_holidays = [];
-  const y = parseInt(year as string);
+  const special_holidays: number[] = [];
   const m = parseInt(month as string);
   smartEventsBank
     .filter((e) => e.is_holiday === 1)
