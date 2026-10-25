@@ -111,7 +111,7 @@ viewsRouter.get("/reports", (req, res) => {
       return res
         .status(403)
         .send(
-          "\u0639\u062F\u0645 \u062F\u0633\u062A\u0631\u0633\u06CC \u0628\u0647 \u0627\u06CC\u0646 \u0633\u0627\u0632\u0645\u0627\u0646",
+          "عدم دسترسی به این سازمان",
         );
     res.locals.user = session2.user;
     return res.render("reports", { current: "reports", isClient: true });

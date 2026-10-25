@@ -35,7 +35,7 @@ subRouter.get("/get_collections", (req, res) => {
       ...c,
       org_name: org
         ? org.org_name
-        : "\u0628\u062F\u0648\u0646 \u0633\u0627\u0632\u0645\u0627\u0646",
+        : "بدون سازمان",
       org_color: org ? org.color : "#3b82f6",
       org_logo: org ? org.logo_url : "",
     };
@@ -78,7 +78,7 @@ subRouter.post(
       res.json({
         status: "success",
         message:
-          "\u0645\u062C\u0645\u0648\u0639\u0647\u200C\u0647\u0627 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0627\u0636\u0627\u0641\u0647 \u0634\u062F\u0646\u062F",
+          "مجموعه‌ها با موفقیت اضافه شدند",
       });
     } else if (action === "add") {
       const { parent_id } = req.body;
@@ -101,7 +101,7 @@ subRouter.post(
       res.json({
         status: "success",
         message:
-          "\u0645\u062C\u0645\u0648\u0639\u0647 \u0627\u0636\u0627\u0641\u0647 \u0634\u062F",
+          "مجموعه اضافه شد",
       });
     } else if (action === "edit") {
       const { parent_id } = req.body;
@@ -123,7 +123,7 @@ subRouter.post(
         res.json({
           status: "success",
           message:
-            "\u0645\u062C\u0645\u0648\u0639\u0647 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F",
+            "مجموعه ویرایش شد",
         });
       } else {
         res
@@ -131,7 +131,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0645\u062C\u0645\u0648\u0639\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+              "مجموعه یافت نشد",
           });
       }
     } else if (action === "delete") {
@@ -142,7 +142,7 @@ subRouter.post(
           id: binId,
           table: "collections",
           item_title:
-            colToDelete.title || "\u0645\u062C\u0645\u0648\u0639\u0647",
+            colToDelete.title || "مجموعه",
           data: colToDelete,
           deleted_at: new Date().toISOString(),
           deleted_by:
@@ -160,7 +160,7 @@ subRouter.post(
         res.json({
           status: "success",
           message:
-            "\u0645\u062C\u0645\u0648\u0639\u0647 \u062D\u0630\u0641 \u0634\u062F",
+            "مجموعه حذف شد",
           bin_id: binId,
         });
       } else {
@@ -169,7 +169,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0645\u062C\u0645\u0648\u0639\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+              "مجموعه یافت نشد",
           });
       }
     } else {
@@ -178,7 +178,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0639\u0645\u0644\u06CC\u0627\u062A \u0646\u0627\u0645\u0639\u062A\u0628\u0631",
+            "عملیات نامعتبر",
         });
     }
   },
@@ -268,8 +268,8 @@ subRouter.post(
         const newOrg = {
           id: currentId++,
           org_name:
-            org.org_name || "\u0628\u062F\u0648\u0646 \u0646\u0627\u0645",
-          industry: org.industry || "\u0633\u0627\u06CC\u0631",
+            org.org_name || "بدون نام",
+          industry: org.industry || "سایر",
           logo_url: org.logo_url || "",
           color: org.color || "#6366F1",
           contact_name: org.contact_name || "",
@@ -289,7 +289,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0633\u0627\u0632\u0645\u0627\u0646\u200C\u0647\u0627 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0627\u0636\u0627\u0641\u0647 \u0634\u062F\u0646\u062F",
+          "سازمان‌ها با موفقیت اضافه شدند",
       });
     } else if (action === "add") {
       const targetUsername = username || "";
@@ -303,7 +303,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0627\u06CC\u0646 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0642\u0628\u0644\u0627 \u062B\u0628\u062A \u0634\u062F\u0647 \u0627\u0633\u062A.",
+              "این نام کاربری قبلا ثبت شده است.",
           });
       }
       if (password && password.length < 6) {
@@ -312,7 +312,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0627\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0628\u0627\u0634\u062F.",
+              "رمز عبور باید حداقل ۶ کاراکتر باشد.",
           });
       }
       const newOrg = {
@@ -346,7 +346,7 @@ subRouter.post(
           id: binId,
           table: "organizations",
           item_title:
-            orgToDelete.org_name || "\u0633\u0627\u0632\u0645\u0627\u0646",
+            orgToDelete.org_name || "سازمان",
           data: orgToDelete,
           deleted_at: new Date().toISOString(),
           deleted_by:
@@ -360,7 +360,7 @@ subRouter.post(
         res.json({
           status: "success",
           message:
-            "\u0628\u0647 \u0633\u0637\u0644 \u0632\u0628\u0627\u0644\u0647 \u0645\u0646\u062A\u0642\u0644 \u0634\u062F",
+            "به سطل زباله منتقل شد",
           bin_id: binId,
         });
       } else {
@@ -378,7 +378,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0633\u0627\u0632\u0645\u0627\u0646 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+              "سازمان یافت نشد",
           });
       }
     } else if (action === "edit") {
@@ -408,7 +408,7 @@ subRouter.post(
               .json({
                 status: "error",
                 message:
-                  "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0627\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0628\u0627\u0634\u062F.",
+                  "رمز عبور باید حداقل ۶ کاراکتر باشد.",
               });
           organizations[orgIndex].passwordHash = bcrypt.hashSync(password, 10);
         }
@@ -476,8 +476,8 @@ subRouter.get("/get_org_report", checkPermission("reports"), (req, res) => {
   let stats_counted_length = 0;
   orgContents.forEach((c) => {
     if (c.is_recurrence_instance) {
-      if (!c.title.includes(" (\u062A\u06A9\u0631\u0627\u0631)"))
-        c.title += " (\u062A\u06A9\u0631\u0627\u0631)";
+      if (!c.title.includes(" (تکرار)"))
+        c.title += " (تکرار)";
     }
     const skipStats = c.is_recurrence_instance && c.count_in_stats === false;
     if (!skipStats) {
@@ -485,22 +485,22 @@ subRouter.get("/get_org_report", checkPermission("reports"), (req, res) => {
       if (c.content_type)
         typeCounts[c.content_type] = (typeCounts[c.content_type] || 0) + 1;
       const statusMap = {
-        raw: "\u0648\u0631\u0648\u062F\u06CC \u062E\u0627\u0645",
-        todo: "\u062F\u0631 \u0635\u0641 \u0627\u0646\u062A\u0638\u0627\u0631",
+        raw: "ورودی خام",
+        todo: "در صف انتظار",
         in_progress:
-          "\u062F\u0631 \u062D\u0627\u0644 \u062A\u0648\u0644\u06CC\u062F",
+          "در حال تولید",
         review:
-          "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u0627\u0633\u062A\u0648\u062F\u06CC\u0648",
+          "ارزیابی استودیو",
         client_review:
-          "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
+          "ارزیابی کارفرما",
         needs_revision:
-          "\u0646\u06CC\u0627\u0632 \u0628\u0647 \u0627\u0635\u0644\u0627\u062D",
-        done: "\u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647",
+          "نیاز به اصلاح",
+        done: "تکمیل شده",
         approved_by_client:
-          "\u062A\u0627\u06CC\u06CC\u062F \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
+          "تایید کارفرما",
         ready_to_publish:
-          "\u0622\u0645\u0627\u062F\u0647 \u0627\u0646\u062A\u0634\u0627\u0631",
-        published: "\u0645\u0646\u062A\u0634\u0631 \u0634\u062F\u0647",
+          "آماده انتشار",
+        published: "منتشر شده",
       };
       let s = statusMap[c.status || "raw"] || c.status || "raw";
       statusCounts[s] = (statusCounts[s] || 0) + 1;

@@ -33,13 +33,13 @@ subRouter.post(
       .trim()
       .isLength({ min: 3 })
       .withMessage(
-        "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A",
+        "نام کاربری نامعتبر است",
       ),
     body("password")
       .trim()
       .isLength({ min: 6 })
       .withMessage(
-        "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0627\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0628\u0627\u0634\u062F",
+        "رمز عبور باید حداقل ۶ کاراکتر باشد",
       ),
   ],
   async (req, res) => {
@@ -57,7 +57,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0648 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0627\u0644\u0632\u0627\u0645\u06CC \u0627\u0633\u062A.",
+            "نام کاربری و رمز عبور الزامی است.",
         });
     }
     const user = colleagues.find(
@@ -76,7 +76,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u0627 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0627\u0634\u062A\u0628\u0627\u0647 \u0627\u0633\u062A.",
+            "نام کاربری یا رمز عبور اشتباه است.",
         });
     }
     if (orgUser && !(await bcrypt.compare(password, orgUser.passwordHash))) {
@@ -85,7 +85,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u0627 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0627\u0634\u062A\u0628\u0627\u0647 \u0627\u0633\u062A.",
+            "نام کاربری یا رمز عبور اشتباه است.",
         });
     }
     if (!user && !orgUser) {
@@ -94,7 +94,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u0627 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0627\u0634\u062A\u0628\u0627\u0647 \u0627\u0633\u062A.",
+            "نام کاربری یا رمز عبور اشتباه است.",
         });
     }
     if (user) {
@@ -107,14 +107,14 @@ subRouter.post(
       };
       addAuditLog(
         user.username,
-        "\u0648\u0631\u0648\u062F \u0645\u0648\u0641\u0642 \u0628\u0647 \u067E\u0646\u0644 \u06A9\u0627\u0631\u0628\u0631\u06CC",
+        "ورود موفق به پنل کاربری",
         req.ip || "127.0.0.1",
       );
       console.log("User matched, saving session for:", user.username);
       console.log("Session saved successfully.");
         res.json({
           status: "success",
-          message: "\u0648\u0631\u0648\u062F \u0645\u0648\u0641\u0642",
+          message: "ورود موفق",
           redirect: "dashboard",
         });
     } else if (orgUser) {
@@ -126,21 +126,21 @@ subRouter.post(
       };
       addAuditLog(
         orgUser.username,
-        "\u0648\u0631\u0648\u062F \u0645\u0648\u0641\u0642 \u0646\u0645\u0627\u06CC\u0646\u062F\u0647 \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
+        "ورود موفق نماینده کارفرما",
         req.ip || "127.0.0.1",
       );
       console.log("Org User matched, saving session for:", orgUser.username);
       console.log("Session saved successfully.");
         res.json({
           status: "success",
-          message: "\u0648\u0631\u0648\u062F \u0645\u0648\u0641\u0642",
+          message: "ورود موفق",
           redirect: "client-dashboard",
         });
     } else {
       res.json({
         status: "error",
         message:
-          "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC/\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0627\u0634\u062A\u0628\u0627\u0647 \u0627\u0633\u062A \u06CC\u0627 \u062D\u0633\u0627\u0628 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0634\u062F\u0647.",
+          "نام کاربری/رمز عبور اشتباه است یا حساب غیرفعال شده.",
       });
     }
   },

@@ -62,9 +62,9 @@ subRouter.post("/save_expense", checkPermission("finance"), (req, res) => {
     id: expenses.length > 0 ? Math.max(...expenses.map((x) => x.id)) + 1 : 1,
     description:
       description ||
-      "\u0647\u0632\u06CC\u0646\u0647 \u062A\u0648\u0644\u06CC\u062F \u0645\u062D\u062A\u0648\u0627",
+      "هزینه تولید محتوا",
     project_name:
-      project_name || "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647",
+      project_name || "بدون پروژه",
     amount: amount ? parseInt(amount) : 5e5,
     date:
       typeof date !== "undefined"
@@ -75,7 +75,7 @@ subRouter.post("/save_expense", checkPermission("finance"), (req, res) => {
   saveDatabase().catch(console.error);
   res.json({
     status: "success",
-    message: "\u0647\u0632\u06CC\u0646\u0647 \u062B\u0628\u062A \u0634\u062F",
+    message: "هزینه ثبت شد",
   });
 });
 
@@ -118,7 +118,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
         return res.json({
           status: "success",
           message:
-            "\u0641\u0627\u06A9\u062A\u0648\u0631 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F",
+            "فاکتور ویرایش شد",
           data: inv2,
         });
       }
@@ -145,7 +145,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
     return res.json({
       status: "success",
       message:
-        "\u0641\u0627\u06A9\u062A\u0648\u0631 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F",
+        "فاکتور ذخیره شد",
       data: inv,
     });
   }
@@ -157,7 +157,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       return res.json({
         status: "success",
         message:
-          "\u0648\u0636\u0639\u06CC\u062A \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F",
+          "وضعیت تغییر کرد",
       });
     }
   }
@@ -170,7 +170,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       return res.json({
         status: "success",
         message:
-          "\u067E\u0631\u062F\u0627\u062E\u062A \u062B\u0628\u062A \u0634\u062F",
+          "پرداخت ثبت شد",
       });
     }
   }
@@ -179,7 +179,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
     .json({
       status: "error",
       message:
-        "\u0639\u0645\u0644\u06CC\u0627\u062A \u0646\u0627\u0645\u0639\u062A\u0628\u0631",
+        "عملیات نامعتبر",
     });
 });
 
@@ -195,7 +195,7 @@ subRouter.get(
         return res.json({
           status: "error",
           message:
-            "\u0641\u0627\u06A9\u062A\u0648\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+            "فاکتور یافت نشد",
         });
       const org2 = organizations.find((o) => o.id == inv.org_id);
       return res.json({
@@ -226,7 +226,7 @@ subRouter.get(
       return res.json({
         status: "error",
         message:
-          "\u0633\u0627\u0632\u0645\u0627\u0646 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "سازمان یافت نشد",
       });
     const col_id = req.query.col_id;
     const status = req.query.status;
@@ -240,7 +240,7 @@ subRouter.get(
       if (platformFilter) {
         if (
           platformFilter ===
-          "\u0628\u062F\u0648\u0646 \u067E\u0644\u062A\u0641\u0631\u0645"
+          "بدون پلتفرم"
         ) {
           if (c.publish_platforms && c.publish_platforms.length > 0)
             return false;
@@ -262,11 +262,11 @@ subRouter.get(
     orgContents.forEach((c) => {
       let platform = c.publish_platforms
         ? Array.isArray(c.publish_platforms)
-          ? c.publish_platforms.join("\u060C ")
+          ? c.publish_platforms.join("، ")
           : c.publish_platforms
-        : "\u0628\u062F\u0648\u0646 \u067E\u0644\u062A\u0641\u0631\u0645";
+        : "بدون پلتفرم";
       let content_type =
-        c.content_type || "\u0646\u0627\u0645\u0634\u062E\u0635";
+        c.content_type || "نامشخص";
       const comps = c.components_count || {};
       const compKeys = Object.keys(comps);
       if (compKeys.length > 0) {
@@ -280,7 +280,7 @@ subRouter.get(
             const row_total = price * count;
             total_amount += row_total;
             items.push({
-              type: `${c.title} (\u0628\u062E\u0634: ${k})`,
+              type: `${c.title} (بخش: ${k})`,
               platform,
               qty: count,
               unit_price: price,

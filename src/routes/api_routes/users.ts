@@ -50,7 +50,7 @@ subRouter.post(
       res.json({
         status: "success",
         message:
-          "\u0646\u0642\u0634 \u062C\u062F\u06CC\u062F \u0627\u0636\u0627\u0641\u0647 \u0634\u062F",
+          "نقش جدید اضافه شد",
       });
     } else if (action === "edit") {
       if (id == 1) {
@@ -59,7 +59,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0646\u0642\u0634 \u0633\u06CC\u0633\u062A\u0645\u06CC \u0645\u062F\u06CC\u0631 \u06A9\u0644 \u0642\u0627\u0628\u0644 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0646\u06CC\u0633\u062A",
+              "نقش سیستمی مدیر کل قابل ویرایش نیست",
           });
       }
       const role = roles.find((r) => r.id == id);
@@ -70,7 +70,7 @@ subRouter.post(
         res.json({
           status: "success",
           message:
-            "\u0646\u0642\u0634 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0634\u062F",
+            "نقش به‌روزرسانی شد",
         });
       } else {
         res
@@ -78,7 +78,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0646\u0642\u0634 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",
+              "نقش پیدا نشد",
           });
       }
     } else if (action === "archive") {
@@ -89,7 +89,7 @@ subRouter.post(
         res.json({
           status: "success",
           message:
-            "\u0645\u062C\u0645\u0648\u0639\u0647 \u0622\u0631\u0634\u06CC\u0648 \u0634\u062F",
+            "مجموعه آرشیو شد",
         });
       } else {
         res
@@ -97,7 +97,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0645\u062C\u0645\u0648\u0639\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+              "مجموعه یافت نشد",
           });
       }
     } else if (action === "restore") {
@@ -108,7 +108,7 @@ subRouter.post(
         res.json({
           status: "success",
           message:
-            "\u0645\u062C\u0645\u0648\u0639\u0647 \u0628\u0627\u0632\u06AF\u0631\u062F\u0627\u0646\u06CC \u0634\u062F",
+            "مجموعه بازگردانی شد",
         });
       } else {
         res
@@ -116,7 +116,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0645\u062C\u0645\u0648\u0639\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+              "مجموعه یافت نشد",
           });
       }
     } else if (action === "delete") {
@@ -126,7 +126,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0634\u0645\u0627 \u0646\u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0646\u0642\u0634 \u0645\u062F\u06CC\u0631 \u06A9\u0644 \u0631\u0627 \u062D\u0630\u0641 \u06A9\u0646\u06CC\u062F",
+              "شما نمی‌توانید نقش مدیر کل را حذف کنید",
           });
       }
       const idx = roles.findIndex(r => r.id == id); if (idx > -1) roles.splice(idx, 1);
@@ -138,7 +138,7 @@ subRouter.post(
       saveDatabase().catch(console.error);
       res.json({
         status: "success",
-        message: "\u0646\u0642\u0634 \u062D\u0630\u0641 \u0634\u062F",
+        message: "نقش حذف شد",
       });
     } else if (action === "reorder") {
       const { direction } = req.body;
@@ -161,7 +161,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0627\u0645\u06A9\u0627\u0646 \u062C\u0627\u0628\u062C\u0627\u06CC\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F",
+            "امکان جابجایی وجود ندارد",
         });
     } else {
       res
@@ -169,7 +169,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0639\u0645\u0644\u06CC\u0627\u062A \u0646\u0627\u0645\u0639\u062A\u0628\u0631",
+            "عملیات نامعتبر",
         });
     }
   },
@@ -197,7 +197,7 @@ subRouter.get("/manage_users", checkPermission("add-user"), async (req, res) => 
       const role = allRoles.find((r) => r.id === c?.role_id);
       const role_name = role
         ? role.name
-        : "\u06A9\u0627\u0631\u0634\u0646\u0627\u0633";
+        : "کارشناس";
       return { ...c, role_name };
     });
   res.json({ status: "success", data: mapped, users: mapped });
@@ -232,7 +232,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
       return res.json({
         status: "success",
         message:
-          "\u062D\u0633\u0627\u0628 \u0647\u0645\u06A9\u0627\u0631 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0641\u0639\u0627\u0644 \u06AF\u0631\u062F\u06CC\u062F",
+          "حساب همکار با موفقیت فعال گردید",
       });
     }
     return res
@@ -240,7 +240,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
       .json({
         status: "error",
         message:
-          "\u06A9\u0627\u0631\u0628\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "کاربر یافت نشد",
       });
   }
   if (action === "delete") {
@@ -250,7 +250,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
         .json({
           status: "error",
           message:
-            "\u062D\u0633\u0627\u0628 \u0645\u062F\u06CC\u0631 \u06A9\u0644 \u0642\u0627\u0628\u0644 \u062D\u0630\u0641 \u0646\u06CC\u0633\u062A",
+            "حساب مدیر کل قابل حذف نیست",
         });
     }
     if (req.session.user && req.session.user.id == id) {
@@ -259,7 +259,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
         .json({
           status: "error",
           message:
-            "\u0634\u0645\u0627 \u0646\u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u062E\u0648\u062F \u0631\u0627 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u06A9\u0646\u06CC\u062F",
+            "شما نمی‌توانید حساب کاربری خود را غیرفعال کنید",
         });
     }
     const idx = colleagues.findIndex((c) => c.id == id);
@@ -270,7 +270,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
       return res.json({
         status: "success",
         message:
-          "\u06A9\u0627\u0631\u0628\u0631 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0634\u062F",
+          "کاربر غیرفعال شد",
       });
     }
     return res
@@ -278,7 +278,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
       .json({
         status: "error",
         message:
-          "\u06A9\u0627\u0631\u0628\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "کاربر یافت نشد",
       });
   }
   if (action === "edit") {
@@ -290,7 +290,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
           .json({
             status: "error",
             message:
-              "\u0634\u0645\u0627 \u0645\u062C\u0627\u0632 \u0628\u0647 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u062F\u06CC\u0631 \u06A9\u0644 \u0646\u06CC\u0633\u062A\u06CC\u062F",
+              "شما مجاز به ویرایش اطلاعات مدیر کل نیستید",
           });
       }
       colleagues[idx].full_name =
@@ -303,7 +303,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
             .json({
               status: "error",
               message:
-                "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0627\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0628\u0627\u0634\u062F.",
+                "رمز عبور باید حداقل ۶ کاراکتر باشد.",
             });
         colleagues[idx].passwordHash = bcrypt.hashSync(password, 10);
       }
@@ -318,7 +318,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
             .json({
               status: "error",
               message:
-                "\u0634\u0645\u0627 \u0646\u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0646\u0642\u0634 \u062E\u0648\u062F \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0647\u06CC\u062F",
+                "شما نمی‌توانید نقش خود را تغییر دهید",
             });
         }
         if (colleagues[idx]) colleagues[idx].role_id = parseInt(role_id);
@@ -337,7 +337,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
       return res.json({
         status: "success",
         message:
-          "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0634\u062F",
+          "اطلاعات با موفقیت به‌روزرسانی شد",
       });
     }
     return res
@@ -345,7 +345,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
       .json({
         status: "error",
         message:
-          "\u06A9\u0627\u0631\u0628\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "کاربر یافت نشد",
       });
   }
   if (action === "reorder") {
@@ -374,7 +374,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
         return res.json({
           status: "success",
           message:
-            "\u062A\u0631\u062A\u06CC\u0628 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F",
+            "ترتیب تغییر کرد",
         });
       }
     }
@@ -383,7 +383,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
       .json({
         status: "error",
         message:
-          "\u0627\u0645\u06A9\u0627\u0646 \u062C\u0627\u0628\u062C\u0627\u06CC\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F",
+          "امکان جابجایی وجود ندارد",
       });
   }
   if (password && password.length < 6) {
@@ -392,7 +392,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
       .json({
         status: "error",
         message:
-          "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0627\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0628\u0627\u0634\u062F.",
+          "رمز عبور باید حداقل ۶ کاراکتر باشد.",
       });
   }
   const newUser = {
@@ -403,7 +403,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
     full_name:
       full_name ||
       fullName ||
-      "\u0647\u0645\u06A9\u0627\u0631 \u062C\u062F\u06CC\u062F",
+      "همکار جدید",
     role_id: role_id ? parseInt(role_id) : 3,
     phone: phone || "",
     email: email || "",
@@ -411,7 +411,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
     work_type:
       workType ||
       work_type ||
-      "\u062A\u0645\u0627\u0645\u0648\u0642\u062A (\u062D\u0636\u0648\u0631\u06CC)",
+      "تماموقت (حضوری)",
     capacity: capacity || "",
     start_date: startDate || start_date || "",
     shaba: shaba || "",
@@ -426,7 +426,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
   res.json({
     status: "success",
     message:
-      "\u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",
+      "حساب کاربری با موفقیت ساخته شد",
   });
 });
 
@@ -439,7 +439,7 @@ subRouter.get("/get_colleagues", async (req, res) => {
       const role = allRoles.find((r) => r.id === c?.role_id);
       const role_name = role
         ? role.name
-        : "\u06A9\u0627\u0631\u0634\u0646\u0627\u0633";
+        : "کارشناس";
       const { passwordHash, ...safeC } = c;
       return { ...safeC, role_name };
     });
@@ -474,7 +474,7 @@ subRouter.post("/save_user", checkPermission("add-user"), async (req, res) => {
       .json({
         status: "error",
         message:
-          "\u0627\u06CC\u0646 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0642\u0628\u0644\u0627 \u062B\u0628\u062A \u0634\u062F\u0647 \u0627\u0633\u062A.",
+          "این نام کاربری قبلا ثبت شده است.",
       });
   }
   if (password && password.length < 6) {
@@ -483,7 +483,7 @@ subRouter.post("/save_user", checkPermission("add-user"), async (req, res) => {
       .json({
         status: "error",
         message:
-          "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0627\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0628\u0627\u0634\u062F.",
+          "رمز عبور باید حداقل ۶ کاراکتر باشد.",
       });
   }
   const newUser = {
@@ -494,7 +494,7 @@ subRouter.post("/save_user", checkPermission("add-user"), async (req, res) => {
     full_name:
       full_name ||
       fullName ||
-      "\u0647\u0645\u06A9\u0627\u0631 \u062C\u062F\u06CC\u062F",
+      "همکار جدید",
     role_id: role_id ? parseInt(role_id) : 3,
     phone: phone || "",
     email: email || "",
@@ -502,7 +502,7 @@ subRouter.post("/save_user", checkPermission("add-user"), async (req, res) => {
     work_type:
       workType ||
       work_type ||
-      "\u062A\u0645\u0627\u0645\u0648\u0642\u062A (\u062D\u0636\u0648\u0631\u06CC)",
+      "تماموقت (حضوری)",
     capacity: capacity || "",
     start_date: startDate || start_date || "",
     shaba: shaba || "",
@@ -517,7 +517,7 @@ subRouter.post("/save_user", checkPermission("add-user"), async (req, res) => {
   res.json({
     status: "success",
     message:
-      "\u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",
+      "حساب کاربری با موفقیت ساخته شد",
   });
 });
 

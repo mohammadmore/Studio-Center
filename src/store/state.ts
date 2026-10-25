@@ -10,13 +10,13 @@ export const recycle_bin: any[] = [
   {
     id: 99999,
     table: "contents",
-    item_title: "\u0645\u062D\u062A\u0648\u0627\u06CC \u062A\u0633\u062A\u06CC \u062D\u0630\u0641 \u0634\u062F\u0647",
+    item_title: "محتوای تستی حذف شده",
     data: {
       id: 99999,
-      title: "\u0645\u062D\u062A\u0648\u0627\u06CC \u062A\u0633\u062A\u06CC",
+      title: "محتوای تستی",
     },
     deleted_at: new Date().toISOString(),
-    deleted_by: "\u0633\u06CC\u0633\u062A\u0645",
+    deleted_by: "سیستم",
   },
 ];
 export const batch_operations: any[] = [];

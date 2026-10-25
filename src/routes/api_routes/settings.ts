@@ -61,7 +61,7 @@ subRouter.post(
           saveDatabase();
           return res.json({
             status: "success",
-            message: "\u0622\u06CC\u062A\u0645 \u062D\u0630\u0641 \u0634\u062F",
+            message: "آیتم حذف شد",
           });
         }
       }
@@ -70,7 +70,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0622\u06CC\u062A\u0645 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+            "آیتم یافت نشد",
         });
     }
     if (action === "edit") {
@@ -90,7 +90,7 @@ subRouter.post(
           return res.json({
             status: "success",
             message:
-              "\u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F",
+              "تغییرات ذخیره شد",
           });
         }
       }
@@ -99,7 +99,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0622\u06CC\u062A\u0645 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+            "آیتم یافت نشد",
         });
     }
     if (action === "add" || !action) {
@@ -131,7 +131,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0622\u06CC\u062A\u0645 \u0627\u0641\u0632\u0648\u062F\u0647 \u0634\u062F",
+          "آیتم افزوده شد",
       });
     }
     if (action === "reorder") {
@@ -161,7 +161,7 @@ subRouter.post(
             return res.json({
               status: "success",
               message:
-                "\u062A\u0631\u062A\u06CC\u0628 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F",
+                "ترتیب تغییر کرد",
             });
           }
         }
@@ -171,7 +171,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0627\u0645\u06A9\u0627\u0646 \u062C\u0627\u0628\u062C\u0627\u06CC\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F",
+            "امکان جابجایی وجود ندارد",
         });
     }
   },
@@ -194,7 +194,7 @@ subRouter.post("/save_token", checkPermission("settings"), (req, res) => {
   res.json({
     status: "success",
     message:
-      "\u062A\u0648\u06A9\u0646 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0645\u062A\u0635\u0644 \u0634\u062F",
+      "توکن با موفقیت متصل شد",
   });
 });
 
@@ -212,7 +212,7 @@ subRouter.get("/get_fonts", async (req, res) => {
     {
       filename: "vazirmatn",
       fa_name:
-        "\u0648\u0632\u06CC\u0631\u0645\u062A\u0646 (\u067E\u06CC\u0634\u0641\u0631\u0636)",
+        "وزیرمتن (پیشفرض)",
       en_name: "vazirmatn",
     },
   ];
@@ -270,7 +270,7 @@ subRouter.post(
       .json({
         status: "error",
         message:
-          "\u0627\u0645\u06A9\u0627\u0646 \u062C\u0627\u0628\u062C\u0627\u06CC\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F",
+          "امکان جابجایی وجود ندارد",
       });
   },
 );
@@ -303,7 +303,7 @@ subRouter.post(
       res.json({
         status: "success",
         message:
-          "\u0641\u0648\u0646\u062A \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0622\u067E\u0644\u0648\u062F \u0648 \u0641\u0639\u0627\u0644 \u0634\u062F",
+          "فونت با موفقیت آپلود و فعال شد",
       });
     } catch (err) {
       res
@@ -311,7 +311,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u062E\u0637\u0627 \u062F\u0631 \u0630\u062E\u06CC\u0631\u0647 \u0641\u0648\u0646\u062A",
+            "خطا در ذخیره فونت",
         });
     }
   },
@@ -329,8 +329,8 @@ subRouter.post(
         status: "success",
         message:
           filename === "vazirmatn"
-            ? "\u0641\u0648\u0646\u062A \u067E\u06CC\u0634\u0641\u0631\u0636 \u0641\u0639\u0627\u0644 \u0634\u062F"
-            : "\u0641\u0648\u0646\u062A \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0641\u0639\u0627\u0644 \u0634\u062F",
+            ? "فونت پیشفرض فعال شد"
+            : "فونت با موفقیت فعال شد",
       });
     } catch (err) {
       res
@@ -338,7 +338,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u062E\u0637\u0627 \u062F\u0631 \u062A\u063A\u06CC\u06CC\u0631 \u0641\u0648\u0646\u062A",
+            "خطا در تغییر فونت",
         });
     }
   },
@@ -358,7 +358,7 @@ subRouter.post("/rename_font", checkPermission("settings"), (req, res) => {
   res.json({
     status: "success",
     message:
-      "\u0646\u0627\u0645 \u0641\u0648\u0646\u062A \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F",
+      "نام فونت ذخیره شد",
   });
 });
 
@@ -378,7 +378,7 @@ subRouter.post(
       saveDatabase().catch(console.error);
       res.json({
         status: "success",
-        message: "\u0641\u0648\u0646\u062A \u062D\u0630\u0641 \u0634\u062F",
+        message: "فونت حذف شد",
       });
     } catch (err) {
       res
@@ -386,7 +386,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u062E\u0637\u0627 \u062F\u0631 \u062D\u0630\u0641 \u0641\u0648\u0646\u062A",
+            "خطا در حذف فونت",
         });
     }
   },
@@ -406,7 +406,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0627\u0633\u062A\u0648\u062F\u06CC\u0648 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F",
+          "اطلاعات استودیو با موفقیت ذخیره شد",
         data: settings.studio_info,
       });
     }

@@ -72,7 +72,7 @@ const uploadLimiter = rateLimit({
   message: {
     status: "error",
     message:
-      "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0622\u067E\u0644\u0648\u062F \u0628\u06CC\u0634 \u0627\u0632 \u062D\u062F \u0645\u062C\u0627\u0632 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627 \u0628\u0639\u062F\u0627 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F.",
+      "درخواست‌های آپلود بیش از حد مجاز است. لطفا بعدا تلاش کنید.",
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -126,7 +126,7 @@ function logContentActivity(card, req, actionDesc) {
   const userObj = req.session && req.session.user ? req.session.user : null;
   const username = userObj
     ? userObj.full_name || userObj.username
-    : "\u0633\u06CC\u0633\u062A\u0645";
+    : "سیستم";
   const timestamp = new Intl.DateTimeFormat("fa-IR", {
     year: "numeric",
     month: "2-digit",
@@ -135,27 +135,27 @@ function logContentActivity(card, req, actionDesc) {
     minute: "2-digit",
   }).format(new Date());
   const statusNames = {
-    raw: "\u0648\u0631\u0648\u062F\u06CC \u062E\u0627\u0645",
-    todo: "\u062F\u0631 \u0635\u0641",
-    doing: "\u062F\u0631 \u062D\u0627\u0644 \u0627\u0646\u062C\u0627\u0645",
+    raw: "ورودی خام",
+    todo: "در صف",
+    doing: "در حال انجام",
     in_progress:
-      "\u062F\u0631 \u062D\u0627\u0644 \u0627\u0646\u062C\u0627\u0645",
-    done: "\u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647",
+      "در حال انجام",
+    done: "تکمیل شده",
     review:
-      "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u0627\u0633\u062A\u0648\u062F\u06CC\u0648",
+      "ارزیابی استودیو",
     client_review:
-      "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
+      "ارزیابی کارفرما",
     needs_revision:
-      "\u0646\u06CC\u0627\u0632 \u0628\u0647 \u0628\u0627\u0632\u0628\u06CC\u0646\u06CC",
+      "نیاز به بازبینی",
     approved_by_client:
-      "\u062A\u0627\u06CC\u06CC\u062F \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
+      "تایید کارفرما",
     ready_to_publish:
-      "\u0622\u0645\u0627\u062F\u0647 \u0627\u0646\u062A\u0634\u0627\u0631",
-    published: "\u0645\u0646\u062A\u0634\u0631 \u0634\u062F\u0647",
+      "آماده انتشار",
+    published: "منتشر شده",
     scheduled:
-      "\u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u0634\u062F\u0647",
-    archived: "\u0622\u0631\u0634\u06CC\u0648 \u0634\u062F\u0647",
-    pending: "\u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631",
+      "زمان‌بندی شده",
+    archived: "آرشیو شده",
+    pending: "در انتظار",
   };
   let translatedAction = actionDesc;
   for (const [key, value] of Object.entries(statusNames)) {
@@ -245,7 +245,7 @@ app.use(
 app.use((req, res, next) => {
   res.locals.STUDIO_NAME =
     settings?.studio_info?.name ||
-    "\u0627\u0633\u062A\u0648\u062F\u06CC\u0648 \u0627\u0633\u0648\u0627";
+    "استودیو اسوا";
   res.locals.STUDIO_LOGO =
     settings?.studio_info?.logo_light || settings?.studio_info?.logo || "";
   res.locals.settings = settings;
@@ -316,53 +316,53 @@ app.use((req, res, next) => {
                 if (endpoint === 'toggle_stage') action = 'update_stage';
                 
                 const epNames = {
-                  manage_team: "\u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646/\u0647\u0645\u06A9\u0627\u0631\u0627\u0646",
-                  manage_organizations: "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0633\u0627\u0632\u0645\u0627\u0646\u200C\u0647\u0627",
-                  manage_contents: "\u0645\u062F\u06CC\u0631\u06CC\u062A \u062F\u067E\u0648\u06CC \u0645\u062D\u062A\u0648\u0627",
-                  manage_smart_events: "\u062A\u0642\u0648\u06CC\u0645 \u0648 \u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627",
-                  manage_leaves: "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0645\u0631\u062E\u0635\u06CC\u200C\u0647\u0627",
-                  manage_roles: "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0646\u0642\u0634\u200C\u0647\u0627",
-                  upload_excel: "\u0622\u067E\u0644\u0648\u062F \u0627\u06A9\u0633\u0644 \u0645\u062D\u062A\u0648\u0627",
-                  upload_smart_events: "\u0622\u067E\u0644\u0648\u062F \u0627\u06A9\u0633\u0644 \u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627",
-                  upload_users: "\u0622\u067E\u0644\u0648\u062F \u0627\u06A9\u0633\u0644 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646",
-                  save_settings: "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u06CC\u0633\u062A\u0645",
-                  client_action: "\u0627\u0642\u062F\u0627\u0645\u0627\u062A \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
-                  add_comment: "\u062B\u0628\u062A \u06A9\u0627\u0645\u0646\u062A",
-                  update_profile: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u067E\u0631\u0648\u0641\u0627\u06CC\u0644",
-                  add_content: "\u0645\u062D\u062A\u0648\u0627",
-                  batch_edit_contents: "\u0645\u062D\u062A\u0648\u0627 (\u06AF\u0631\u0648\u0647\u06CC)",
-                  update_leave: "\u0648\u0636\u0639\u06CC\u062A \u0645\u0631\u062E\u0635\u06CC",
-                  delete_leave: "\u062D\u0630\u0641 \u0645\u0631\u062E\u0635\u06CC",
-                  save_leave: "\u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0645\u0631\u062E\u0635\u06CC",
-                  save_user: "\u06A9\u0627\u0631\u0628\u0631",
-                  upload_image: "\u0622\u067E\u0644\u0648\u062F \u062A\u0635\u0648\u06CC\u0631",
-                  upload_file: "\u0622\u067E\u0644\u0648\u062F \u0641\u0627\u06CC\u0644",
-                  save_token: "\u062A\u0648\u06A9\u0646",
-                  save_media: "\u0631\u0633\u0627\u0646\u0647",
-                  save_onboarding: "\u0622\u0646\u0628\u0648\u0631\u062F\u06CC\u0646\u06AF",
-                  save_expense: "\u0645\u0627\u0644\u06CC/\u0647\u0632\u06CC\u0646\u0647",
-                  client_review: "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
-                  confirm_events: "\u062A\u0627\u06CC\u06CC\u062F \u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627",
-                  toggle_stage: "\u0645\u0631\u0627\u062D\u0644 \u0645\u062D\u062A\u0648\u0627",
-                  rename_font: "\u0641\u0648\u0646\u062A",
-                  invoices: "\u0641\u0627\u06A9\u062A\u0648\u0631",
-                  undo_batch_operation: "\u0644\u063A\u0648 \u0639\u0645\u0644\u06CC\u0627\u062A",
-                  apply_template: "\u0642\u0627\u0644\u0628",
-                  dismiss_template_suggestion: "\u0631\u062F \u067E\u06CC\u0634\u0646\u0647\u0627\u062F \u0642\u0627\u0644\u0628",
-                  fulfill_template_suggestion: "\u062A\u0627\u06CC\u06CC\u062F \u067E\u06CC\u0634\u0646\u0647\u0627\u062F \u0642\u0627\u0644\u0628",
-                  unlock_events: "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0642\u0641\u0644 \u062A\u0642\u0648\u06CC\u0645"
+                  manage_team: "مدیریت کاربران/همکاران",
+                  manage_organizations: "مدیریت سازمان‌ها",
+                  manage_contents: "مدیریت دپوی محتوا",
+                  manage_smart_events: "تقویم و مناسبت‌ها",
+                  manage_leaves: "مدیریت مرخصی‌ها",
+                  manage_roles: "مدیریت نقش‌ها",
+                  upload_excel: "آپلود اکسل محتوا",
+                  upload_smart_events: "آپلود اکسل مناسبت‌ها",
+                  upload_users: "آپلود اکسل کاربران",
+                  save_settings: "تنظیمات سیستم",
+                  client_action: "اقدامات کارفرما",
+                  add_comment: "ثبت کامنت",
+                  update_profile: "ویرایش پروفایل",
+                  add_content: "محتوا",
+                  batch_edit_contents: "محتوا (گروهی)",
+                  update_leave: "وضعیت مرخصی",
+                  delete_leave: "حذف مرخصی",
+                  save_leave: "درخواست مرخصی",
+                  save_user: "کاربر",
+                  upload_image: "آپلود تصویر",
+                  upload_file: "آپلود فایل",
+                  save_token: "توکن",
+                  save_media: "رسانه",
+                  save_onboarding: "آنبوردینگ",
+                  save_expense: "مالی/هزینه",
+                  client_review: "بررسی کارفرما",
+                  confirm_events: "تایید مناسبت‌ها",
+                  toggle_stage: "مراحل محتوا",
+                  rename_font: "فونت",
+                  invoices: "فاکتور",
+                  undo_batch_operation: "لغو عملیات",
+                  apply_template: "قالب",
+                  dismiss_template_suggestion: "رد پیشنهاد قالب",
+                  fulfill_template_suggestion: "تایید پیشنهاد قالب",
+                  unlock_events: "باز کردن قفل تقویم"
                 };
                 let actionFa = action;
-                if (action === "add") actionFa = "\u0627\u0641\u0632\u0648\u062F\u0646";
-                else if (action === "edit" || action === "update") actionFa = "\u0648\u06CC\u0631\u0627\u06CC\u0634";
-                else if (action === "delete") actionFa = "\u062D\u0630\u0641";
-                else if (action === "batch_delete") actionFa = "\u062D\u0630\u0641 \u06AF\u0631\u0648\u0647\u06CC";
-                else if (action === "update_status") actionFa = "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A";
-                else if (action === "approve") actionFa = "\u062A\u0627\u06CC\u06CC\u062F";
-                else if (action === "reject") actionFa = "\u0631\u062F";
-                else if (action === "archive") actionFa = "\u0622\u0631\u0634\u06CC\u0648";
-                else if (action === "update_stage") actionFa = "\u062A\u063A\u06CC\u06CC\u0631 \u0645\u0631\u062D\u0644\u0647";
-                else if (action === "POST") actionFa = "\u0630\u062E\u06CC\u0631\u0647/\u062B\u0628\u062A";
+                if (action === "add") actionFa = "افزودن";
+                else if (action === "edit" || action === "update") actionFa = "ویرایش";
+                else if (action === "delete") actionFa = "حذف";
+                else if (action === "batch_delete") actionFa = "حذف گروهی";
+                else if (action === "update_status") actionFa = "تغییر وضعیت";
+                else if (action === "approve") actionFa = "تایید";
+                else if (action === "reject") actionFa = "رد";
+                else if (action === "archive") actionFa = "آرشیو";
+                else if (action === "update_stage") actionFa = "تغییر مرحله";
+                else if (action === "POST") actionFa = "ذخیره/ثبت";
                 
                 let epFa = epNames[endpoint] || endpoint;
                 
@@ -376,36 +376,36 @@ app.use((req, res, next) => {
             }
         } else {
             const viewNames = {
-                "/": "\u062F\u0627\u0634\u0628\u0648\u0631\u062F",
-                "/dashboard": "\u062F\u0627\u0634\u0628\u0648\u0631\u062F",
-                "/archive": "\u0622\u0631\u0634\u06CC\u0648 \u0645\u062D\u062A\u0648\u0627",
-                "/smart-events": "\u062A\u0642\u0648\u06CC\u0645 \u0647\u0648\u0634\u0645\u0646\u062F",
-                "/team": "\u062A\u06CC\u0645 \u0648 \u0647\u0645\u06A9\u0627\u0631\u0627\u0646",
-                "/organizations": "\u0633\u0627\u0632\u0645\u0627\u0646\u200C\u0647\u0627",
-                "/leaves": "\u0645\u0631\u062E\u0635\u06CC\u200C\u0647\u0627",
-                "/reports": "\u06AF\u0632\u0627\u0631\u0634\u0627\u062A",
-                "/settings": "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A",
-                "/audit": "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627",
-                "/recycle_bin": "\u0633\u0637\u0644 \u0632\u0628\u0627\u0644\u0647",
-                "/finance": "\u0627\u0645\u0648\u0631 \u0645\u0627\u0644\u06CC"
+                "/": "داشبورد",
+                "/dashboard": "داشبورد",
+                "/archive": "آرشیو محتوا",
+                "/smart-events": "تقویم هوشمند",
+                "/team": "تیم و همکاران",
+                "/organizations": "سازمان‌ها",
+                "/leaves": "مرخصی‌ها",
+                "/reports": "گزارشات",
+                "/settings": "تنظیمات",
+                "/audit": "تاریخچه فعالیت‌ها",
+                "/recycle_bin": "سطل زباله",
+                "/finance": "امور مالی"
             };
             if (req.method === "GET") {
                 let vName = viewNames[req.path];
                 if (vName) {
-                    finalDesc = `\u0628\u0627\u0632\u062F\u06CC\u062F \u0627\u0632 \u0635\u0641\u062D\u0647 ${vName}`;
+                    finalDesc = `بازدید از صفحه ${vName}`;
                 } else {
-                    finalDesc = `\u0628\u0627\u0632\u062F\u06CC\u062F \u0627\u0632 ${req.path}`;
+                    finalDesc = `بازدید از ${req.path}`;
                 }
             } else {
-                finalDesc = `\u062F\u0631\u062E\u0648\u0627\u0633\u062A ${req.method} \u0628\u0647 ${req.path}`;
+                finalDesc = `درخواست ${req.method} به ${req.path}`;
             }
         }
 
         if (finalDesc) {
             if (res.statusCode >= 200 && res.statusCode < 300) {
-              addAuditLog(userDesc, finalDesc + " (\u0645\u0648\u0641\u0642)", req.ip || "127.0.0.1");
+              addAuditLog(userDesc, finalDesc + " (موفق)", req.ip || "127.0.0.1");
             } else {
-              addAuditLog(userDesc, finalDesc + ` (\u062E\u0637\u0627 ${res.statusCode})`, req.ip || "127.0.0.1");
+              addAuditLog(userDesc, finalDesc + ` (خطا ${res.statusCode})`, req.ip || "127.0.0.1");
             }
         }
       }
@@ -436,7 +436,7 @@ function getPermissionCategories() {
       const textMatch = block.match(
         /<div class="asva-menu-title-label">[\s\S]*?<span>(.*?)<\/span>/,
       );
-      let title = textMatch ? textMatch[1].trim() : "\u0628\u062E\u0634 " + i;
+      let title = textMatch ? textMatch[1].trim() : "بخش " + i;
       const perms = [];
       const addedIds = new Set();
       const items = block.split(/<% if/);
@@ -493,8 +493,8 @@ setInterval(() => {
         );
         if (!notifExists) {
           addNotification(
-            "\u0633\u0631\u0631\u0633\u06CC\u062F \u0641\u0627\u06A9\u062A\u0648\u0631",
-            `\u0645\u0647\u0644\u062A \u067E\u0631\u062F\u0627\u062E\u062A \u0641\u0627\u06A9\u062A\u0648\u0631 ${inv.invoice_number} \u0628\u0647 \u067E\u0627\u06CC\u0627\u0646 \u0631\u0633\u06CC\u062F\u0647 \u0627\u0633\u062A.`,
+            "سررسید فاکتور",
+            `مهلت پرداخت فاکتور ${inv.invoice_number} به پایان رسیده است.`,
             "admin",
             null,
             "/invoices_list",
@@ -502,8 +502,8 @@ setInterval(() => {
             inv.id,
           );
           addNotification(
-            "\u06CC\u0627\u062F\u0622\u0648\u0631\u06CC \u062A\u0633\u0648\u06CC\u0647 \u062D\u0633\u0627\u0628",
-            `\u0645\u0647\u0644\u062A \u067E\u0631\u062F\u0627\u062E\u062A \u0641\u0627\u06A9\u062A\u0648\u0631 \u0634\u0645\u0627\u0631\u0647 ${inv.invoice_number} \u0628\u0647 \u067E\u0627\u06CC\u0627\u0646 \u0631\u0633\u06CC\u062F\u0647 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627 \u0646\u0633\u0628\u062A \u0628\u0647 \u062A\u0633\u0648\u06CC\u0647 \u0622\u0646 \u0627\u0642\u062F\u0627\u0645 \u0646\u0645\u0627\u06CC\u06CC\u062F.`,
+            "یادآوری تسویه حساب",
+            `مهلت پرداخت فاکتور شماره ${inv.invoice_number} به پایان رسیده است. لطفا نسبت به تسویه آن اقدام نمایید.`,
             "client",
             inv.org_id,
             "/invoices_list",
@@ -525,7 +525,7 @@ app.use((err, req, res, next) => {
     .json({
       status: "error",
       message:
-        "\u062E\u0637\u0627\u06CC \u0633\u0631\u0648\u0631 \u0631\u062E \u062F\u0627\u062F\u0647 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F.",
+        "خطای سرور رخ داده است. لطفا دوباره تلاش کنید.",
     });
 });
 

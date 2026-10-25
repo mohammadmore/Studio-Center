@@ -1,5 +1,0 @@
-{
-  "plugins": ["html"],
-  "env": { "browser": true },
-  "rules": { "no-unused-vars": "off", "no-undef": "off" }
-}

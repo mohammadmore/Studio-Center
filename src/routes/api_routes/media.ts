@@ -34,7 +34,7 @@ subRouter.post("/upload_image", async (req, res) => {
       .json({
         status: "error",
         message:
-          "\u0641\u0631\u0645\u062A \u062A\u0635\u0648\u06CC\u0631 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A",
+          "فرمت تصویر نامعتبر است",
       });
   }
   if (image.startsWith("data:image")) {
@@ -50,7 +50,7 @@ subRouter.post("/upload_image", async (req, res) => {
             .json({
               status: "error",
               message:
-                "\u0641\u0631\u0645\u062A \u062A\u0635\u0648\u06CC\u0631 \u0645\u062C\u0627\u0632 \u0646\u06CC\u0633\u062A",
+                "فرمت تصویر مجاز نیست",
             });
         }
         if (data.length > 8e5) {
@@ -59,7 +59,7 @@ subRouter.post("/upload_image", async (req, res) => {
             .json({
               status: "error",
               message:
-                "\u062D\u062C\u0645 \u062A\u0635\u0648\u06CC\u0631 \u0628\u06CC\u0634 \u0627\u0632 \u062D\u062F \u0645\u062C\u0627\u0632 \u0627\u0633\u062A",
+                "حجم تصویر بیش از حد مجاز است",
             });
         }
         const filename =
@@ -96,7 +96,7 @@ subRouter.post("/upload_image", async (req, res) => {
         .json({
           status: "error",
           message:
-            "\u062E\u0637\u0627 \u062F\u0631 \u0622\u067E\u0644\u0648\u062F",
+            "خطا در آپلود",
         });
     }
   } else if (image.startsWith("http")) {
@@ -107,7 +107,7 @@ subRouter.post("/upload_image", async (req, res) => {
     .json({
       status: "error",
       message:
-        "\u062A\u0635\u0648\u06CC\u0631 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A",
+        "تصویر خالی یا نامعتبر است",
     });
 });
 
@@ -118,7 +118,7 @@ subRouter.post("/upload_file", upload.single("file"), async (req, res) => {
       .json({
         status: "error",
         message:
-          "\u0641\u0627\u06CC\u0644\u06CC \u0627\u0631\u0633\u0627\u0644 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A",
+          "فایلی ارسال نشده است",
       });
   }
   try {
@@ -151,7 +151,7 @@ subRouter.post("/upload_file", upload.single("file"), async (req, res) => {
       .json({
         status: "error",
         message:
-          "\u062E\u0637\u0627 \u062F\u0631 \u0622\u067E\u0644\u0648\u062F \u0641\u0627\u06CC\u0644",
+          "خطا در آپلود فایل",
       });
   }
 });
@@ -163,7 +163,7 @@ subRouter.get("/get_media", (req, res) => {
       ...asset,
       org_name: org
         ? org.org_name
-        : "\u0639\u0645\u0648\u0645\u06CC / \u0628\u062F\u0648\u0646 \u0633\u0627\u0632\u0645\u0627\u0646",
+        : "عمومی / بدون سازمان",
       org_color: org ? org.color : "var(--text-gray)",
       org_logo: org ? org.logo_url : "",
     };
@@ -199,14 +199,14 @@ subRouter.post("/save_media", (req, res) => {
     return res.json({
       status: "success",
       message:
-        "\u0641\u0627\u06CC\u0644\u200C\u0647\u0627 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0646\u062F.",
+        "فایل‌ها با موفقیت ذخیره شدند.",
     });
   }
   if (!asset_name || !asset_type) {
     return res.json({
       status: "error",
       message:
-        "\u0641\u06CC\u0644\u062F\u200C\u0647\u0627\u06CC \u0636\u0631\u0648\u0631\u06CC \u0631\u0627 \u062A\u06A9\u0645\u06CC\u0644 \u06A9\u0646\u06CC\u062F.",
+        "فیلد‌های ضروری را تکمیل کنید.",
     });
   }
   const newAsset = {
@@ -225,7 +225,7 @@ subRouter.post("/save_media", (req, res) => {
   res.json({
     status: "success",
     message:
-      "\u0641\u0627\u06CC\u0644 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062F\u0631 \u06A9\u062A\u0627\u0628\u062E\u0627\u0646\u0647 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.",
+      "فایل با موفقیت در کتابخانه ذخیره شد.",
   });
 });
 

@@ -112,7 +112,7 @@ subRouter.get("/get_dashboard_stats", (req, res) => {
     return acc;
   }, {});
   const totalDetails = Object.entries(typeCounts).map(
-    ([type, count]) => `${type}: ${count} \u0639\u062F\u062F`,
+    ([type, count]) => `${type}: ${count} عدد`,
   );
   const rawEventsList = filteredContents
     .filter((c) => c.status === "raw")
@@ -128,19 +128,19 @@ subRouter.get("/get_dashboard_stats", (req, res) => {
     const org = organizations.find((o) => o.id === Number(orgId));
     const stats = orgCounts[orgId];
     const percent = Math.round((stats.done / stats.total) * 100);
-    return `${org ? org.org_name : "\u0646\u0627\u0645\u0634\u062E\u0635"}: ${percent}\u066A`;
+    return `${org ? org.org_name : "نامشخص"}: ${percent}٪`;
   });
   const revisionDetails = Object.keys(orgCounts).map((orgId) => {
     const org = organizations.find((o) => o.id === Number(orgId));
     const stats = orgCounts[orgId];
     const percent = Math.round((stats.revision / stats.total) * 100);
-    return `${org ? org.org_name : "\u0646\u0627\u0645\u0634\u062E\u0635"}: ${percent}\u066A \u0627\u0635\u0644\u0627\u062D\u06CC\u0647`;
+    return `${org ? org.org_name : "نامشخص"}: ${percent}٪ اصلاحیه`;
   });
   let totalContentForCalc = 0;
   let totalDoneForCalc = 0;
   let totalRevisionForCalc = 0;
-  let worstOrg = { name: "\u0646\u062F\u0627\u0631\u062F", rate: -1 };
-  let bestOrg = { name: "\u0646\u062F\u0627\u0631\u062F", rate: -1 };
+  let worstOrg = { name: "ندارد", rate: -1 };
+  let bestOrg = { name: "ندارد", rate: -1 };
   Object.keys(orgCounts).forEach((orgId) => {
     const org = organizations.find((o) => o.id === Number(orgId));
     const stats = orgCounts[orgId];
@@ -150,14 +150,14 @@ subRouter.get("/get_dashboard_stats", (req, res) => {
     const revisionRate = Math.round((stats.revision / stats.total) * 100);
     if (revisionRate > worstOrg.rate) {
       worstOrg = {
-        name: org ? org.org_name : "\u0646\u0627\u0645\u0634\u062E\u0635",
+        name: org ? org.org_name : "نامشخص",
         rate: revisionRate,
       };
     }
     const completionRate = Math.round((stats.done / stats.total) * 100);
     if (completionRate > bestOrg.rate) {
       bestOrg = {
-        name: org ? org.org_name : "\u0646\u0627\u0645\u0634\u062E\u0635",
+        name: org ? org.org_name : "نامشخص",
         rate: completionRate,
       };
     }
@@ -184,22 +184,22 @@ subRouter.get("/get_dashboard_stats", (req, res) => {
       total: totalDetails.length
         ? totalDetails
         : [
-            "\u0645\u062D\u062A\u0648\u0627\u06CC\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A",
+            "محتوایی ثبت نشده است",
           ],
       raw: rawEventsList.length
         ? rawEventsList
         : [
-            "\u06A9\u0627\u0631\u062A \u062E\u0627\u0645\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F",
+            "کارت خامی وجود ندارد",
           ],
       revision: revisionDetails.length
         ? revisionDetails
         : [
-            "\u062F\u06CC\u062A\u0627\u06CC\u06CC \u0645\u0648\u062C\u0648\u062F \u0646\u06CC\u0633\u062A",
+            "دیتایی موجود نیست",
           ],
       completion: completionDetails.length
         ? completionDetails
         : [
-            "\u062F\u06CC\u062A\u0627\u06CC\u06CC \u0645\u0648\u062C\u0648\u062F \u0646\u06CC\u0633\u062A",
+            "دیتایی موجود نیست",
           ],
     },
     bottlenecks,
@@ -214,7 +214,7 @@ subRouter.post("/fetch_live_stats", (req, res) => {
     return res.json({
       status: "error",
       message:
-        "\u0644\u06CC\u0646\u06A9 \u067E\u0633\u062A \u0648\u0627\u0631\u062F \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.",
+        "لینک پست وارد نشده است.",
     });
   }
   const token = tokens.find(
@@ -227,7 +227,7 @@ subRouter.post("/fetch_live_stats", (req, res) => {
     return res.json({
       status: "error",
       message:
-        "\u0627\u062A\u0635\u0627\u0644 \u0628\u0647 API \u0627\u06CC\u0646 \u0634\u0628\u06A9\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u06A9\u0627\u0631\u0641\u0631\u0645\u0627 \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u06CC\u0633\u062A. \u0644\u0637\u0641\u0627 \u0627\u0628\u062A\u062F\u0627 \u062F\u0631 \u0628\u062E\u0634 \u0633\u0644\u0627\u0645\u062A \u062A\u0648\u06A9\u0646\u200C\u0647\u0627 \u0627\u062A\u0635\u0627\u0644 \u0631\u0627 \u0627\u0646\u062C\u0627\u0645 \u062F\u0647\u06CC\u062F.",
+        "اتصال به API این شبکه برای این کارفرما برقرار نیست. لطفا ابتدا در بخش سلامت توکن‌ها اتصال را انجام دهید.",
     });
   }
   return res.json({

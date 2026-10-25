@@ -37,7 +37,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0647\u06CC\u0686 \u0641\u0627\u06CC\u0644\u06CC \u0622\u067E\u0644\u0648\u062F \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.",
+            "هیچ فایلی آپلود نشده است.",
         });
     }
     try {
@@ -66,12 +66,12 @@ subRouter.post(
         let calendar_type = "shamsi";
         if (
           typeof calendarTypeStr === "string" &&
-          calendarTypeStr.includes("\u0642\u0645\u0631\u06CC")
+          calendarTypeStr.includes("قمری")
         )
           calendar_type = "ghamari";
         else if (
           typeof calendarTypeStr === "string" &&
-          calendarTypeStr.includes("\u0645\u06CC\u0644\u0627\u062F\u06CC")
+          calendarTypeStr.includes("میلادی")
         )
           calendar_type = "miladi";
         let org_id = null;
@@ -119,7 +119,7 @@ subRouter.post(
       saveDatabase().catch(console.error);
       res.json({
         status: "success",
-        message: `${addedCount} \u0645\u0646\u0627\u0633\u0628\u062A \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0648\u0627\u0631\u062F \u0634\u062F.`,
+        message: `${addedCount} مناسبت با موفقیت وارد شد.`,
       });
     } catch (e) {
       console.error(e);
@@ -128,7 +128,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u062E\u0637\u0627 \u062F\u0631 \u067E\u0631\u062F\u0627\u0632\u0634 \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644.",
+            "خطا در پردازش فایل اکسل.",
         });
     }
   },
@@ -164,7 +164,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0634\u0645\u0627 \u0645\u062C\u0627\u0632 \u0628\u0647 \u0627\u06CC\u0646 \u0639\u0645\u0644\u06CC\u0627\u062A \u0646\u06CC\u0633\u062A\u06CC\u062F",
+              "شما مجاز به این عملیات نیستید",
           });
       }
     }
@@ -188,7 +188,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0645\u0646\u0627\u0633\u0628\u062A \u0628\u0647 \u0628\u0627\u0646\u06A9 \u0627\u0636\u0627\u0641\u0647 \u0634\u062F",
+          "مناسبت به بانک اضافه شد",
       });
     }
     
@@ -201,7 +201,7 @@ subRouter.post(
           table: "smartEventsBank",
           item_title:
             smartEventsBank[evIndex].title ||
-            "\u0645\u0646\u0627\u0633\u0628\u062A \u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646",
+            "مناسبت بدون عنوان",
           data: smartEventsBank[evIndex],
           deleted_at: new Date().toISOString(),
           deleted_by:
@@ -214,7 +214,7 @@ subRouter.post(
         return res.json({
           status: "success",
           message:
-            "\u0645\u0646\u0627\u0633\u0628\u062A \u0628\u0647 \u0633\u0637\u0644 \u0632\u0628\u0627\u0644\u0647 \u0645\u0646\u062A\u0642\u0644 \u0634\u062F",
+            "مناسبت به سطل زباله منتقل شد",
         });
       }
       return res
@@ -222,7 +222,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0645\u0646\u0627\u0633\u0628\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+            "مناسبت یافت نشد",
         });
     }
     if (action === "edit") {
@@ -244,7 +244,7 @@ subRouter.post(
         return res.json({
           status: "success",
           message:
-            "\u0645\u0646\u0627\u0633\u0628\u062A \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F",
+            "مناسبت با موفقیت ویرایش شد",
         });
       }
       return res
@@ -252,7 +252,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u0645\u0646\u0627\u0633\u0628\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+            "مناسبت یافت نشد",
         });
     }
     res
@@ -260,7 +260,7 @@ subRouter.post(
       .json({
         status: "error",
         message:
-          "\u0639\u0645\u0644\u06CC\u0627\u062A \u0646\u0627\u0645\u0639\u062A\u0628\u0631",
+          "عملیات نامعتبر",
       });
   },
 );
@@ -284,7 +284,7 @@ subRouter.post(
         return res.json({
           status: "error",
           message:
-            "\u0627\u06CC\u0646 \u0627\u0646\u062A\u062E\u0627\u0628 \u0642\u0628\u0644\u0627 \u0646\u0647\u0627\u06CC\u06CC \u0634\u062F\u0647 \u0627\u0633\u062A.",
+            "این انتخاب قبلا نهایی شده است.",
         });
       }
       let previousSyncedTitles = [];
@@ -309,23 +309,23 @@ subRouter.post(
       if (!is_draft) {
         const monthNames = [
           "",
-          "\u0641\u0631\u0648\u0631\u062F\u06CC\u0646",
-          "\u0627\u0631\u062F\u06CC\u0628\u0647\u0634\u062A",
-          "\u062E\u0631\u062F\u0627\u062F",
-          "\u062A\u06CC\u0631",
-          "\u0645\u0631\u062F\u0627\u062F",
-          "\u0634\u0647\u0631\u06CC\u0648\u0631",
-          "\u0645\u0647\u0631",
-          "\u0622\u0628\u0627\u0646",
-          "\u0622\u0630\u0631",
-          "\u062F\u06CC",
-          "\u0628\u0647\u0645\u0646",
-          "\u0627\u0633\u0641\u0646\u062F",
+          "فروردین",
+          "اردیبهشت",
+          "خرداد",
+          "تیر",
+          "مرداد",
+          "شهریور",
+          "مهر",
+          "آبان",
+          "آذر",
+          "دی",
+          "بهمن",
+          "اسفند",
         ];
         const mName = monthNames[parseInt(month, 10)] || month;
-        addNotification(null, null, "\u062A\u0627\u06CC\u06CC\u062F \u062A\u0642\u0648\u06CC\u0645 \u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627", `\u0646\u0645\u0627\u06CC\u0646\u062F\u0647 ${org ? org.org_name : ""} \u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627\u06CC ${mName}\u0645\u0627\u0647 ${year} \u0631\u0627 \u062A\u0627\u06CC\u06CC\u062F \u06A9\u0631\u062F.`);
+        addNotification(null, null, "تایید تقویم مناسبت‌ها", `نماینده ${org ? org.org_name : ""} مناسبت‌های ${mName}ماه ${year} را تایید کرد.`);
         const colName =
-          "\u0627\u0633\u062A\u0648\u0631\u06CC\u200C\u0647\u0627\u06CC \u0645\u0646\u0627\u0633\u0628\u062A\u06CC";
+          "استوری‌های مناسبتی";
         let existingCol = collections.find(
           (c) =>
             c.title === colName &&
@@ -416,9 +416,9 @@ subRouter.post(
             org_color: org ? org.color : "#4f46e5",
             org_logo: org ? org.logo_url : "",
             content_type:
-              "\u0627\u0633\u062A\u0648\u0631\u06CC \u06AF\u0631\u0627\u0641\u06CC\u06A9\u06CC",
+              "استوری گرافیکی",
             components_count: {
-              "\u0627\u0633\u062A\u0648\u0631\u06CC \u06AF\u0631\u0627\u0641\u06CC\u06A9\u06CC": 1,
+              "استوری گرافیکی": 1,
             },
             collection_id: collectionId,
             project_manager: "",
@@ -426,13 +426,13 @@ subRouter.post(
             publish_date: publishDate,
             publish_time: publishTime,
             stages: [
-              "\u0637\u0631\u0627\u062D\u06CC \u06AF\u0631\u0627\u0641\u06CC\u06A9\u06CC",
+              "طراحی گرافیکی",
             ],
             completed_stages: [],
             publish_platforms: [
-              "\u0627\u06CC\u0646\u0633\u062A\u0627\u06AF\u0631\u0627\u0645",
-              "\u062A\u0644\u06AF\u0631\u0627\u0645",
-              "\u0628\u0644\u0647",
+              "اینستاگرام",
+              "تلگرام",
+              "بله",
             ],
             platforms_published: [],
             status: "raw",
@@ -571,41 +571,41 @@ subRouter.get("/get_events", (req, res) => {
     const smartEvents = [
       {
         id: 1,
-        title: "\u0631\u0648\u0632 \u067E\u0632\u0634\u06A9",
-        event_date: "\u06F1 \u0634\u0647\u0631\u06CC\u0648\u0631",
+        title: "روز پزشک",
+        event_date: "۱ شهریور",
         calendar_type: "shamsi",
       },
       {
         id: 2,
-        title: "\u0639\u06CC\u062F \u0633\u0639\u06CC\u062F \u0641\u0637\u0631",
-        event_date: "\u06F1 \u0634\u0648\u0627\u0644",
+        title: "عید سعید فطر",
+        event_date: "۱ شوال",
         calendar_type: "ghamari",
       },
       {
         id: 3,
         title:
-          "\u0631\u0648\u0632 \u062C\u0647\u0627\u0646\u06CC \u06AF\u0631\u0627\u0641\u06CC\u06A9",
-        event_date: "27 \u0622\u0648\u0631\u06CC\u0644",
+          "روز جهانی گرافیک",
+        event_date: "27 آوریل",
         calendar_type: "miladi",
       },
       {
         id: 4,
-        title: "\u0634\u0628 \u06CC\u0644\u062F\u0627",
-        event_date: "\u06F3\u06F0 \u0622\u0630\u0631",
+        title: "شب یلدا",
+        event_date: "۳۰ آذر",
         calendar_type: "shamsi",
       },
       {
         id: 5,
         title:
-          "\u0631\u0648\u0632 \u062C\u0647\u0627\u0646\u06CC \u0639\u06A9\u0627\u0633\u06CC",
-        event_date: "19 \u0622\u06AF\u0648\u0633\u062A",
+          "روز جهانی عکاسی",
+        event_date: "19 آگوست",
         calendar_type: "miladi",
       },
       {
         id: 6,
         title:
-          "\u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0627\u0633\u06CC\u0633 \u0627\u0633\u062A\u0648\u062F\u06CC\u0648",
-        event_date: "\u06F1\u06F5 \u0645\u0647\u0631",
+          "سالگرد تاسیس استودیو",
+        event_date: "۱۵ مهر",
         calendar_type: "custom",
       },
     ];
@@ -645,7 +645,7 @@ subRouter.get("/get_events", (req, res) => {
         all_publish_dates,
         org_name: org
           ? org.org_name
-          : "\u0628\u062F\u0648\u0646 \u0633\u0627\u0632\u0645\u0627\u0646",
+          : "بدون سازمان",
         org_color: org ? org.color || "#4f46e5" : "#4f46e5",
         org_logo: org ? org.logo_url : "",
       };
@@ -662,7 +662,7 @@ subRouter.get("/get_events", (req, res) => {
       ...s,
       org_name: org
         ? org.org_name
-        : "\u0628\u062F\u0648\u0646 \u0633\u0627\u0632\u0645\u0627\u0646",
+        : "بدون سازمان",
       org_color: org ? org.color || "#4f46e5" : "#4f46e5",
       org_logo: org ? org.logo_url : "",
     };
@@ -703,7 +703,7 @@ subRouter.post("/unlock_events", (req, res) => {
     return res.json({
       status: "error",
       message:
-        "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0646\u0627\u0642\u0635 \u0627\u0633\u062A",
+        "اطلاعات ناقص است",
     });
   }
   const currentJDate = jalaali.toJalaali(new Date());
@@ -728,7 +728,7 @@ subRouter.post("/unlock_events", (req, res) => {
     clientSelections[existingSelectionIndex].unlock_reason = reason;
     const org = organizations.find((o) => o.id === numericOrgId);
     const orgName = org ? org.org_name : numericOrgId;
-    addNotification(null, numericOrgId.toString(), "\u0628\u0627\u0632 \u0634\u062F\u0646 \u0642\u0641\u0644 \u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627", reason);
+    addNotification(null, numericOrgId.toString(), "باز شدن قفل مناسبت‌ها", reason);
     const jalaaliDate = new Intl.DateTimeFormat("fa-IR", {
       year: "numeric",
       month: "2-digit",
@@ -742,7 +742,7 @@ subRouter.post("/unlock_events", (req, res) => {
           ? Math.max(...audit_logs.map((a) => a.id)) + 1
           : 1,
       username: req.session.user || "admin",
-      action: `\u0628\u0627\u0632\u06A9\u0631\u062F\u0646 \u0642\u0641\u0644 \u062A\u0642\u0648\u06CC\u0645 ${targetYear}/${targetMonth} \u0633\u0627\u0632\u0645\u0627\u0646 ${orgName} - \u062F\u0644\u06CC\u0644: ${reason || "\u0628\u062F\u0648\u0646 \u062F\u0644\u06CC\u0644"}`,
+      action: `بازکردن قفل تقویم ${targetYear}/${targetMonth} سازمان ${orgName} - دلیل: ${reason || "بدون دلیل"}`,
       ip:
         req.headers["x-forwarded-for"] ||
         req.socket.remoteAddress ||
@@ -753,13 +753,13 @@ subRouter.post("/unlock_events", (req, res) => {
     return res.json({
       status: "success",
       message:
-        "\u0642\u0641\u0644 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0628\u0627\u0632 \u0634\u062F",
+        "قفل با موفقیت باز شد",
     });
   } else {
     return res.json({
       status: "success",
       message:
-        "\u0642\u0641\u0644\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+        "قفلی برای این ماه یافت نشد",
     });
   }
 });
@@ -770,7 +770,7 @@ subRouter.post("/confirm_events", (req, res) => {
     return res.json({
       status: "error",
       message:
-        "\u0645\u0648\u0631\u062F\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u0634\u062F",
+        "موردی انتخاب نشد",
     });
   }
   const oId = parseInt(org_id as string) || 1;
@@ -780,27 +780,27 @@ subRouter.post("/confirm_events", (req, res) => {
     contents.push({
       id: contents.length > 0 ? Math.max(...contents.map((x) => x.id)) + 1 : 1,
       title:
-        "\u067E\u0633\u062A \u0645\u0646\u0627\u0633\u0628\u062A\u06CC: " + ev,
+        "پست مناسبتی: " + ev,
       org_id: oId,
       org_name: org ? org.org_name : "",
       org_color: org ? org.color : "#4f46e5",
       org_logo: org ? org.logo_url : "",
       content_type:
-        "\u067E\u0648\u0633\u062A\u0631 \u06AF\u0631\u0627\u0641\u06CC\u06A9\u06CC",
+        "پوستر گرافیکی",
       status: "raw",
       publish_date: "",
       publish_time: "",
     });
     if (req.session && req.session.user)
       addAuditLog(
-        req.session.user || "\u0633\u06CC\u0633\u062A\u0645",
-        "\u0627\u0641\u0632\u0648\u062F\u0646 \u0645\u062D\u062A\u0648\u0627/\u06A9\u0627\u0631\u062A \u062C\u062F\u06CC\u062F",
+        req.session.user || "سیستم",
+        "افزودن محتوا/کارت جدید",
         req.ip || "127.0.0.1",
       );
     if (req.session && req.session.user)
       addAuditLog(
-        req.session.user || "\u0633\u06CC\u0633\u062A\u0645",
-        "\u0627\u0641\u0632\u0648\u062F\u0646 \u0645\u062D\u062A\u0648\u0627/\u06A9\u0627\u0631\u062A \u062C\u062F\u06CC\u062F",
+        req.session.user || "سیستم",
+        "افزودن محتوا/کارت جدید",
         req.ip || "127.0.0.1",
       );
     count++;
@@ -810,7 +810,7 @@ subRouter.post("/confirm_events", (req, res) => {
     status: "success",
     message:
       count +
-      " \u0645\u0646\u0627\u0633\u0628\u062A \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062A\u0627\u06CC\u06CC\u062F \u0648 \u0628\u0647 \u0639\u0646\u0648\u0627\u0646 \u06A9\u0627\u0631\u062A \u062E\u0627\u0645 \u0628\u0647 \u062F\u067E\u0648\u06CC \u062A\u0648\u0644\u06CC\u062F \u0627\u0633\u062A\u0648\u062F\u06CC\u0648 \u0627\u0631\u0633\u0627\u0644 \u0634\u062F!",
+      " مناسبت با موفقیت تایید و به عنوان کارت خام به دپوی تولید استودیو ارسال شد!",
   });
 });
 

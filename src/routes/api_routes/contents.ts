@@ -40,7 +40,7 @@ subRouter.get("/get_depot_contents", (req, res) => {
       org_name: org
         ? org.org_name
         : c.org_name ||
-          "\u0628\u062F\u0648\u0646 \u0633\u0627\u0632\u0645\u0627\u0646",
+          "بدون سازمان",
       org_color: org ? org.color : c.org_color || "#3b82f6",
       org_logo: org ? org.logo_url : c.org_logo || "",
     };
@@ -91,7 +91,7 @@ subRouter.get("/get_my_projects", (req, res) => {
         org_name: org
           ? org.org_name
           : c.org_name ||
-            "\u0628\u062F\u0648\u0646 \u0633\u0627\u0632\u0645\u0627\u0646",
+            "بدون سازمان",
         org_color: org ? org.color : c.org_color || "#3b82f6",
         org_logo: org ? org.logo_url : c.org_logo || "",
       };
@@ -113,7 +113,7 @@ subRouter.get("/get_org_contents", (req, res) => {
     if (platformFilter) {
       if (
         platformFilter ===
-        "\u0628\u062F\u0648\u0646 \u067E\u0644\u062A\u0641\u0631\u0645"
+        "بدون پلتفرم"
       ) {
         if (c.publish_platforms && c.publish_platforms.length > 0) return false;
       } else {
@@ -141,7 +141,7 @@ subRouter.post(
       return res.json({
         status: "error",
         message:
-          "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0646\u0627\u0645\u0639\u062A\u0628\u0631",
+          "اطلاعات نامعتبر",
       });
     const warnings = [];
     const validUpdates = [];
@@ -155,11 +155,11 @@ subRouter.post(
       const cardOrg = organizations.find((o) => o.id === card.org_id);
       const expectedOrgName = cardOrg
         ? cardOrg.org_name.trim()
-        : "\u0628\u062F\u0648\u0646 \u0633\u0627\u0632\u0645\u0627\u0646";
+        : "بدون سازمان";
       const providedOrgName = item.org_name.trim();
       if (expectedOrgName !== providedOrgName) {
         warnings.push(
-          `\u0631\u062F\u06CC\u0641 ${rowNum}: \u0634\u0646\u0627\u0633\u0647 ${contentId} \u0645\u0631\u0628\u0648\u0637 \u0628\u0647 \xAB${expectedOrgName}\xBB \u0627\u0633\u062A\u060C \u0627\u0645\u0627 \u0634\u0645\u0627 \xAB${providedOrgName}\xBB \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0631\u062F\u0647\u200C\u0627\u06CC\u062F.`,
+          `ردیف ${rowNum}: شناسه ${contentId} مربوط به \xAB${expectedOrgName}\xBB است، اما شما \xAB${providedOrgName}\xBB را وارد کرده‌اید.`,
         );
       }
       validUpdates.push({ card, item });
@@ -168,7 +168,7 @@ subRouter.post(
       return res.json({
         status: "error",
         message:
-          "\u0647\u06CC\u0686 \u0631\u062F\u06CC\u0641 \u0645\u0639\u062A\u0628\u0631\u06CC \u0628\u0631\u0627\u06CC \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.",
+          "هیچ ردیف معتبری برای بروزرسانی یافت نشد.",
       });
     }
     if (warnings.length > 0 && !force) {
@@ -182,7 +182,7 @@ subRouter.post(
     saveDatabase();
     return res.json({
       status: "success",
-      message: `${validUpdates.length} \u0645\u062D\u062A\u0648\u0627 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0634\u062F\u0646\u062F.`,
+      message: `${validUpdates.length} محتوا با موفقیت برنامه‌ریزی شدند.`,
     });
   },
 );
@@ -237,7 +237,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0645\u062D\u062A\u0648\u0627 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0634\u062F",
+          "محتوا برنامه‌ریزی شد",
       });
     }
     return res
@@ -245,7 +245,7 @@ subRouter.post(
       .json({
         status: "error",
         message:
-          "\u06A9\u0627\u0631\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "کارت یافت نشد",
       });
   },
 );
@@ -274,8 +274,8 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
       batch_operations.unshift({
         id: "batch_" + Date.now(),
         type: "batch_delete",
-        title: "\u062D\u0630\u0641 \u0645\u062D\u062A\u0648\u0627",
-        description: `\u0645\u062D\u062A\u0648\u0627\u06CC "${itemToDelete.title}" \u062D\u0630\u0641 \u0634\u062F.`,
+        title: "حذف محتوا",
+        description: `محتوای "${itemToDelete.title}" حذف شد.`,
         deleted_bin_ids: [binId],
         user: usernameStr,
         timestamp: new Date().toISOString(),
@@ -286,7 +286,7 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
         table: "contents",
         item_title:
           itemToDelete.title ||
-          "\u0645\u062D\u062A\u0648\u0627\u06CC \u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646",
+          "محتوای بدون عنوان",
         data: itemToDelete,
         deleted_at: new Date().toISOString(),
         deleted_by:
@@ -299,7 +299,7 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
       return res.json({
         status: "success",
         message:
-          "\u0645\u062D\u062A\u0648\u0627 \u0628\u0647 \u0633\u0637\u0644 \u0632\u0628\u0627\u0644\u0647 \u0645\u0646\u062A\u0642\u0644 \u0634\u062F",
+          "محتوا به سطل زباله منتقل شد",
         bin_id: binId,
       });
     }
@@ -307,7 +307,7 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
       .status(404)
       .json({
         status: "error",
-        message: "\u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+        message: "یافت نشد",
       });
   }
   if (action === "update_status") {
@@ -321,14 +321,14 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
         id: "batch_" + Date.now(),
         type: "batch_edit",
         title:
-          "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0645\u062D\u062A\u0648\u0627",
-        description: `\u0648\u0636\u0639\u06CC\u062A "${card.title}" \u0627\u0632 ${card.status || "\u0648\u0631\u0648\u062F\u06CC \u062E\u0627\u0645"} \u0628\u0647 ${status} \u062A\u063A\u06CC\u06CC\u0631 \u06CC\u0627\u0641\u062A.`,
+          "تغییر وضعیت محتوا",
+        description: `وضعیت "${card.title}" از ${card.status || "ورودی خام"} به ${status} تغییر یافت.`,
         previous_states: [JSON.parse(JSON.stringify(card))],
         user: usernameStr,
         timestamp: new Date().toISOString(),
         is_undone: false,
       });
-      logContentActivity(card, req, `\u0648\u0636\u0639\u06CC\u062A \u0631\u0627 \u0627\u0632 ${card.status || "\u0648\u0631\u0648\u062F\u06CC \u062E\u0627\u0645"} \u0628\u0647 ${status} \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0627\u062F`);
+      logContentActivity(card, req, `وضعیت را از ${card.status || "ورودی خام"} به ${status} تغییر داد`);
       card.status = status;
       saveDatabase();
       const io = getIO();
@@ -342,11 +342,11 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
     id: contents.length > 0 ? Math.max(...contents.map((x) => x.id)) + 1 : 1,
     title:
       title ||
-      "\u0645\u062D\u062A\u0648\u0627\u06CC \u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646",
+      "محتوای بدون عنوان",
     org_id: org_id ? parseInt(org_id) : 1,
     content_type:
       type ||
-      "\u067E\u0648\u0633\u062A\u0631 \u06AF\u0631\u0627\u0641\u06CC\u06A9\u06CC",
+      "پوستر گرافیکی",
     project_manager: req.body.project_manager || null,
     assigned_colleagues: req.body.assigned_colleagues || [],
     stages: req.body.stages || [],
@@ -385,7 +385,7 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
   res.json({
     status: "success",
     message:
-      "\u0645\u062D\u062A\u0648\u0627\u06CC \u062C\u062F\u06CC\u062F \u0627\u0636\u0627\u0641\u0647 \u0634\u062F",
+      "محتوای جدید اضافه شد",
     data: newContent,
   });
 });
@@ -396,67 +396,67 @@ subRouter.get("/download_content_excel_template", (req, res) => {
     const sampleOrg =
       organizations && organizations.length > 0
         ? organizations[0].org_name
-        : "\u06A9\u06CC\u0627\u0646 \u062A\u06CC\u0645";
+        : "کیان تیم";
     const sampleManager =
       colleagues && colleagues.length > 0
         ? colleagues[0].full_name || colleagues[0].username
-        : "\u0645\u062F\u06CC\u0631 \u06A9\u0644 (Admin)";
+        : "مدیر کل (Admin)";
     const templateData = [
       {
-        "\u0639\u0646\u0648\u0627\u0646 \u0645\u062D\u062A\u0648\u0627":
-          "\u0648\u06CC\u062F\u06CC\u0648\u06CC \u0645\u0639\u0631\u0641\u06CC \u0645\u062D\u0635\u0648\u0644 \u062C\u062F\u06CC\u062F",
-        "\u0633\u0627\u0632\u0645\u0627\u0646 / \u0628\u0631\u0646\u062F":
+        "عنوان محتوا":
+          "ویدیوی معرفی محصول جدید",
+        "سازمان / برند":
           sampleOrg,
-        "\u0646\u0648\u0639 \u0645\u062D\u062A\u0648\u0627":
-          "\u067E\u0633\u062A \u0648\u06CC\u062F\u06CC\u0648\u06CC\u06CC",
-        "\u0645\u062F\u06CC\u0631 \u067E\u0631\u0648\u0698\u0647":
+        "نوع محتوا":
+          "پست ویدیویی",
+        "مدیر پروژه":
           sampleManager,
-        "\u0647\u0645\u06A9\u0627\u0631\u0627\u0646 (\u0628\u0627 \u06A9\u0627\u0645\u0627)":
-          "\u062A\u062F\u0648\u06CC\u0646\u06AF\u0631, \u0645\u062F\u06CC\u0631 \u062F\u0627\u062E\u0644\u06CC",
-        "\u0645\u0631\u0627\u062D\u0644 \u062A\u0648\u0644\u06CC\u062F (\u0628\u0627 \u06A9\u0627\u0645\u0627)":
-          "\u067E\u0698\u0648\u0647\u0634 \u0648 \u0633\u0646\u0627\u0631\u06CC\u0648, \u0641\u06CC\u0644\u0645\u0628\u0631\u062F\u0627\u0631\u06CC, \u062A\u062F\u0648\u06CC\u0646",
-        "\u0648\u0636\u0639\u06CC\u062A":
-          "\u0648\u0631\u0648\u062F\u06CC \u062E\u0627\u0645",
-        "\u062A\u0627\u0631\u06CC\u062E \u0627\u0646\u062A\u0634\u0627\u0631":
+        "همکاران (با کاما)":
+          "تدوینگر, مدیر داخلی",
+        "مراحل تولید (با کاما)":
+          "پژوهش و سناریو, فیلمبرداری, تدوین",
+        "وضعیت":
+          "ورودی خام",
+        "تاریخ انتشار":
           "1405/02/15",
-        "\u0633\u0627\u0639\u062A \u0627\u0646\u062A\u0634\u0627\u0631":
+        "ساعت انتشار":
           "18:00",
-        "\u06A9\u067E\u0634\u0646 / \u062A\u0648\u0636\u06CC\u062D\u0627\u062A":
-          "\u0633\u0646\u0627\u0631\u06CC\u0648\u06CC \u067E\u06CC\u0634\u0646\u0647\u0627\u062F\u06CC \u0628\u0631\u0627\u06CC \u0648\u06CC\u062F\u06CC\u0648\u06CC \u0645\u0639\u0631\u0641\u06CC \u0645\u062D\u0635\u0648\u0644 \u062C\u062F\u06CC\u062F...",
-        "\u0644\u06CC\u0646\u06A9 \u06A9\u0627\u0648\u0631":
+        "کپشن / توضیحات":
+          "سناریوی پیشنهادی برای ویدیوی معرفی محصول جدید...",
+        "لینک کاور":
           "https://example.com/cover1.jpg",
-        "\u0644\u06CC\u0646\u06A9 \u0648\u06CC\u062F\u06CC\u0648":
+        "لینک ویدیو":
           "https://example.com/video1.mp4",
       },
       {
-        "\u0639\u0646\u0648\u0627\u0646 \u0645\u062D\u062A\u0648\u0627":
-          "\u067E\u0648\u0633\u062A\u0631 \u062A\u062E\u0641\u06CC\u0641\u0627\u062A \u0648\u06CC\u0698\u0647 \u0641\u0635\u0644",
-        "\u0633\u0627\u0632\u0645\u0627\u0646 / \u0628\u0631\u0646\u062F":
+        "عنوان محتوا":
+          "پوستر تخفیفات ویژه فصل",
+        "سازمان / برند":
           sampleOrg,
-        "\u0646\u0648\u0639 \u0645\u062D\u062A\u0648\u0627":
-          "\u067E\u0648\u0633\u062A\u0631 \u06AF\u0631\u0627\u0641\u06CC\u06A9\u06CC",
-        "\u0645\u062F\u06CC\u0631 \u067E\u0631\u0648\u0698\u0647":
+        "نوع محتوا":
+          "پوستر گرافیکی",
+        "مدیر پروژه":
           sampleManager,
-        "\u0647\u0645\u06A9\u0627\u0631\u0627\u0646 (\u0628\u0627 \u06A9\u0627\u0645\u0627)":
-          "\u0637\u0631\u0627\u062D \u06AF\u0631\u0627\u0641\u06CC\u06A9",
-        "\u0645\u0631\u0627\u062D\u0644 \u062A\u0648\u0644\u06CC\u062F (\u0628\u0627 \u06A9\u0627\u0645\u0627)":
-          "\u0637\u0631\u0627\u062D\u06CC \u06AF\u0631\u0627\u0641\u06CC\u06A9",
-        "\u0648\u0636\u0639\u06CC\u062A": "\u062F\u0631 \u0635\u0641",
-        "\u062A\u0627\u0631\u06CC\u062E \u0627\u0646\u062A\u0634\u0627\u0631":
+        "همکاران (با کاما)":
+          "طراح گرافیک",
+        "مراحل تولید (با کاما)":
+          "طراحی گرافیک",
+        "وضعیت": "در صف",
+        "تاریخ انتشار":
           "1405/02/20",
-        "\u0633\u0627\u0639\u062A \u0627\u0646\u062A\u0634\u0627\u0631":
+        "ساعت انتشار":
           "12:00",
-        "\u06A9\u067E\u0634\u0646 / \u062A\u0648\u0636\u06CC\u062D\u0627\u062A":
-          "\u0637\u0631\u0627\u062D\u06CC \u0628\u0646\u0631 \u0648 \u067E\u0648\u0633\u062A\u0631 \u062A\u062E\u0641\u06CC\u0641\u0627\u062A...",
-        "\u0644\u06CC\u0646\u06A9 \u06A9\u0627\u0648\u0631": "",
-        "\u0644\u06CC\u0646\u06A9 \u0648\u06CC\u062F\u06CC\u0648": "",
+        "کپشن / توضیحات":
+          "طراحی بنر و پوستر تخفیفات...",
+        "لینک کاور": "",
+        "لینک ویدیو": "",
       },
     ];
     const wsData = xlsx.utils.json_to_sheet(templateData);
     xlsx.utils.book_append_sheet(
       wb,
       wsData,
-      "\u062F\u067E\u0648\u06CC \u0645\u062D\u062A\u0648\u0627",
+      "دپوی محتوا",
     );
     const availableOrgs = (organizations || [])
       .map((o) => o.org_name)
@@ -469,122 +469,122 @@ subRouter.get("/download_content_excel_template", (req, res) => {
       .join(" | ");
     const guideData = [
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0639\u0646\u0648\u0627\u0646 \u0645\u062D\u062A\u0648\u0627",
-        "\u0646\u0648\u0639": "\u0627\u062C\u0628\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0646\u0627\u0645 \u06CC\u0627 \u062A\u06CC\u062A\u0631 \u0627\u0635\u0644\u06CC \u06A9\u0627\u0631\u062A \u0645\u062D\u062A\u0648\u0627",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
-          "\u0647\u0631 \u0639\u0646\u0648\u0627\u0646 \u062F\u0644\u062E\u0648\u0627\u0647",
+        "نام ستون":
+          "عنوان محتوا",
+        "نوع": "اجباری",
+        "توضیحات و راهنما":
+          "نام یا تیتر اصلی کارت محتوا",
+        "مقادیر معتبر / موجود در سیستم":
+          "هر عنوان دلخواه",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0633\u0627\u0632\u0645\u0627\u0646 / \u0628\u0631\u0646\u062F",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0641\u0631\u0645\u0627 \u06CC\u0627 \u0628\u0631\u0646\u062F\u06CC \u06A9\u0647 \u0645\u062D\u062A\u0648\u0627 \u0645\u062A\u0639\u0644\u0642 \u0628\u0647 \u0622\u0646 \u0627\u0633\u062A",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
+        "نام ستون":
+          "سازمان / برند",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "نام کارفرما یا برندی که محتوا متعلق به آن است",
+        "مقادیر معتبر / موجود در سیستم":
           availableOrgs ||
-          "\u0646\u0627\u0645 \u0633\u0627\u0632\u0645\u0627\u0646\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645",
+          "نام سازمان‌های ثبت‌شده در سیستم",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0646\u0648\u0639 \u0645\u062D\u062A\u0648\u0627",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0641\u0631\u0645\u062A \u0648 \u0642\u0627\u0644\u0628 \u0645\u062D\u062A\u0648\u0627\u06CC \u062A\u0648\u0644\u06CC\u062F\u06CC",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
+        "نام ستون":
+          "نوع محتوا",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "فرمت و قالب محتوای تولیدی",
+        "مقادیر معتبر / موجود در سیستم":
           availableTypes ||
-          "\u067E\u0648\u0633\u062A\u0631 \u06AF\u0631\u0627\u0641\u06CC\u06A9\u06CC | \u067E\u0633\u062A \u0648\u06CC\u062F\u06CC\u0648\u06CC\u06CC | \u0645\u0642\u0627\u0644\u0647 \u0633\u0626\u0648 ...",
+          "پوستر گرافیکی | پست ویدیویی | مقاله سئو ...",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0645\u062F\u06CC\u0631 \u067E\u0631\u0648\u0698\u0647",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0646\u0627\u0645 \u06CC\u0627 \u0646\u0627\u0645\u06A9\u0627\u0631\u0628\u0631\u06CC \u0645\u062F\u06CC\u0631 \u067E\u0631\u0648\u0698\u0647 \u0645\u0633\u0626\u0648\u0644",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
+        "نام ستون":
+          "مدیر پروژه",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "نام یا نامکاربری مدیر پروژه مسئول",
+        "مقادیر معتبر / موجود در سیستم":
           availableColleagues ||
-          "\u0646\u0627\u0645 \u067E\u0631\u0633\u0646\u0644 \u0627\u0633\u062A\u0648\u062F\u06CC\u0648",
+          "نام پرسنل استودیو",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0647\u0645\u06A9\u0627\u0631\u0627\u0646 (\u0628\u0627 \u06A9\u0627\u0645\u0627)",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0627\u0633\u0627\u0645\u06CC \u0647\u0645\u06A9\u0627\u0631\u0627\u0646 \u062F\u0631\u06AF\u06CC\u0631 \u06A9\u0647 \u0628\u0627 \u06A9\u0627\u0645\u0627 (,) \u06CC\u0627 | \u0627\u0632 \u0647\u0645 \u062C\u062F\u0627 \u0634\u062F\u0647\u200C\u0627\u0646\u062F",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
+        "نام ستون":
+          "همکاران (با کاما)",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "اسامی همکاران درگیر که با کاما (,) یا | از هم جدا شده‌اند",
+        "مقادیر معتبر / موجود در سیستم":
           availableColleagues,
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0645\u0631\u0627\u062D\u0644 \u062A\u0648\u0644\u06CC\u062F (\u0628\u0627 \u06A9\u0627\u0645\u0627)",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0645\u0631\u0627\u062D\u0644 \u062E\u0637 \u062A\u0648\u0644\u06CC\u062F \u0645\u062D\u062A\u0648\u0627 \u06A9\u0647 \u0628\u0627 \u06A9\u0627\u0645\u0627 \u062C\u062F\u0627 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
-          "\u067E\u0698\u0648\u0647\u0634 \u0648 \u0633\u0646\u0627\u0631\u06CC\u0648 | \u0641\u06CC\u0644\u0645\u0628\u0631\u062F\u0627\u0631\u06CC | \u0639\u06A9\u0627\u0633\u06CC | \u0637\u0631\u0627\u062D\u06CC \u06AF\u0631\u0627\u0641\u06CC\u06A9 | \u062A\u062F\u0648\u06CC\u0646 | \u06AF\u0648\u06CC\u0646\u062F\u06AF\u06CC",
+        "نام ستون":
+          "مراحل تولید (با کاما)",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "مراحل خط تولید محتوا که با کاما جدا می‌شوند",
+        "مقادیر معتبر / موجود در سیستم":
+          "پژوهش و سناریو | فیلمبرداری | عکاسی | طراحی گرافیک | تدوین | گویندگی",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0648\u0636\u0639\u06CC\u062A",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0633\u062A\u0648\u0646 \u06A9\u0627\u0646\u0628\u0627\u0646 \u0645\u062D\u062A\u0648\u0627",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
-          "\u0648\u0631\u0648\u062F\u06CC \u062E\u0627\u0645 (raw) | \u062F\u0631 \u0635\u0641 (todo) | \u062F\u0631 \u062D\u0627\u0644 \u0627\u0646\u062C\u0627\u0645 (doing) | \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647 (done)",
+        "نام ستون":
+          "وضعیت",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "ستون کانبان محتوا",
+        "مقادیر معتبر / موجود در سیستم":
+          "ورودی خام (raw) | در صف (todo) | در حال انجام (doing) | تکمیل شده (done)",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u062A\u0627\u0631\u06CC\u062E \u0627\u0646\u062A\u0634\u0627\u0631",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u062A\u0627\u0631\u06CC\u062E \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0627\u0646\u062A\u0634\u0627\u0631 (\u0634\u0645\u0633\u06CC)",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
-          "\u0645\u062B\u0627\u0644: 1405/02/15",
+        "نام ستون":
+          "تاریخ انتشار",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "تاریخ برنامه‌ریزی انتشار (شمسی)",
+        "مقادیر معتبر / موجود در سیستم":
+          "مثال: 1405/02/15",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0633\u0627\u0639\u062A \u0627\u0646\u062A\u0634\u0627\u0631",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0632\u0645\u0627\u0646 \u0627\u0646\u062A\u0634\u0627\u0631",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
-          "\u0645\u062B\u0627\u0644: 18:00",
+        "نام ستون":
+          "ساعت انتشار",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "زمان انتشار",
+        "مقادیر معتبر / موجود در سیستم":
+          "مثال: 18:00",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u06A9\u067E\u0634\u0646 / \u062A\u0648\u0636\u06CC\u062D\u0627\u062A",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0645\u062A\u0646 \u06A9\u0627\u0645\u0644 \u06A9\u067E\u0634\u0646 \u06CC\u0627 \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u062A\u0648\u0644\u06CC\u062F",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
-          "\u0645\u062A\u0646 \u0622\u0632\u0627\u062F",
+        "نام ستون":
+          "کپشن / توضیحات",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "متن کامل کپشن یا توضیحات تولید",
+        "مقادیر معتبر / موجود در سیستم":
+          "متن آزاد",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0644\u06CC\u0646\u06A9 \u06A9\u0627\u0648\u0631",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0622\u062F\u0631\u0633 \u0627\u06CC\u0646\u062A\u0631\u0646\u062A\u06CC \u067E\u0648\u0633\u062A\u0631 \u06CC\u0627 \u062A\u0635\u0648\u06CC\u0631 \u06A9\u0627\u0648\u0631",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
-          "\u0622\u062F\u0631\u0633 \u06A9\u0627\u0645\u0644 HTTP/HTTPS",
+        "نام ستون":
+          "لینک کاور",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "آدرس اینترنتی پوستر یا تصویر کاور",
+        "مقادیر معتبر / موجود در سیستم":
+          "آدرس کامل HTTP/HTTPS",
       },
       {
-        "\u0646\u0627\u0645 \u0633\u062A\u0648\u0646":
-          "\u0644\u06CC\u0646\u06A9 \u0648\u06CC\u062F\u06CC\u0648",
-        "\u0646\u0648\u0639": "\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC",
-        "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u0631\u0627\u0647\u0646\u0645\u0627":
-          "\u0622\u062F\u0631\u0633 \u0627\u06CC\u0646\u062A\u0631\u0646\u062A\u06CC \u0641\u0627\u06CC\u0644 \u0648\u06CC\u062F\u06CC\u0648\u06CC\u06CC \u06CC\u0627 \u0636\u0645\u06CC\u0645\u0647",
-        "\u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631 / \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u0633\u06CC\u0633\u062A\u0645":
-          "\u0622\u062F\u0631\u0633 \u06A9\u0627\u0645\u0644 HTTP/HTTPS",
+        "نام ستون":
+          "لینک ویدیو",
+        "نوع": "اختیاری",
+        "توضیحات و راهنما":
+          "آدرس اینترنتی فایل ویدیویی یا ضمیمه",
+        "مقادیر معتبر / موجود در سیستم":
+          "آدرس کامل HTTP/HTTPS",
       },
     ];
     const wsGuide = xlsx.utils.json_to_sheet(guideData);
     xlsx.utils.book_append_sheet(
       wb,
       wsGuide,
-      "\u0631\u0627\u0647\u0646\u0645\u0627\u06CC \u0641\u0631\u0645\u062A",
+      "راهنمای فرمت",
     );
     const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
     res.setHeader(
@@ -604,7 +604,7 @@ subRouter.get("/download_content_excel_template", (req, res) => {
       .json({
         status: "error",
         message:
-          "\u062E\u0637\u0627 \u062F\u0631 \u0627\u06CC\u062C\u0627\u062F \u0646\u0645\u0648\u0646\u0647 \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644",
+          "خطا در ایجاد نمونه فایل اکسل",
       });
   }
 });
@@ -635,7 +635,7 @@ subRouter.post(
           .json({
             status: "error",
             message:
-              "\u0647\u06CC\u0686 \u0631\u062F\u06CC\u0641\u06CC \u062C\u0647\u062A \u0648\u0631\u0648\u062F \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",
+              "هیچ ردیفی جهت ورود پیدا نشد",
           });
       }
       const defaultOrgId =
@@ -646,21 +646,21 @@ subRouter.post(
       for (const raw of rawItems) {
         const title =
           raw[
-            "\u0639\u0646\u0648\u0627\u0646 \u0645\u062D\u062A\u0648\u0627"
+            "عنوان محتوا"
           ] ||
-          raw["\u0639\u0646\u0648\u0627\u0646"] ||
+          raw["عنوان"] ||
           raw["title"] ||
           raw["Title"] ||
-          raw["\u0646\u0627\u0645 \u0645\u062D\u062A\u0648\u0627"];
+          raw["نام محتوا"];
         if (!title || !title.toString().trim()) {
           continue;
         }
         const orgInput =
           raw[
-            "\u0633\u0627\u0632\u0645\u0627\u0646 / \u0628\u0631\u0646\u062F"
+            "سازمان / برند"
           ] ||
-          raw["\u0633\u0627\u0632\u0645\u0627\u0646"] ||
-          raw["\u06A9\u0627\u0631\u0641\u0631\u0645\u0627"] ||
+          raw["سازمان"] ||
+          raw["کارفرما"] ||
           raw["org_name"] ||
           raw["organization"] ||
           raw["org_id"];
@@ -679,12 +679,12 @@ subRouter.post(
           }
         }
         const typeInput =
-          raw["\u0646\u0648\u0639 \u0645\u062D\u062A\u0648\u0627"] ||
-          raw["\u0646\u0648\u0639"] ||
+          raw["نوع محتوا"] ||
+          raw["نوع"] ||
           raw["content_type"] ||
           raw["type"];
         let targetType =
-          "\u067E\u0648\u0633\u062A\u0631 \u06AF\u0631\u0627\u0641\u06CC\u06A9\u06CC";
+          "پوستر گرافیکی";
         if (typeInput) {
           const typeStr = typeInput.toString().trim();
           const foundType = (settings.content_type || []).find(
@@ -693,7 +693,7 @@ subRouter.post(
           targetType = foundType ? foundType.setting_key : typeStr;
         }
         const pmInput =
-          raw["\u0645\u062F\u06CC\u0631 \u067E\u0631\u0648\u0698\u0647"] ||
+          raw["مدیر پروژه"] ||
           raw["project_manager"] ||
           raw["manager"];
         let targetPM = null;
@@ -712,9 +712,9 @@ subRouter.post(
         }
         const colleaguesInput =
           raw[
-            "\u0647\u0645\u06A9\u0627\u0631\u0627\u0646 (\u0628\u0627 \u06A9\u0627\u0645\u0627)"
+            "همکاران (با کاما)"
           ] ||
-          raw["\u0647\u0645\u06A9\u0627\u0631\u0627\u0646"] ||
+          raw["همکاران"] ||
           raw["assigned_colleagues"] ||
           raw["team"];
         let assignedColleagues = [];
@@ -737,12 +737,12 @@ subRouter.post(
         }
         const stagesInput =
           raw[
-            "\u0645\u0631\u0627\u062D\u0644 \u062A\u0648\u0644\u06CC\u062F (\u0628\u0627 \u06A9\u0627\u0645\u0627)"
+            "مراحل تولید (با کاما)"
           ] ||
           raw[
-            "\u0645\u0631\u0627\u062D\u0644 \u062A\u0648\u0644\u06CC\u062F"
+            "مراحل تولید"
           ] ||
-          raw["\u0645\u0631\u0627\u062D\u0644"] ||
+          raw["مراحل"] ||
           raw["stages"];
         let stages = [];
         if (stagesInput) {
@@ -757,7 +757,7 @@ subRouter.post(
           }
         }
         const statusInput = (
-          raw["\u0648\u0636\u0639\u06CC\u062A"] ||
+          raw["وضعیت"] ||
           raw["status"] ||
           "raw"
         )
@@ -767,57 +767,57 @@ subRouter.post(
         let targetStatus = "raw";
         if (
           statusInput.includes("todo") ||
-          statusInput.includes("\u0635\u0641")
+          statusInput.includes("صف")
         ) {
           targetStatus = "todo";
         } else if (
           statusInput.includes("doing") ||
-          statusInput.includes("\u0627\u0646\u062C\u0627\u0645") ||
-          statusInput.includes("\u062A\u0648\u0644\u06CC\u062F")
+          statusInput.includes("انجام") ||
+          statusInput.includes("تولید")
         ) {
           targetStatus = "in_progress";
         } else if (
           statusInput.includes("done") ||
-          statusInput.includes("\u062A\u06A9\u0645\u06CC\u0644")
+          statusInput.includes("تکمیل")
         ) {
           targetStatus = "done";
-        } else if (statusInput.includes("\u0645\u0646\u062A\u0634\u0631")) {
+        } else if (statusInput.includes("منتشر")) {
           targetStatus = "published";
         } else if (
           statusInput.includes(
-            "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u0627\u0633\u062A\u0648\u062F\u06CC\u0648",
+            "ارزیابی استودیو",
           )
         ) {
           targetStatus = "review";
         } else if (
           statusInput.includes(
-            "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
+            "ارزیابی کارفرما",
           )
         ) {
           targetStatus = "client_review";
-        } else if (statusInput.includes("\u0627\u0635\u0644\u0627\u062D")) {
+        } else if (statusInput.includes("اصلاح")) {
           targetStatus = "needs_revision";
         } else if (
           statusInput.includes(
-            "\u062A\u0627\u06CC\u06CC\u062F \u06A9\u0627\u0631\u0641\u0631\u0645\u0627",
+            "تایید کارفرما",
           )
         ) {
           targetStatus = "approved_by_client";
         } else if (
           statusInput.includes(
-            "\u0622\u0645\u0627\u062F\u0647 \u0627\u0646\u062A\u0634\u0627\u0631",
+            "آماده انتشار",
           )
         ) {
           targetStatus = "ready_to_publish";
         } else if (
           statusInput.includes("raw") ||
-          statusInput.includes("\u062E\u0627\u0645")
+          statusInput.includes("خام")
         ) {
           targetStatus = "raw";
         }
         const publishDate = (
           raw[
-            "\u062A\u0627\u0631\u06CC\u062E \u0627\u0646\u062A\u0634\u0627\u0631"
+            "تاریخ انتشار"
           ] ||
           raw["publish_date"] ||
           ""
@@ -826,7 +826,7 @@ subRouter.post(
           .trim();
         const publishTime = (
           raw[
-            "\u0633\u0627\u0639\u062A \u0627\u0646\u062A\u0634\u0627\u0631"
+            "ساعت انتشار"
           ] ||
           raw["publish_time"] ||
           ""
@@ -835,24 +835,24 @@ subRouter.post(
           .trim();
         const caption = (
           raw[
-            "\u06A9\u067E\u0634\u0646 / \u062A\u0648\u0636\u06CC\u062D\u0627\u062A"
+            "کپشن / توضیحات"
           ] ||
-          raw["\u06A9\u067E\u0634\u0646"] ||
-          raw["\u062A\u0648\u0636\u06CC\u062D\u0627\u062A"] ||
+          raw["کپشن"] ||
+          raw["توضیحات"] ||
           raw["caption"] ||
           ""
         )
           .toString()
           .trim();
         const coverLink = (
-          raw["\u0644\u06CC\u0646\u06A9 \u06A9\u0627\u0648\u0631"] ||
+          raw["لینک کاور"] ||
           raw["cover_link"] ||
           ""
         )
           .toString()
           .trim();
         const videoLink = (
-          raw["\u0644\u06CC\u0646\u06A9 \u0648\u06CC\u062F\u06CC\u0648"] ||
+          raw["لینک ویدیو"] ||
           raw["video_link"] ||
           ""
         )
@@ -884,8 +884,8 @@ subRouter.post(
           id: "batch_" + Date.now(),
           type: "bulk_import",
           title:
-            "\u0648\u0631\u0648\u062F \u06AF\u0631\u0648\u0647\u06CC (\u0627\u06A9\u0633\u0644)",
-          description: `\u062A\u0639\u062F\u0627\u062F ${addedContents.length} \u0645\u062D\u062A\u0648\u0627 \u0628\u0647 \u0635\u0648\u0631\u062A \u06AF\u0631\u0648\u0647\u06CC \u0627\u0636\u0627\u0641\u0647 \u0634\u062F\u0646\u062F.`,
+            "ورود گروهی (اکسل)",
+          description: `تعداد ${addedContents.length} محتوا به صورت گروهی اضافه شدند.`,
           item_ids: addedContents.map((c) => c.id),
           user: username,
           timestamp: new Date().toISOString(),
@@ -895,7 +895,7 @@ subRouter.post(
       saveDatabase();
       return res.json({
         status: "success",
-        message: `${addedContents.length} \u0645\u062D\u062A\u0648\u0627\u06CC \u062C\u062F\u06CC\u062F \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0628\u0647 \u062F\u067E\u0648 \u0627\u0641\u0632\u0648\u062F\u0647 \u0634\u062F`,
+        message: `${addedContents.length} محتوای جدید با موفقیت به دپو افزوده شد`,
         imported_count: addedContents.length,
         data: addedContents,
       });
@@ -906,7 +906,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "\u062E\u0637\u0627 \u062F\u0631 \u067E\u0631\u062F\u0627\u0632\u0634 \u0641\u0627\u06CC\u0644 \u06CC\u0627 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0627\u06A9\u0633\u0644: " +
+            "خطا در پردازش فایل یا اطلاعات اکسل: " +
             err.message,
         });
     }
@@ -940,7 +940,7 @@ subRouter.post(
         .status(404)
         .json({
           status: "error",
-          message: "\u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          message: "یافت نشد",
         });
     const binItem = recycle_bin[idx];
     if (action === "restore") {
@@ -960,7 +960,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0634\u062F",
+          "با موفقیت بازیابی شد",
       });
     } else if (action === "delete_permanent") {
       recycle_bin.splice(idx, 1);
@@ -968,7 +968,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0628\u0631\u0627\u06CC \u0647\u0645\u06CC\u0634\u0647 \u062D\u0630\u0641 \u0634\u062F",
+          "برای همیشه حذف شد",
       });
     }
     res.status(400).json({ status: "error" });
@@ -1000,7 +1000,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0642\u0627\u0644\u0628\u200C\u0647\u0627 \u0627\u0636\u0627\u0641\u0647 \u0634\u062F\u0646\u062F",
+          "قالب‌ها اضافه شدند",
       });
     } else if (action === "add") {
       const newId =
@@ -1016,7 +1016,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0642\u0627\u0644\u0628 \u062C\u062F\u06CC\u062F \u0627\u0636\u0627\u0641\u0647 \u0634\u062F",
+          "قالب جدید اضافه شد",
       });
     } else if (action === "update") {
       const tpl = contentTemplates.find((t) => t.id === parseInt(template.id));
@@ -1027,13 +1027,13 @@ subRouter.post(
         return res.json({
           status: "success",
           message:
-            "\u0642\u0627\u0644\u0628 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F",
+            "قالب ویرایش شد",
         });
       }
       return res.json({
         status: "error",
         message:
-          "\u0642\u0627\u0644\u0628 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "قالب یافت نشد",
       });
     } else if (action === "delete") {
       const tplToDelete = contentTemplates.find(
@@ -1045,7 +1045,7 @@ subRouter.post(
           table: "contentTemplates",
           item_title:
             tplToDelete.title ||
-            "\u0642\u0627\u0644\u0628 \u0645\u062D\u062A\u0648\u0627",
+            "قالب محتوا",
           data: tplToDelete,
           deleted_at: new Date().toISOString(),
           deleted_by:
@@ -1059,7 +1059,7 @@ subRouter.post(
         return res.json({
           status: "success",
           message:
-            "\u0642\u0627\u0644\u0628 \u0628\u0647 \u0633\u0637\u0644 \u0632\u0628\u0627\u0644\u0647 \u0645\u0646\u062A\u0642\u0644 \u0634\u062F",
+            "قالب به سطل زباله منتقل شد",
         });
       }
       return res.status(404).json({ status: "error" });
@@ -1067,7 +1067,7 @@ subRouter.post(
     res.json({
       status: "error",
       message:
-        "\u0639\u0645\u0644\u06CC\u0627\u062A \u0646\u0627\u0645\u0639\u062A\u0628\u0631",
+        "عملیات نامعتبر",
     });
   },
 );
@@ -1086,7 +1086,7 @@ subRouter.post(
       return res.json({
         status: "error",
         message:
-          "\u0642\u0627\u0644\u0628 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "قالب یافت نشد",
       });
     let tplItems =
       typeof tpl.items === "string" ? JSON.parse(tpl.items) : tpl.items;
@@ -1112,7 +1112,7 @@ subRouter.post(
     res.json({
       status: "success",
       message:
-        "\u0642\u0627\u0644\u0628 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0627\u0639\u0645\u0627\u0644 \u0634\u062F",
+        "قالب با موفقیت اعمال شد",
     });
   },
 );
@@ -1156,7 +1156,7 @@ subRouter.post("/apply_template", checkPermission("depot"), (req, res) => {
     return res.json({
       status: "error",
       message:
-        "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.",
+        "اطلاعات نامعتبر است.",
     });
   }
   let checklist = { tasks: [] };
@@ -1169,7 +1169,7 @@ subRouter.post("/apply_template", checkPermission("depot"), (req, res) => {
       .json({
         status: "error",
         message:
-          "\u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0627\u0644\u06AF\u0648 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.",
+          "داده‌های الگو نامعتبر است.",
       });
   }
   let createdCount = 0;
@@ -1191,7 +1191,7 @@ subRouter.post("/apply_template", checkPermission("depot"), (req, res) => {
   saveDatabase().catch(console.error);
   res.json({
     status: "success",
-    message: `${createdCount} \u062A\u0633\u06A9 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062F\u0631 \u062F\u067E\u0648 \u0627\u06CC\u062C\u0627\u062F \u0634\u062F.`,
+    message: `${createdCount} تسک با موفقیت در دپو ایجاد شد.`,
   });
 });
 
@@ -1218,7 +1218,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u067E\u0644\u062A\u0641\u0631\u0645 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0634\u062F",
+          "اطلاعات پلتفرم به‌روزرسانی شد",
       });
     }
     return res
@@ -1226,7 +1226,7 @@ subRouter.post(
       .json({
         status: "error",
         message:
-          "\u06A9\u0627\u0631\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "کارت یافت نشد",
       });
   },
 );
@@ -1252,7 +1252,7 @@ subRouter.post(
       return res.json({
         status: "success",
         message:
-          "\u0648\u0636\u0639\u06CC\u062A \u067E\u0644\u062A\u0641\u0631\u0645 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0634\u062F",
+          "وضعیت پلتفرم به‌روزرسانی شد",
       });
     }
     return res
@@ -1260,7 +1260,7 @@ subRouter.post(
       .json({
         status: "error",
         message:
-          "\u06A9\u0627\u0631\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "کارت یافت نشد",
       });
   },
 );
@@ -1281,7 +1281,7 @@ subRouter.post("/toggle_stage", checkPermission("depot"), (req, res) => {
     return res.json({
       status: "success",
       message:
-        "\u0645\u0631\u062D\u0644\u0647 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0634\u062F",
+        "مرحله به‌روزرسانی شد",
     });
   }
   return res
@@ -1289,7 +1289,7 @@ subRouter.post("/toggle_stage", checkPermission("depot"), (req, res) => {
     .json({
       status: "error",
       message:
-        "\u06A9\u0627\u0631\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+        "کارت یافت نشد",
     });
 });
 
@@ -1317,7 +1317,7 @@ subRouter.post(
         return res.json({
           status: "error",
           message:
-            "\u0647\u06CC\u0686 \u0645\u062D\u062A\u0648\u0627\u06CC\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.",
+            "هیچ محتوایی انتخاب نشده است.",
         });
       }
       const username = req.session?.user?.username || "system";
@@ -1335,7 +1335,7 @@ subRouter.post(
               table: "contents",
               item_title:
                 itemToDelete.title ||
-                "\u0645\u062D\u062A\u0648\u0627\u06CC \u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646",
+                "محتوای بدون عنوان",
               data: itemToDelete,
               deleted_at: new Date().toISOString(),
               deleted_by: username,
@@ -1355,7 +1355,7 @@ subRouter.post(
             updatedCount++;
           } else if (action === "status" && status) {
             card.status = status;
-            logContentActivity(card, req, `\u0648\u0636\u0639\u06CC\u062A \u0631\u0627 \u062F\u0633\u062A\u0647\u062C\u0645\u0639\u06CC \u0628\u0647 ${status} \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0627\u062F`);
+            logContentActivity(card, req, `وضعیت را دستهجمعی به ${status} تغییر داد`);
             updatedCount++;
           } else if (action === "org") {
             const o = organizations.find((x) => x.id === parseInt(org_id));
@@ -1399,7 +1399,7 @@ subRouter.post(
             } else {
               card.collection_id = null;
             }
-            logContentActivity(card, req, `\u0645\u062C\u0645\u0648\u0639\u0647 \u0631\u0627 \u062F\u0633\u062A\u0647\u062C\u0645\u0639\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0627\u062F`);
+            logContentActivity(card, req, `مجموعه را دستهجمعی تغییر داد`);
             updatedCount++;
           } else if (action === "type" && content_type) {
             card.content_type = content_type;
@@ -1407,7 +1407,7 @@ subRouter.post(
             updatedCount++;
           } else if (action === "manager" && project_manager !== void 0) {
             card.project_manager = project_manager;
-            logContentActivity(card, req, `\u0645\u062F\u06CC\u0631 \u067E\u0631\u0648\u0698\u0647 \u0631\u0627 \u062F\u0633\u062A\u0647\u062C\u0645\u0639\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0627\u062F`);
+            logContentActivity(card, req, `مدیر پروژه را دستهجمعی تغییر داد`);
             updatedCount++;
           } else if (action === "team" && Array.isArray(team)) {
             const teamNames = [];
@@ -1426,7 +1426,7 @@ subRouter.post(
             updatedCount++;
           } else if (action === "components" && components) {
             card.components_count = components;
-            logContentActivity(card, req, `\u062A\u0639\u062F\u0627\u062F \u0627\u062C\u0632\u0627 \u0631\u0627 \u062F\u0633\u062A\u0647\u062C\u0645\u0639\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0627\u062F`);
+            logContentActivity(card, req, `تعداد اجزا را دستهجمعی تغییر داد`);
             updatedCount++;
           } else if (action === "shift_dates" && req.body.shift_days) {
             let shiftDays = parseInt(req.body.shift_days);
@@ -1454,8 +1454,8 @@ subRouter.post(
           batch_operations.unshift({
             id: batchId,
             type: "batch_delete",
-            title: "\u062D\u0630\u0641 \u06AF\u0631\u0648\u0647\u06CC",
-            description: `\u062A\u0639\u062F\u0627\u062F ${updatedCount} \u0645\u062D\u062A\u0648\u0627 \u062D\u0630\u0641 \u06AF\u0631\u0648\u0647\u06CC \u0634\u062F\u0646\u062F.`,
+            title: "حذف گروهی",
+            description: `تعداد ${updatedCount} محتوا حذف گروهی شدند.`,
             deleted_bin_ids: deletedBinIds,
             user: username,
             timestamp: new Date().toISOString(),
@@ -1466,8 +1466,8 @@ subRouter.post(
             id: batchId,
             type: "batch_edit",
             title:
-              "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06AF\u0631\u0648\u0647\u06CC",
-            description: `\u062A\u0639\u062F\u0627\u062F ${updatedCount} \u0645\u062D\u062A\u0648\u0627 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u06AF\u0631\u0648\u0647\u06CC \u0634\u062F\u0646\u062F.`,
+              "ویرایش گروهی",
+            description: `تعداد ${updatedCount} محتوا ویرایش گروهی شدند.`,
             previous_states: previousStates,
             user: username,
             timestamp: new Date().toISOString(),
@@ -1565,7 +1565,7 @@ subRouter.post(
         newlyAssigned.forEach((colName) => {
           const colUser = colleagues.find((c) => c.full_name === colName);
           if (colUser) {
-            addNotification("\u0627\u0631\u062C\u0627\u0639 \u06A9\u0627\u0631 \u062C\u062F\u06CC\u062F", `\u0645\u062D\u062A\u0648\u0627\u06CC "${card.title}" \u0628\u0647 \u0634\u0645\u0627 \u0627\u0631\u062C\u0627\u0639 \u062F\u0627\u062F\u0647 \u0634\u062F.`, "colleague", "");
+            addNotification("ارجاع کار جدید", `محتوای "${card.title}" به شما ارجاع داده شد.`, "colleague", "");
           }
         });
       }
@@ -1580,24 +1580,24 @@ subRouter.post(
         card.attachments = req.body.attachments;
       if (status !== void 0) {
         if (card.status !== "done" && status === "done") {
-          addNotification("\u0645\u062D\u062A\u0648\u0627\u06CC \u062C\u062F\u06CC\u062F \u0628\u0631\u0627\u06CC \u0628\u0631\u0631\u0633\u06CC", `\u0645\u062D\u062A\u0648\u0627\u06CC "${card.title}" \u062A\u0648\u0644\u06CC\u062F \u0634\u062F\u0647 \u0648 \u0622\u0645\u0627\u062F\u0647 \u0628\u0631\u0631\u0633\u06CC \u0648 \u062A\u0627\u06CC\u06CC\u062F \u0634\u0645\u0627\u0633\u062A.`, "client", "");
+          addNotification("محتوای جدید برای بررسی", `محتوای "${card.title}" تولید شده و آماده بررسی و تایید شماست.`, "client", "");
         }
         card.status = status;
       }
       if (title !== void 0 && oldTitle !== title)
         changes.push(
-          `\u0639\u0646\u0648\u0627\u0646 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0627\u062F`,
+          `عنوان را تغییر داد`,
         );
       if (publish_date !== void 0 && oldPublishDate !== publish_date)
         changes.push(
-          `\u062A\u0627\u0631\u06CC\u062E \u0627\u0646\u062A\u0634\u0627\u0631 \u0631\u0627 \u0627\u0632 ${oldPublishDate || "\u0646\u062F\u0627\u0634\u062A"} \u0628\u0647 ${publish_date} \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0627\u062F`,
+          `تاریخ انتشار را از ${oldPublishDate || "نداشت"} به ${publish_date} تغییر داد`,
         );
       if (status !== void 0 && oldStatus !== status)
         changes.push(
-          `\u0648\u0636\u0639\u06CC\u062A \u0631\u0627 \u0627\u0632 ${oldStatus || "\u0648\u0631\u0648\u062F\u06CC \u062E\u0627\u0645"} \u0628\u0647 ${status} \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0627\u062F`,
+          `وضعیت را از ${oldStatus || "ورودی خام"} به ${status} تغییر داد`,
         );
       if (changes.length > 0) {
-        logContentActivity(card, req, changes.join(" \u0648 "));
+        logContentActivity(card, req, changes.join(" و "));
       } else if (caption !== void 0 && oldTitle === title) {
         logContentActivity(card, req, "تغییر");
       } else if (
@@ -1611,7 +1611,7 @@ subRouter.post(
         stages !== void 0 ||
         req.body.components_count !== void 0
       ) {
-        logContentActivity(card, req, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u0645\u0634\u062E\u0635\u0627\u062A \u0645\u062D\u062A\u0648\u0627 \u0631\u0627 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0631\u062F");
+        logContentActivity(card, req, "جزئیات و مشخصات محتوا را ویرایش کرد");
       }
       saveDatabase();
       const io = getIO();
@@ -1623,7 +1623,7 @@ subRouter.post(
       .json({
         status: "error",
         message:
-          "\u06A9\u0627\u0631\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "کارت یافت نشد",
       });
   },
 );
@@ -1651,7 +1651,7 @@ subRouter.post("/undo_batch_operation", (req, res) => {
       .json({
         status: "error",
         message:
-          "\u0639\u0645\u0644\u06CC\u0627\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
+          "عملیات یافت نشد",
       });
   }
   let opUser =
@@ -1670,7 +1670,7 @@ subRouter.post("/undo_batch_operation", (req, res) => {
       .json({
         status: "error",
         message:
-          "\u0634\u0645\u0627 \u0645\u062C\u0627\u0632 \u0628\u0647 \u0644\u063A\u0648 \u0627\u06CC\u0646 \u0639\u0645\u0644\u06CC\u0627\u062A \u0646\u06CC\u0633\u062A\u06CC\u062F",
+          "شما مجاز به لغو این عملیات نیستید",
       });
   }
   if (operation.is_undone) {
@@ -1679,7 +1679,7 @@ subRouter.post("/undo_batch_operation", (req, res) => {
       .json({
         status: "error",
         message:
-          "\u0627\u06CC\u0646 \u0639\u0645\u0644\u06CC\u0627\u062A \u0642\u0628\u0644\u0627\u064B \u0644\u063A\u0648 \u0634\u062F\u0647 \u0627\u0633\u062A",
+          "این عملیات قبلاً لغو شده است",
       });
   }
   let errorMsg = null;
@@ -1710,7 +1710,7 @@ subRouter.post("/undo_batch_operation", (req, res) => {
           table: "contents",
           item_title:
             contents[idx].title ||
-            "\u0645\u062D\u062A\u0648\u0627\u06CC \u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646",
+            "محتوای بدون عنوان",
           data: contents[idx],
           deleted_at: new Date().toISOString(),
           deleted_by: username,
@@ -1730,7 +1730,7 @@ subRouter.post("/undo_batch_operation", (req, res) => {
     }
   } else {
     errorMsg =
-      "\u0646\u0648\u0639 \u0639\u0645\u0644\u06CC\u0627\u062A \u0628\u0631\u0627\u06CC \u0644\u063A\u0648 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u0646\u0645\u06CC\u200C\u0634\u0648\u062F";
+      "نوع عملیات برای لغو پشتیبانی نمی‌شود";
   }
   if (errorMsg) {
     return res.status(400).json({ status: "error", message: errorMsg });
@@ -1740,7 +1740,7 @@ subRouter.post("/undo_batch_operation", (req, res) => {
   res.json({
     status: "success",
     message:
-      "\u0639\u0645\u0644\u06CC\u0627\u062A \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0644\u063A\u0648 \u0634\u062F",
+      "عملیات با موفقیت لغو شد",
   });
 });
 
