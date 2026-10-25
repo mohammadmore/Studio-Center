@@ -1379,7 +1379,7 @@ function renderKanban(allItems) {
                 html += `
                     <div class="kanban-column column-collapsed" style="display:flex; flex-direction:column; overflow:hidden; cursor:pointer;" data-title="${escapeHtml(textStr)}" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)" onclick="if(this.classList.contains('column-collapsed') && !event.target.closest('button')) toggleColumnCollapse(this.querySelector('.col-toggle-btn'))">
                         <div class="column-header" onclick="handleHeaderClick(event, this)" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: rgba(128,128,128,0.02);">
-                            <span class="col-title-text">${escapeHtml(sConfig.title)}</span>
+                            <span class="col-title-text">${sConfig.title}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <div class="col-collapsed-icon" style="display:none; color: var(--text-gray);">${iconHtml}</div>
                                 <span id="col-count-${statusKey}-${index}" style="background: var(--text-gray); color: #ffffff; border-radius: 12px; padding: 2px 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold;">${window.toPersianDigits(colItems.length)}</span>
@@ -1432,7 +1432,7 @@ function renderKanban(allItems) {
             html += `
                 <div class="kanban-column column-collapsed" style="display:flex; flex-direction:column; overflow:hidden; cursor:pointer;" data-title="${escapeHtml(textStr)}" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)" onclick="if(this.classList.contains('column-collapsed') && !event.target.closest('button')) toggleColumnCollapse(this.querySelector('.col-toggle-btn'))">
                     <div class="column-header" onclick="handleHeaderClick(event, this)" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
-                            <span class="col-title-text">${escapeHtml(sConfig.title)}</span>
+                            <span class="col-title-text">${sConfig.title}</span>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <div class="col-collapsed-icon" style="display:none; color: var(--text-gray);">${iconHtml}</div>
                             <span id="col-count-${statusKey}" style="background: var(--primary-color, var(--primary-color)); color: #ffffff; border-radius: 50%; width: 44px; height: 44px; min-width: 44px; border: 2px solid var(--card-bg, #ffffff); box-shadow: 0 4px 10px rgba(0,0,0,0.18); display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 800;">${window.toPersianDigits(colItems.length)}</span>
