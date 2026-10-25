@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script nonce="<%= nonce %>">
+<script>
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -28,7 +28,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | کتابخانه دارایی‌های دیجیتال</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
-    <style nonce="<%= nonce %>">
+    <style>
         .media-controls {
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;
             background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);
@@ -130,7 +130,7 @@
     </div>
 
     <script src="assets/js/app.js?v=4"></script>
-    <script nonce="<%= nonce %>">
+    <script>
         // لود اولیه
         setTimeout( async () => {
             loadOrganizations();
@@ -301,7 +301,7 @@
     </div>
 </div>
 
-<script nonce="<%= nonce %>">
+<script>
     let pendingExcelMedia = [];
 
     function openExcelGuideModal() {

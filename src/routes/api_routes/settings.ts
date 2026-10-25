@@ -1,3 +1,5 @@
+import { collection, doc, deleteDoc, getDocs } from "firebase/firestore";
+import { db } from "../../db/index.js";
 import { body, validationResult } from "express-validator";
 import express from "express";
 import fs from "fs";
@@ -20,18 +22,7 @@ import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
 import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
 
 const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ALLOWED = ['font/woff', 'font/woff2', 'font/ttf', 'application/font-woff'];
-    const ext = file.originalname.split('.').pop().toLowerCase();
-    if (!ALLOWED.includes(file.mimetype) || !['woff', 'woff2', 'ttf'].includes(ext)) {
-      return cb(new Error('INVALID_FILE_TYPE'));
-    }
-    cb(null, true);
-  },
-});
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
@@ -190,7 +181,7 @@ subRouter.post("/save_token", checkPermission("settings"), (req, res) => {
   const { org_id, org_name, platform_name, account_username, access_token } =
     req.body;
   tokens.push({
-    id: tokens.length > 0 ? tokens.reduce((m, t) => (t.id > m ? t.id : m), 0) + 1 : 1,
+    id: tokens.length > 0 ? Math.max(...tokens.map((t) => t.id)) + 1 : 1,
     org_id: parseInt(org_id),
     org_name,
     platform_name,
@@ -212,13 +203,11 @@ subRouter.get("/get_tokens", (req, res) => {
 });
 
 subRouter.get("/get_fonts", async (req, res) => {
-  
-    let fontDocs: string[] = [];
-    const fontsDir = path.join(process.cwd(), 'center', 'assets', 'fonts');
-    if (fs.existsSync(fontsDir)) {
-      fontDocs = fs.readdirSync(fontsDir);
-    }
-
+  let fontDocs = [];
+  try {
+    const q = await getDocs(collection(db, "fonts"));
+    q.forEach((d) => fontDocs.push(d.id));
+  } catch (e) {}
   let fontsList = [
     {
       filename: "vazirmatn",
@@ -379,11 +368,7 @@ subRouter.post(
   async (req, res) => {
     const { filename } = req.body;
     try {
-      
-    const fontsDir = path.join(process.cwd(), 'center', 'assets', 'fonts');
-    const fp = path.join(fontsDir, filename);
-    if (fs.existsSync(fp)) fs.unlinkSync(fp);
-
+      await deleteDoc(doc(db, "fonts", filename));
       if (settings.fonts && settings.fonts[filename]) {
         delete settings.fonts[filename];
       }

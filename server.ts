@@ -1,32 +1,3 @@
-import 'dotenv/config';
-import fs from "fs";
-import path from "path";
-
-const envExamplePath = path.join(process.cwd(), '.env.example');
-if (fs.existsSync(envExamplePath)) {
-  const exampleEnv = fs.readFileSync(envExamplePath, 'utf8');
-  const lines = exampleEnv.split('\n');
-  const requiredKeys: string[] = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line === '# REQUIRED' && i + 1 < lines.length) {
-      const nextLine = lines[i + 1].trim();
-      if (nextLine && !nextLine.startsWith('#')) {
-        requiredKeys.push(nextLine.split('=')[0].trim());
-      }
-    }
-  }
-    
-  const missingKeys = requiredKeys.filter(key => !process.env[key] && process.env[key] !== '');
-  if (missingKeys.length > 0) {
-    const errorMsg = `CRITICAL ERROR: Missing required environment variables: ${missingKeys.join(', ')}`;
-    console.error(errorMsg);
-    fs.appendFileSync('boot-error.log', `[${new Date().toISOString()}] ${errorMsg}\n`);
-    process.exit(1);
-  }
-}
-
 import { initSocket } from "./src/utils/socket.js";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
@@ -45,13 +16,10 @@ import "express-async-errors";
 import rateLimit from "express-rate-limit";
 import hpp from "hpp";
 import morgan from "morgan";
+import xss from "xss-clean";
 import bcrypt from "bcrypt";
 import { body, validationResult } from "express-validator";
-import session from "express-session";
-import FileStoreFactory from "session-file-store";
-import helmet from "helmet";
-import crypto from "crypto";
-const FileStore = FileStoreFactory(session as any);
+import cookieSession from "cookie-session";
 import path from "path";
 import multer from "multer";
 import xlsx from "xlsx";
@@ -59,72 +27,25 @@ import * as jalaali from "jalaali-js";
 import momentHijri from "moment-hijri";
 
 
+import { db } from "./src/db/index.js";
+import { doc, getDoc, setDoc, deleteDoc, getDocs, collection } from "firebase/firestore";
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-    if (!ALLOWED.includes(file.mimetype)) {
-      return cb(new Error('INVALID_FILE_TYPE'));
-    }
-    cb(null, true);
-  },
+  limits: { fileSize: 800 * 1024 }, // Limited to < 1MB for Firestore
 });
-
-
 process.on("uncaughtException", (err) => {
-  console.error("UNCAUGHT EXCEPTION:", err);
-  if (err.message && err.message.includes('EADDRINUSE')) {
-     process.exit(1);
-  }
+  console.error("UNCAUGHT EXCEPTION! Shutting down...", err);
+  process.exit(1);
 });
-
-let rejectionCount = 0;
-let rejectionResetTimer = null;
 process.on("unhandledRejection", (err) => {
-  rejectionCount++;
-  if (!rejectionResetTimer) {
-    rejectionResetTimer = setTimeout(() => {
-      rejectionCount = 0;
-      rejectionResetTimer = null;
-    }, 60000);
-  }
-  console.error("UNHANDLED REJECTION:", err);
-  try {
-    fs.appendFileSync('error.log', `[${new Date().toISOString()}] UNHANDLED REJECTION: ${(err as any)?.stack || err}\n`);
-  } catch (e) {}
-  if (rejectionCount > 10) {
-    console.error("Too many unhandled rejections. Exiting...");
-    process.exit(1);
-  }
+  console.error("UNHANDLED REJECTION! Shutting down...", err);
+  process.exit(1);
 });
-
-
 const app = express();
 app.use(compression());
-const PORT = process.env.NODE_ENV === 'development' ? 3000 : (process.env.PORT || 3000);
-app.use((req, res, next) => {
-  res.locals.nonce = crypto.randomBytes(16).toString("base64");
-  next();
-});
-const isPreviewEnv = process.env.ALLOW_PREVIEW_FRAME === 'true';
-app.use(helmet({
-  frameguard: isPreviewEnv ? false : { action: 'sameorigin' },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", (req, res: any) => `'nonce-${res.locals.nonce}'`, "'unsafe-eval'"],
-      styleSrc: ["'self'", (req, res: any) => `'nonce-${res.locals.nonce}'`],
-      fontSrc: ["'self'", "data:"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: [],
-      "frame-ancestors": isPreviewEnv ? ["'self'", "https://aistudio.google.com"] : ["'self'"],
-    }
-  }
-}));
+const PORT = 3e3;
+app.use(xss());
 app.use(hpp());
 app.use(morgan("combined"));
 const limiter = rateLimit({
@@ -182,11 +103,12 @@ import { roles, colleagues, organizations, collections, contents, settings, leav
 
 
 
+const router = express.Router();
 const BASE_URL = process.env.BASE_URL || "/";
 function addAuditLog(username, action, ip) {
   audit_logs.unshift({
     id:
-      audit_logs.length > 0 ? audit_logs.reduce((m, x) => (x.id > m ? x.id : m), 0) + 1 : 1,
+      audit_logs.length > 0 ? Math.max(...audit_logs.map((x) => x.id)) + 1 : 1,
     username,
     action,
     ip,
@@ -258,7 +180,7 @@ function addNotification(
 ) {
   const newId =
     notifications.length > 0
-      ? notifications.reduce((m, n) => (n.id > m ? n.id : m), 0) + 1
+      ? Math.max(...notifications.map((n) => n.id)) + 1
       : 1;
   const jalaaliDate = new Intl.DateTimeFormat("fa-IR", {
     year: "numeric",
@@ -303,33 +225,23 @@ loadDatabase().catch(console.error);
 // }, 5000);
 
 app.set("trust proxy", 1);
-
+app.use((req, res, next) => {
+  req.headers["x-forwarded-proto"] = "https";
+  next();
+});
 app.set("view engine", "ejs");
 console.log("VIEW ENGINE SET TO:", app.get("view engine"));
-
-const sessionStore = new FileStore({
-  path: path.join(process.cwd(), 'sessions'),
-  ttl: 7 * 24 * 60 * 60,
-  retries: 0
-});
-
-app.use((session as any)({
-  store: sessionStore,
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  name: 'sid',
-  cookie: {
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    secure: process.env.FORCE_HTTPS === 'true',
-    sameSite: 'lax'
-  },
-  rolling: true
-}));
-
 app.use(express.static(path.join(process.cwd(), "center")));
-
+app.use(
+  cookieSession({
+    name: 'session',
+    keys: [process.env.SESSION_SECRET || 'fallback_secret_key_for_asva_studio'],
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    secure: true,
+    sameSite: "none",
+    httpOnly: true,
+  }),
+);
 app.use((req, res, next) => {
   res.locals.STUDIO_NAME =
     settings?.studio_info?.name ||
@@ -352,7 +264,7 @@ app.use((req, res, next) => {
         if (font && font !== "vazirmatn") {
           injection = `
 <link rel="preload" href="/fonts/${font}" as="font" crossorigin>
-<style nonce="${res.locals.nonce}">
+<style>
 @font-face {
     font-family: 'AppCustomFont';
     src: url('/fonts/${font}');
@@ -364,7 +276,7 @@ app.use((req, res, next) => {
 </style>`;
         } else {
           injection = `
-<style nonce="${res.locals.nonce}">
+<style>
 *, body, button, input, select, textarea, .asva-menu-link, .btn-primary, .btn-outline, .form-control, .s-tab, .tab-btn {
     font-family: 'Vazirmatn', Tahoma, sans-serif !important;
 }
@@ -557,17 +469,12 @@ function getPermissionCategories() {
 }
 
 import viewsRouter from "./src/routes/views.js";
-app.get("/healthz", (req, res) => res.send("OK"));
 app.use("/api", apiRouter);
 app.use("/", mediaRouter);
 app.use("/", viewsRouter);
-
-app.all('/api/*', (req, res) => res.status(404).json({status: 'error', message: 'API route not found'}));
 app.get("*", (req, res) => {
-  if (req.session?.user) return res.redirect("/");
-  res.redirect("/login");
+  res.redirect("/");
 });
-
 setInterval(() => {
   const today = new Intl.DateTimeFormat("fa-IR", {
     year: "numeric",
@@ -610,21 +517,21 @@ setInterval(() => {
   });
   if (triggered) saveDatabase();
 }, 6e4 * 60);
+app.use(BASE_URL || "/", router);
 app.use((err, req, res, next) => {
-  if (err && err.message === 'INVALID_FILE_TYPE') {
-    return res.status(400).json({ status: 'error', message: 'فرمت فایل نامعتبر است' });
-  }
   console.error("Unhandled Error:", err);
-  res.status(500).json({
-    status: "error",
-    message: "خطای سرور رخ داده است. لطفا دوباره تلاش کنید."
-  });
+  res
+    .status(500)
+    .json({
+      status: "error",
+      message:
+        "\u062E\u0637\u0627\u06CC \u0633\u0631\u0648\u0631 \u0631\u062E \u062F\u0627\u062F\u0647 \u0627\u0633\u062A. \u0644\u0637\u0641\u0627 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F.",
+    });
 });
 
 
 const httpServer = createServer(app);
 initSocket(httpServer);
-// @ts-ignore
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

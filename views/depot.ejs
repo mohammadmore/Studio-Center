@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script nonce="<%= nonce %>">
+<script>
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -31,7 +31,7 @@
     <link href="assets/css/style.css?v=6" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css?v=6">
     <script src="assets/js/jalaali.min.js?v=2"></script>
-<script nonce="<%= nonce %>">
+<script>
 
     function handleHeaderClick(event, headerElem) {
         if (event.target.closest('button')) return; 
@@ -479,7 +479,7 @@ async function submitBatchEdit() {
     <link rel="stylesheet" href="/assets/css/jalalidatepicker.min.css">
     <script src="/assets/js/jalalidatepicker.min.js" defer></script>
     
-    <style nonce="<%= nonce %>">
+    <style>
         .kanban-board { display: flex; gap: 24px; padding: 24px 0; overflow-x: auto; height: calc(100vh - 180px); }
         
         /* حالت گسترده ستون‌ها (تمام صفحه) */
@@ -920,7 +920,7 @@ async function submitBatchEdit() {
     </div>
 </div>
 
-<script nonce="<%= nonce %>">
+<script>
     let checkJdpInterval = setInterval(function() {
         if (typeof jalaliDatepicker !== 'undefined') {
             clearInterval(checkJdpInterval);
@@ -1322,7 +1322,7 @@ function renderKanban(allItems) {
         let orgsList = Array.from(orgsSet).sort();
         
         let html = `
-            <style nonce="<%= nonce %>">
+            <style>
                 .swimlane-container { border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px; background: var(--bg-color); overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
                 .swimlane-header { background: var(--card-bg); padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; transition: background 0.2s; }
                 .swimlane-header:hover { background: rgba(128,128,128,0.02); }
@@ -1919,7 +1919,7 @@ setTimeout(() => {
 <!-- Modal for Platform Metrics -->
 
 
-<script nonce="<%= nonce %>">
+<script>
 ;
 
 
@@ -1967,7 +1967,7 @@ function autoFillPmDate() {
     <%- include('partials/content-identity') %>
 
 <!-- Mobile specific overrides guaranteed to apply -->
-<style nonce="<%= nonce %>">
+<style>
 @media (max-width: 768px) {
     /* Hide expand button */
     .kanban-board button.col-expand-btn,

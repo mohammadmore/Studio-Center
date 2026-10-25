@@ -21,18 +21,7 @@ import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
 import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
 
 const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ALLOWED = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
-    const ext = file.originalname.split('.').pop().toLowerCase();
-    if (!ALLOWED.includes(file.mimetype) || !['xlsx', 'xls'].includes(ext)) {
-      return cb(new Error('INVALID_FILE_TYPE'));
-    }
-    cb(null, true);
-  },
-});
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
@@ -100,7 +89,7 @@ subRouter.post(
             org = {
               id:
                 organizations.length > 0
-                  ? organizations.reduce((m, o) => (o.id > m ? o.id : m), 0) + 1
+                  ? Math.max(...organizations.map((o) => o.id)) + 1
                   : 1,
               org_name: cleanOrgName,
               color: "#4f46e5",
@@ -114,7 +103,7 @@ subRouter.post(
         const newEvent = {
           id:
             smartEventsBank.length > 0
-              ? smartEventsBank.reduce((m, e) => (e.id > m ? e.id : m), 0) + 1
+              ? Math.max(...smartEventsBank.map((e) => e.id)) + 1
               : 1,
           title: title.toString(),
           calendar_type,
@@ -183,7 +172,7 @@ subRouter.post(
       const newEvent = {
         id:
           smartEventsBank.length > 0
-            ? smartEventsBank.reduce((m, e) => (e.id > m ? e.id : m), 0) + 1
+            ? Math.max(...smartEventsBank.map((e) => e.id)) + 1
             : 1,
         title,
         description,
@@ -345,7 +334,7 @@ subRouter.post(
         if (!existingCol) {
           existingCol = {
             id: collections.length
-              ? collections.reduce((m, c) => (c.id > m ? c.id : m), 0) + 1
+              ? Math.max(...collections.map((c) => c.id)) + 1
               : 1,
             title: colName,
             org_id: numericOrgId,
@@ -390,7 +379,7 @@ subRouter.post(
           if (alreadyExists) return;
           const newId =
             contents.length > 0
-              ? contents.reduce((m, c) => (c.id > m ? c.id : m), 0) + 1
+              ? Math.max(...contents.map((c) => c.id)) + 1
               : 1;
           const bankEv = smartEventsBank.find(
             (e) =>
@@ -750,7 +739,7 @@ subRouter.post("/unlock_events", (req, res) => {
     audit_logs.unshift({
       id:
         audit_logs.length > 0
-          ? audit_logs.reduce((m, a) => (a.id > m ? a.id : m), 0) + 1
+          ? Math.max(...audit_logs.map((a) => a.id)) + 1
           : 1,
       username: req.session.user || "admin",
       action: `\u0628\u0627\u0632\u06A9\u0631\u062F\u0646 \u0642\u0641\u0644 \u062A\u0642\u0648\u06CC\u0645 ${targetYear}/${targetMonth} \u0633\u0627\u0632\u0645\u0627\u0646 ${orgName} - \u062F\u0644\u06CC\u0644: ${reason || "\u0628\u062F\u0648\u0646 \u062F\u0644\u06CC\u0644"}`,
@@ -789,7 +778,7 @@ subRouter.post("/confirm_events", (req, res) => {
   let count = 0;
   selected_events.forEach((ev) => {
     contents.push({
-      id: contents.length > 0 ? contents.reduce((m, x) => (x.id > m ? x.id : m), 0) + 1 : 1,
+      id: contents.length > 0 ? Math.max(...contents.map((x) => x.id)) + 1 : 1,
       title:
         "\u067E\u0633\u062A \u0645\u0646\u0627\u0633\u0628\u062A\u06CC: " + ev,
       org_id: oId,

@@ -21,17 +21,7 @@ import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
 import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
 
 const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-    if (!ALLOWED.includes(file.mimetype)) {
-      return cb(new Error('INVALID_FILE_TYPE'));
-    }
-    cb(null, true);
-  },
-});
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
@@ -47,7 +37,7 @@ subRouter.post(
       ),
     body("password")
       .trim()
-      .isLength({ min: 3 })
+      .isLength({ min: 6 })
       .withMessage(
         "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0627\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0628\u0627\u0634\u062F",
       ),
@@ -130,8 +120,6 @@ subRouter.post(
     } else if (orgUser) {
       req.session.user = {
         id: orgUser.id,
-        org_id: orgUser.id,
-        username: orgUser.username,
         full_name: orgUser.org_name,
         role_id: "client",
         avatar_url: orgUser.logo_url,
@@ -163,9 +151,8 @@ subRouter.get("/logout", (req, res) => {
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
   res.set('Surrogate-Control', 'no-store');
-  req.session.destroy((err) => {
-    res.redirect("/");
-  });
+  req.session = null;
+  res.redirect("/");
 });
 
 subRouter.get("/check_auth", async (req, res) => {

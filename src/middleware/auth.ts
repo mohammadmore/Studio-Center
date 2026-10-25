@@ -1,4 +1,3 @@
-import { organizations } from '../store/state.js';
 import { colleagues } from "../store/state.js";
 import { getRoleInfoForUser } from "../utils/authUtils.js";
 
@@ -16,8 +15,7 @@ export const clientAuthGuard = __name((req: any, res: any, next: any) => {
   if (session.user.role_id !== "client") {
     return res.redirect("/dashboard");
   }
-  
-  const orgs = organizations || [];
+  const orgs = req.app.locals.organizations || [];
   const org = orgs.find(
     (o: any) =>
       o.id == session.user.org_id ||

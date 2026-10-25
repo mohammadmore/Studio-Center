@@ -1,5 +1,5 @@
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<style nonce="<%= nonce %>">
+<style>
 .collab-hub {
     margin-top: 24px;
     border-top: 1px solid var(--border-color);
@@ -51,17 +51,10 @@
     font-size: 0.95rem;
 }
 </style>
-<script nonce="<%= nonce %>">
+<script>
 (function() {
     // 1. Initialize Socket
-    const socket = io({
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-      transports: ['polling', 'websocket']
-    });
+    const socket = io();
     
     // 2. Request Notification Permission
     let notificationsEnabled = false;

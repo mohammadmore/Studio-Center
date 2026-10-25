@@ -20,17 +20,7 @@ import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
 import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
 
 const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-    if (!ALLOWED.includes(file.mimetype)) {
-      return cb(new Error('INVALID_FILE_TYPE'));
-    }
-    cb(null, true);
-  },
-});
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
@@ -69,7 +59,7 @@ subRouter.get(
 subRouter.post("/save_expense", checkPermission("finance"), (req, res) => {
   const { description, project_name, amount, date } = req.body;
   const newExp = {
-    id: expenses.length > 0 ? expenses.reduce((m, x) => (x.id > m ? x.id : m), 0) + 1 : 1,
+    id: expenses.length > 0 ? Math.max(...expenses.map((x) => x.id)) + 1 : 1,
     description:
       description ||
       "\u0647\u0632\u06CC\u0646\u0647 \u062A\u0648\u0644\u06CC\u062F \u0645\u062D\u062A\u0648\u0627",
@@ -134,7 +124,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       }
     }
     const newId =
-      invoices.length > 0 ? invoices.reduce((m, i) => (i.id > m ? i.id : m), 0) + 1 : 1;
+      invoices.length > 0 ? Math.max(...invoices.map((i) => i.id)) + 1 : 1;
     const inv = {
       id: newId,
       invoice_number: 1e3 + newId,

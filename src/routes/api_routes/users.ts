@@ -21,17 +21,7 @@ import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
 import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
 
 const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-    if (!ALLOWED.includes(file.mimetype)) {
-      return cb(new Error('INVALID_FILE_TYPE'));
-    }
-    cb(null, true);
-  },
-});
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
@@ -51,7 +41,7 @@ subRouter.post(
     const { action, id, name, permissions } = req.body;
     if (action === "add") {
       const newRole = {
-        id: roles.length > 0 ? roles.reduce((m, r) => (r.id > m ? r.id : m), 0) + 1 : 1,
+        id: roles.length > 0 ? Math.max(...roles.map((r) => r.id)) + 1 : 1,
         name,
         permissions: permissions || [],
       };
@@ -407,7 +397,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), async (req, res) =>
   }
   const newUser = {
     id:
-      colleagues.length > 0 ? colleagues.reduce((m, c) => (c.id > m ? c.id : m), 0) + 1 : 1,
+      colleagues.length > 0 ? Math.max(...colleagues.map((c) => c.id)) + 1 : 1,
     username: username || email || "user_" + Date.now(),
     passwordHash: password ? bcrypt.hashSync(password, 10) : "",
     full_name:
@@ -498,7 +488,7 @@ subRouter.post("/save_user", checkPermission("add-user"), async (req, res) => {
   }
   const newUser = {
     id:
-      colleagues.length > 0 ? colleagues.reduce((m, c) => (c.id > m ? c.id : m), 0) + 1 : 1,
+      colleagues.length > 0 ? Math.max(...colleagues.map((c) => c.id)) + 1 : 1,
     username: targetUsername,
     passwordHash: password ? bcrypt.hashSync(password, 10) : "",
     full_name:

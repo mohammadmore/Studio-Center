@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script nonce="<%= nonce %>">
+<script>
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -26,7 +26,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | فاکتور</title>
     <link href="assets/css/style.css?v=6" rel="stylesheet">
-        <style nonce="<%= nonce %>">
+        <style>
         .invoice-paper { background: var(--card-bg); padding: 40px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .invoice-header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }
         .invoice-header-left { text-align: left; }
@@ -68,7 +68,7 @@
         }
     </style>
     
-    <style nonce="<%= nonce %>">
+    <style>
         .multi-select { position: relative; width: 100%; text-align: right; z-index: 1; }
         .multi-select-display { min-height: 34px; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 8px; cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: var(--bg-color); color: var(--text-dark); }
         .multi-select-dropdown { display: none; position: absolute; top: 100%; right: 0; left: 0; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; z-index: 9999; max-height: 200px; overflow-y: auto; padding: 5px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); margin-top: 4px; }
@@ -76,7 +76,7 @@
         .multi-select-dropdown label:hover { background: rgba(128, 128, 128, 0.1); }
         .multi-select-tag { background: rgba(79, 70, 229, 0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap; border: 1px solid rgba(79, 70, 229, 0.2); }
     </style>
-    <script nonce="<%= nonce %>">
+    <script>
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.multi-select')) {
                 document.querySelectorAll('.multi-select-dropdown').forEach(el => {
@@ -519,7 +519,7 @@
         </div>
     </div>
 
-    <script nonce="<%= nonce %>">
+    <script>
         function toPersianDigits(num) {
             if(!num && num !== 0) return '';
             const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
@@ -1059,7 +1059,7 @@
         </div>
     </div>
 
-    <script nonce="<%= nonce %>">
+    <script>
                                 function printInvoice() {
             const invoicePaper = document.getElementById('invoicePaper');
             const previewContainer = document.getElementById('previewContainer');

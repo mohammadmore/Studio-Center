@@ -1,41 +1,74 @@
 import express from "express";
-import path from "path";
 import fs from "fs";
+import path from "path";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../db/index.js";
+import { LRUCache } from 'lru-cache';
 
-const router = express.Router();
+const mediaRouter = express.Router();
+const fontCache: Record<string, Buffer> = {};
+const uploadCache = new LRUCache<string, any>({
+  max: 100,
+  maxSize: 50 * 1024 * 1024,
+  sizeCalculation: (val) => val.buffer ? val.buffer.length : 1
+});
 
-router.get("/font/:filename", async (req, res) => {
-  const filename = req.params.filename;
+mediaRouter.get("/fonts/:filename", async (req, res) => {
   try {
-    const fontsDir = path.join(process.cwd(), 'center', 'assets', 'fonts');
-    const fp = path.join(fontsDir, filename);
-    if (fs.existsSync(fp)) {
-      res.setHeader("Content-Type", "font/" + filename.split('.').pop());
+    const filename = req.params.filename;
+    const filePath = path.join(process.cwd(), "public", "fonts", filename);
+    if (fs.existsSync(filePath)) {
+      res.setHeader("Content-Type", "font/ttf");
       res.setHeader("Cache-Control", "public, max-age=31536000");
-      return res.sendFile(fp);
+      return res.sendFile(filePath);
     }
-    return res.status(404).send("Font not found");
-  } catch (error) {
-    console.error("Error serving font:", error);
-    res.status(500).send("Error serving font");
+    if (fontCache[filename]) {
+      res.setHeader("Content-Type", "font/ttf");
+      res.setHeader("Cache-Control", "public, max-age=31536000");
+      return res.send(fontCache[filename]);
+    }
+    const docSnap = await getDoc(doc(db, "fonts", filename));
+    if (docSnap.exists()) {
+      const fileData = docSnap.data();
+      const buffer = Buffer.from(fileData.data, "base64");
+      fontCache[filename] = buffer;
+      res.setHeader("Content-Type", "font/ttf");
+      res.setHeader("Cache-Control", "public, max-age=31536000");
+      return res.send(buffer);
+    }
+    res.status(404).send("Not found");
+  } catch (e) {
+    res.status(500).send("Error");
   }
 });
 
-router.get("/uploads/:filename", async (req, res) => {
-  const filename = req.params.filename;
+mediaRouter.get("/uploads/:filename", async (req, res) => {
   try {
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-    const fp = path.join(uploadsDir, filename);
-    if (fs.existsSync(fp)) {
-      res.setHeader("Content-Type", "image/" + filename.split('.').pop());
+    const filename = req.params.filename;
+    const filePath = path.join(process.cwd(), "public", "uploads", filename);
+    if (fs.existsSync(filePath)) {
       res.setHeader("Cache-Control", "public, max-age=31536000");
-      return res.sendFile(fp);
+      return res.sendFile(filePath);
     }
-    return res.status(404).send("File not found");
-  } catch (error) {
-    console.error("Error serving upload:", error);
-    res.status(500).send("Error serving upload");
+    if (uploadCache.has(filename)) {
+      const cached = uploadCache.get(filename);
+      res.setHeader("Content-Type", cached.mime);
+      res.setHeader("Cache-Control", "public, max-age=31536000");
+      return res.send(cached.buffer);
+    }
+    const docSnap = await getDoc(doc(db, "uploads", filename));
+    if (docSnap.exists()) {
+      const fileData = docSnap.data();
+      const buffer = Buffer.from(fileData.data, "base64");
+      uploadCache.set(filename, { buffer, mime: fileData.mime });
+      res.setHeader("Content-Type", fileData.mime);
+      res.setHeader("Cache-Control", "public, max-age=31536000");
+      return res.send(buffer);
+    }
+    res.status(404).send("Not found");
+  } catch (e) {
+    res.status(500).send("Error");
   }
 });
 
-export default router;
+export default mediaRouter;

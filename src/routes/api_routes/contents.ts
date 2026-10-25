@@ -21,18 +21,7 @@ import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
 import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
 
 const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ALLOWED = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
-    const ext = file.originalname.split('.').pop().toLowerCase();
-    if (!ALLOWED.includes(file.mimetype) || !['xlsx', 'xls'].includes(ext)) {
-      return cb(new Error('INVALID_FILE_TYPE'));
-    }
-    cb(null, true);
-  },
-});
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
@@ -235,7 +224,7 @@ subRouter.post(
             ...card,
             id:
               contents.length > 0
-                ? contents.reduce((m, x) => (x.id > m ? x.id : m), 0) + 1
+                ? Math.max(...contents.map((x) => x.id)) + 1
                 : 1,
             publish_date: nextDate,
             is_recurrence_instance: true,
@@ -350,7 +339,7 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
   const batchId = "batch_" + Date.now();
   const newContent = {
     batch_id: batchId,
-    id: contents.length > 0 ? contents.reduce((m, x) => (x.id > m ? x.id : m), 0) + 1 : 1,
+    id: contents.length > 0 ? Math.max(...contents.map((x) => x.id)) + 1 : 1,
     title:
       title ||
       "\u0645\u062D\u062A\u0648\u0627\u06CC \u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646",
@@ -384,7 +373,7 @@ subRouter.post("/add_content", checkPermission("depot"), (req, res) => {
       );
       const extraCard = {
         ...newContent,
-        id: contents.reduce((m, x) => (x.id > m ? x.id : m), 0) + 1,
+        id: Math.max(...contents.map((x) => x.id)) + 1,
         publish_date: nextDate,
         is_recurrence_instance: true,
         parent_id: newContent.id,
@@ -653,7 +642,7 @@ subRouter.post(
         organizations && organizations.length > 0 ? organizations[0].id : 1;
       const addedContents = [];
       let startId =
-        contents.length > 0 ? contents.reduce((m, x) => (x.id > m ? x.id : m), 0) + 1 : 1;
+        contents.length > 0 ? Math.max(...contents.map((x) => x.id)) + 1 : 1;
       for (const raw of rawItems) {
         const title =
           raw[
@@ -998,7 +987,7 @@ subRouter.post(
     if (action === "batch_add") {
       let currentId =
         contentTemplates.length > 0
-          ? contentTemplates.reduce((m, t) => (t.id > m ? t.id : m), 0) + 1
+          ? Math.max(...contentTemplates.map((t) => t.id)) + 1
           : 1;
       templates.forEach((tpl) => {
         contentTemplates.push({
@@ -1016,7 +1005,7 @@ subRouter.post(
     } else if (action === "add") {
       const newId =
         contentTemplates.length > 0
-          ? contentTemplates.reduce((m, t) => (t.id > m ? t.id : m), 0) + 1
+          ? Math.max(...contentTemplates.map((t) => t.id)) + 1
           : 1;
       contentTemplates.push({
         id: newId,
@@ -1106,7 +1095,7 @@ subRouter.post(
     tplItems.forEach((item) => {
       const newId =
         templateSuggestions.length > 0
-          ? templateSuggestions.reduce((m, s) => (s.id > m ? s.id : m), 0) + 1
+          ? Math.max(...templateSuggestions.map((s) => s.id)) + 1
           : 1;
       templateSuggestions.push({
         id: newId,
@@ -1188,7 +1177,7 @@ subRouter.post("/apply_template", checkPermission("depot"), (req, res) => {
     contents.unshift({
       id:
         contents.length > 0
-          ? contents.reduce((m, c) => (c.id > m ? c.id : m), 0) + 1 + createdCount
+          ? Math.max(...contents.map((c) => c.id)) + 1 + createdCount
           : 1,
       title: `${template.template_name} - ${taskName}`,
       org_id: org.id,
@@ -1393,7 +1382,7 @@ subRouter.post(
               if (!existingCol) {
                 existingCol = {
                   id: collections.length
-                    ? collections.reduce((m, c) => (c.id > m ? c.id : m), 0) + 1
+                    ? Math.max(...collections.map((c) => c.id)) + 1
                     : 1,
                   title: colName,
                   org_id: card.org_id,
@@ -1548,7 +1537,7 @@ subRouter.post(
         ) {
           const newCol = {
             id: collections.length
-              ? collections.reduce((m, c) => (c.id > m ? c.id : m), 0) + 1
+              ? Math.max(...collections.map((c) => c.id)) + 1
               : 1,
             title: collection_id,
             org_id: card.org_id,

@@ -20,17 +20,7 @@ import { apiAuthGuard, checkPermission } from "../../middleware/auth.js";
 import { saveDatabase } from "../../store/db.js"; // Assuming saveDatabase will be here, or we can just import it from server.js for now.
 
 const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-    if (!ALLOWED.includes(file.mimetype)) {
-      return cb(new Error('INVALID_FILE_TYPE'));
-    }
-    cb(null, true);
-  },
-});
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // We need to handle `__dirname` in ESM if used, but let's just dump the code first.
 const subRouter = express.Router();
@@ -200,7 +190,7 @@ subRouter.post("/save_leave", checkPermission("leaves"), async (req, res) => {
     
     
     
-    const maxId = leaves.length > 0 ? leaves.reduce((m, x) => (x.id > m ? x.id : m), 0) : 0;
+    const maxId = leaves.length > 0 ? Math.max(...leaves.map(x => x.id || 0)) : 0;
     const newLeave = {
       id: isNaN(maxId) ? 1 : maxId + 1,
       user_id,

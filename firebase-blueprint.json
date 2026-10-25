@@ -1,0 +1,33 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user or colleague",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "role": { "type": "string" }
+      }
+    },
+    "Role": {
+      "title": "Role",
+      "description": "User role definitions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Users collection"
+    },
+    "roles": {
+      "schema": { "$ref": "#/entities/Role" },
+      "description": "Roles collection"
+    }
+  }
+}

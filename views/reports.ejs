@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script nonce="<%= nonce %>">
+<script>
 // Global Network Error Handler
 (function() {
     if (window._fetchIntercepted) return;
@@ -118,7 +118,7 @@
     <script src="assets/js/html2pdf.bundle.min.js?v=2"></script>
     <script src="/assets/js/xlsx.full.min.js"></script>
     <script src="assets/js/jalaali.min.js?v=2"></script>
-    <style nonce="<%= nonce %>">
+    <style>
         
         .dashboard-container {
             padding: 30px;
@@ -318,7 +318,7 @@
     <link rel="stylesheet" href="/assets/css/jalalidatepicker.min.css">
     <script src="/assets/js/jalalidatepicker.min.js"></script>
 
-<script nonce="<%= nonce %>">
+<script>
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -607,7 +607,7 @@
         </div>
     </main>
 
-    <script nonce="<%= nonce %>">
+    <script>
         let typeChartInst = null;
         let statusChartInst = null;
         let platformChartInst = null;
