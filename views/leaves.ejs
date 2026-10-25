@@ -141,7 +141,7 @@
                 
                 if (data.users && data.users.length > 0) {
                     data.users.forEach(u => {
-                        const opt = `<option value="${u.id}">${u.full_name}</option>`;
+                        const opt = `<option value="${u.id}">${escapeHtml(u.full_name)}</option>`;
                         userSelect.innerHTML += opt;
                         subSelect.innerHTML += opt;
                     });
@@ -186,7 +186,7 @@
                         }
                     }
                 } else {
-                    listEl.innerHTML = `<div style="text-align: center; color: var(--error-color); padding: 20px;">${result.message || 'خطا در دریافت اطلاعات'}</div>`;
+                    listEl.innerHTML = `<div style="text-align: center; color: var(--error-color); padding: 20px;">${escapeHtml(result.message || 'خطا در دریافت اطلاعات')}</div>`;
                 }
             } catch(e) {
                 console.error(e);
@@ -226,22 +226,22 @@
                         <div class="leave-card-header">
                             <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-dark); display: flex; align-items: center; gap: 6px;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> 
-                                ${l.user_name}
+                                ${escapeHtml(l.user_name)}
                             </div>
                             <div>${badge}</div>
                         </div>
                         <div class="leave-card-body">
                             <div>
                                 <strong style="display:block; margin-bottom: 5px; color: var(--text-dark);">جانشین:</strong>
-                                ${l.substitute_name}
+                                ${escapeHtml(l.substitute_name)}
                             </div>
                             <div>
                                 <strong style="display:block; margin-bottom: 5px; color: var(--text-dark);">از تاریخ:</strong>
-                                <span dir="ltr">${window.toPersianDigits ? window.toPersianDigits(l.start_date) : l.start_date}</span>
+                                <span dir="ltr">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(l.start_date) : l.start_date)}</span>
                             </div>
                             <div>
                                 <strong style="display:block; margin-bottom: 5px; color: var(--text-dark);">تا تاریخ:</strong>
-                                <span dir="ltr">${window.toPersianDigits ? window.toPersianDigits(l.end_date) : l.end_date}</span>
+                                <span dir="ltr">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(l.end_date) : l.end_date)}</span>
                             </div>
                         </div>
                         ${actions ? `<div class="leave-card-footer">${actions}</div>` : ''}

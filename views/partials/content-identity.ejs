@@ -133,8 +133,8 @@ function openContentDetails(id, editMode = false) {
                 const isChecked = completed.includes(s) ? 'checked' : '';
                 const style = isChecked ? 'text-decoration: line-through; color: #94a3b8;' : 'color: var(--text-gray); font-weight: bold;';
                 return `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(128, 128, 128, 0.05); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);" onclick="event.stopPropagation()">
-                            <input type="checkbox" ${isChecked} onchange="toggleStage(${item.id}, '${s}', this.checked)">
-                            <span style="${style}">${s}</span>
+                            <input type="checkbox" ${escapeHtml(isChecked)} onchange="toggleStage(${item.id}, ${jsAttr(s)}, this.checked)">
+                            <span style="${style}">${escapeHtml(s)}</span>
                         </label>`;
             }).join('') + 
             '</div>';
@@ -145,7 +145,7 @@ function openContentDetails(id, editMode = false) {
     if (item.project_manager) {
         const mgr = (window.allColleagues || []).find(c => c.full_name === item.project_manager);
         const mAvatar = mgr && mgr.avatar_url ? mgr.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
-        mgrDisplay = `<span style="display:inline-flex; align-items:center; gap:4px;"><img alt="" src="${mAvatar}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${item.project_manager}</span>`;
+        mgrDisplay = `<span style="display:inline-flex; align-items:center; gap:4px;"><img alt="" src="${escapeHtml(mAvatar)}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${escapeHtml(item.project_manager)}</span>`;
     }
     
     let teamHtml = '<div style="color: #94a3b8; font-size: 0.9rem;">تیمی اختصاص نیافته</div>';
@@ -153,7 +153,7 @@ function openContentDetails(id, editMode = false) {
         teamHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px;">' + item.assigned_colleagues.map(name => {
             const coll = (window.allColleagues || []).find(c => c.full_name === name);
             const avatar = coll && coll.avatar_url ? coll.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
-            return `<span style="display:inline-flex; align-items:center; gap:4px; background: rgba(128, 128, 128, 0.1); padding:2px 8px; border-radius:12px; font-size:0.85rem; border:1px solid var(--border-color);"><img alt="" src="${avatar}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${name}</span>`;
+            return `<span style="display:inline-flex; align-items:center; gap:4px; background: rgba(128, 128, 128, 0.1); padding:2px 8px; border-radius:12px; font-size:0.85rem; border:1px solid var(--border-color);"><img alt="" src="${escapeHtml(safeUrl(avatar))}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${escapeHtml(name)}</span>`;
         }).join('') + '</div>';
     }
     
@@ -166,9 +166,9 @@ function openContentDetails(id, editMode = false) {
             if (platformSetting && platformSetting.logo_url) {
                 const isSvg = platformSetting.logo_url.toLowerCase().includes('.svg') || platformSetting.logo_url.toLowerCase().includes('data:image/svg');
                 if (isSvg) {
-                    logoHtml = `<span style="display:inline-block; width:16px; height:16px; background-color:currentColor; -webkit-mask-image:url('${platformSetting.logo_url}'); -webkit-mask-size:contain; -webkit-mask-repeat:no-repeat; -webkit-mask-position:center; mask-image:url('${platformSetting.logo_url}'); mask-size:contain; mask-repeat:no-repeat; mask-position:center; vertical-align:middle; margin-right:4px;"></span>`;
+                    logoHtml = `<span style="display:inline-block; width:16px; height:16px; background-color:currentColor; -webkit-mask-image:url('${escapeHtml(safeUrl(platformSetting.logo_url))}'); -webkit-mask-size:contain; -webkit-mask-repeat:no-repeat; -webkit-mask-position:center; mask-image:url('${escapeHtml(safeUrl(platformSetting.logo_url))}'); mask-size:contain; mask-repeat:no-repeat; mask-position:center; vertical-align:middle; margin-right:4px;"></span>`;
                 } else {
-                    logoHtml = `<img alt="" src="${platformSetting.logo_url}" style="width:16px; height:16px; object-fit:cover; border-radius:50%; vertical-align:middle; margin-right:4px;" loading="lazy">`;
+                    logoHtml = `<img alt="" src="${escapeHtml(safeUrl(platformSetting.logo_url))}" style="width:16px; height:16px; object-fit:cover; border-radius:50%; vertical-align:middle; margin-right:4px;" loading="lazy">`;
                 }
             }
             
@@ -179,8 +179,8 @@ function openContentDetails(id, editMode = false) {
             else if (pmStatus === 'scheduled') { bgColor = '#fef3c7'; color = '#d97706'; badge = `<span style="font-size:0.7rem; margin-left:4px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg></span>`; }
             const style = `cursor:pointer; background: ${bgColor}; color: ${color}; padding: 2px 8px; border-radius: 4px; font-size: 1rem; display:inline-flex; align-items:center; border: 1px solid transparent; transition: 0.2s;`;
             
-            return `<span style="${style}" title="${p}" onclick="event.stopPropagation(); togglePlatformPublished(${item.id}, '${p}', '${pmStatus}')">
-                ${badge}${logoHtml || (platformSetting && platformSetting.icon ? platformSetting.icon : '')} <span style="margin-right: 4px; font-size: 0.85rem;">${p}</span>
+            return `<span style="${style}" title="${escapeHtml(p)}" onclick="event.stopPropagation(); togglePlatformPublished(${item.id}, ${jsAttr(p)}, ${jsAttr(pmStatus)})">
+                ${badge}${logoHtml || (platformSetting && platformSetting.icon ? platformSetting.icon : '')} <span style="margin-right: 4px; font-size: 0.85rem;">${escapeHtml(p)}</span>
             </span>`;
         }).join(' ');
     }
@@ -204,8 +204,8 @@ function openContentDetails(id, editMode = false) {
                 return `
                     <div style="display:inline-flex; align-items:center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 6px; margin-bottom: 4px;">
                         ${icon}
-                        <a href="${link}" target="_blank" style="color: var(--primary-color); text-decoration: none; font-size:0.9rem; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${title} ${links.length > 1 ? (idx + 1) : ''}</a>
-                        <button onclick="navigator.clipboard.writeText('${link}'); showToast('کپی شد')" style="background:none; border:none; cursor:pointer; font-size:1rem;" title="کپی لینک">
+                        <a href="${escapeHtml(safeUrl(link))}" target="_blank" style="color: var(--primary-color); text-decoration: none; font-size:0.9rem; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(title)} ${links.length > 1 ? (idx + 1) : ''}</a>
+                        <button onclick="navigator.clipboard.writeText(${jsAttr(safeUrl(link))}); showToast('کپی شد')" style="background:none; border:none; cursor:pointer; font-size:1rem;" title="کپی لینک">
                             <svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg>
                         </button>
                     </div>
@@ -219,7 +219,7 @@ function openContentDetails(id, editMode = false) {
         <div style="background: rgba(128, 128, 128, 0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display:flex; flex-direction:column; gap: 8px;">
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
                 <div style="display:flex; align-items:center; gap: 12px;">
-                    <span style="font-weight:bold; min-width: 100px;">${title}:</span>
+                    <span style="font-weight:bold; min-width: 100px;">${escapeHtml(title)}:</span>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         ${linksHtml}
                     </div>
@@ -239,7 +239,7 @@ function openContentDetails(id, editMode = false) {
 
             <div id="edit_${field}" style="display:none; width:100%; margin-top:8px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
                 <label style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 4px; display: block;">ویرایش تمامی لینک‌ها (با فاصله یا خط جدید جدا کنید):</label>
-                <textarea id="input_${field}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-bottom:8px; resize: vertical; min-height: 60px;" placeholder="لینک‌ها را وارد کنید">${value}</textarea>
+                <textarea id="input_${field}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-bottom:8px; resize: vertical; min-height: 60px;" placeholder="لینک‌ها را وارد کنید">${escapeHtml(value)}</textarea>
                 <button class="btn-primary"  onclick="saveField(${item.id}, '${field}', document.getElementById('input_${field}').value)" style="">ثبت تغییرات</button>
                 <button type="button" class="btn-outline" onclick="document.getElementById('edit_${field}').style.display='none'">انصراف</button>
             </div>
@@ -281,12 +281,12 @@ function openContentDetails(id, editMode = false) {
 
     let stageStepperHtml = `
         <div style="display:flex; justify-content:space-between; align-items:center; background: rgba(128, 128, 128, 0.05); padding:12px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:16px;">
-            <button ${prevStatus ? '' : 'disabled'} onclick="confirmStageTransition(${item.id}, '${prevStatus ? prevStatus.id : ''}', '${prevStatus ? (prevStatus.plainName || prevStatus.name || '').replace(/'/g, "\\'") : ''}')" style="background:${prevStatus ? 'white' : 'transparent'}; border:1px solid ${prevStatus ? 'var(--border-color)' : 'transparent'}; padding:8px 12px; border-radius:6px; cursor:${prevStatus ? 'pointer' : 'default'}; color: var(--text-gray); display:flex; align-items:center; gap:4px; font-size:0.9rem;">
+            <button ${prevStatus ? '' : 'disabled'} onclick="confirmStageTransition(${item.id}, '${prevStatus ? prevStatus.id : ''}', ${jsAttr(prevStatus ? (prevStatus.plainName || prevStatus.name || '') : '')})" style="background:${prevStatus ? 'white' : 'transparent'}; border:1px solid ${prevStatus ? 'var(--border-color)' : 'transparent'}; padding:8px 12px; border-radius:6px; cursor:${prevStatus ? 'pointer' : 'default'}; color: var(--text-gray); display:flex; align-items:center; gap:4px; font-size:0.9rem;">
                 <span style="font-size:1.2rem;">${prevStatus ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>' : ''}</span>
                 ${prevStatus ? 'قبلی' : ''}
             </button>
-            <div style="font-size:1.2rem; font-weight:bold; color:var(--primary-color);">${currentStatus.name}</div>
-            <button ${nextStatus ? '' : 'disabled'} onclick="confirmStageTransition(${item.id}, '${nextStatus ? nextStatus.id : ''}', '${nextStatus ? (nextStatus.plainName || nextStatus.name || '').replace(/'/g, "\\'") : ''}')" style="background:${nextStatus ? 'var(--primary-color)' : 'transparent'}; border:none; padding:8px 12px; border-radius:6px; cursor:${nextStatus ? 'pointer' : 'default'}; color:${nextStatus ? 'white' : 'transparent'}; display:flex; align-items:center; gap:4px; font-size:0.9rem;">
+            <div style="font-size:1.2rem; font-weight:bold; color:var(--primary-color);">${escapeHtml(currentStatus.name)}</div>
+            <button ${nextStatus ? '' : 'disabled'} onclick="confirmStageTransition(${item.id}, '${nextStatus ? nextStatus.id : ''}', ${jsAttr(nextStatus ? (nextStatus.plainName || nextStatus.name || '') : '')})" style="background:${nextStatus ? 'var(--primary-color)' : 'transparent'}; border:none; padding:8px 12px; border-radius:6px; cursor:${nextStatus ? 'pointer' : 'default'}; color:${nextStatus ? 'white' : 'transparent'}; display:flex; align-items:center; gap:4px; font-size:0.9rem;">
                 ${nextStatus ? 'بعدی' : ''}
                 <span style="font-size:1.2rem;">${nextStatus ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' : ''}</span>
             </button>
@@ -296,8 +296,8 @@ function openContentDetails(id, editMode = false) {
     let titleBlock = `
         <div style="border-bottom: 1px dashed var(--border-color); padding-bottom: 10px; display:flex; justify-content:space-between; align-items:flex-start;">
             <div style="display:flex; flex-direction:column; gap:4px;">
-                <span style="font-size: 1.3rem; font-weight: bold; color: var(--primary-color);">${item.title || 'بدون عنوان'}</span>
-                ${item.client_comment ? `<div style="margin-top: 5px; padding: 10px; background: rgba(239, 68, 68, 0.15); border-right: 4px solid var(--error-color); border-radius: 4px; font-size: 0.9rem;"><strong>نظرات کارفرما:</strong> ${item.client_comment}</div>` : ''}
+                <span style="font-size: 1.3rem; font-weight: bold; color: var(--primary-color);">${escapeHtml(item.title || 'بدون عنوان')}</span>
+                ${item.client_comment ? `<div style="margin-top: 5px; padding: 10px; background: rgba(239, 68, 68, 0.15); border-right: 4px solid var(--error-color); border-radius: 4px; font-size: 0.9rem;"><strong>نظرات کارفرما:</strong> ${escapeHtml(item.client_comment)}</div>` : ''}
                 ${componentsHtml}
 
             </div>
@@ -312,7 +312,7 @@ function openContentDetails(id, editMode = false) {
         titleBlock = `
             <div style="border-bottom: 1px dashed var(--border-color); padding-bottom: 10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; gap:8px;">
-                    <input type="text" id="edit_title" value="${item.title || ''}" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:1.1rem; font-weight:bold; color:var(--primary-color);" placeholder="عنوان محتوا">
+                    <input type="text" id="edit_title" value="${escapeHtml(item.title || '')}" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:1.1rem; font-weight:bold; color:var(--primary-color);" placeholder="عنوان محتوا">
                     <button onclick="deleteContent(${item.id})" style="background:rgba(239, 68, 68, 0.15); color:var(--error-color); border:none; padding:8px 12px; border-radius:8px; font-size:0.9rem; cursor:pointer; flex-shrink:0;">حذف</button>
                     <button onclick="openContentDetails(${item.id}, false)" style="background: rgba(128, 128, 128, 0.1); border:none; padding:8px 12px; border-radius:8px; font-size:0.9rem; cursor:pointer; color: var(--text-gray); flex-shrink:0;">بازگشت</button>
                 </div>
@@ -337,7 +337,7 @@ function openContentDetails(id, editMode = false) {
                 
                 <div style="display:flex; gap: 8px; flex-wrap: wrap;">
                     ${(window.allSettings?.content_type || []).filter(ct => ct.is_active !== 0).map(ct => 
-                        `<label style="display:flex; align-items:center; gap:8px; background: var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px;"><span style="font-size:0.9rem;">${ct.setting_key}</span> <input type="text" inputmode="numeric" min="0" class="edit-comp-count" data-name="${ct.setting_key}" value="${item.components_count?.[ct.setting_key] || 0}" style="width:60px; padding:6px; border:1px solid #ddd; border-radius:6px; text-align:center; font-weight:bold;"></label>`
+                        `<label style="display:flex; align-items:center; gap:8px; background: var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px;"><span style="font-size:0.9rem;">${escapeHtml(ct.setting_key)}</span> <input type="text" inputmode="numeric" min="0" class="edit-comp-count" data-name="${escapeHtml(ct.setting_key)}" value="${escapeHtml(item.components_count?.[ct.setting_key] || 0)}" style="width:60px; padding:6px; border:1px solid #ddd; border-radius:6px; text-align:center; font-weight:bold;"></label>`
                     ).join('')}
                 </div>
 
@@ -350,24 +350,24 @@ function openContentDetails(id, editMode = false) {
         let colTitle = '<span style="color:#94a3b8">مشخص نشده</span>';
         if (item.collection_id) {
             const foundCol = (window.allCollections || []).find(c => c.id == item.collection_id || c.title == item.collection_id);
-            if (foundCol) colTitle = foundCol.title;
-            else colTitle = isNaN(item.collection_id) ? item.collection_id : 'نامشخص';
+            if (foundCol) colTitle = escapeHtml(foundCol.title);
+            else colTitle = isNaN(item.collection_id) ? escapeHtml(item.collection_id) : 'نامشخص';
         }
         fieldsHtml = `
             <div style="display: flex; flex-direction: column; gap: 16px;">
-                <div><strong style="color: var(--text-gray); font-size:0.85rem;">سازمان / کارفرما:</strong> <div style="margin-top:4px; display:inline-flex; align-items:center; gap:6px;">${item.org_logo ? `<img alt="" src="${item.org_logo}" style="width:48px; height:48px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'} ${item.org_name || '<span style="color:#94a3b8">مشخص نشده</span>'}</div></div>
-                <div><strong style="color: var(--text-gray); font-size:0.85rem;">نوع محتوا:</strong> <div style="margin-top:4px;"><span style="background:rgba(99, 102, 241, 0.15); color:var(--primary-color); padding:4px 10px; border-radius:6px; font-weight:bold;">${item.content_type || 'نامشخص'}</span></div></div>
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;">سازمان / کارفرما:</strong> <div style="margin-top:4px; display:inline-flex; align-items:center; gap:6px;">${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:48px; height:48px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'} ${item.org_name ? escapeHtml(item.org_name) : '<span style="color:#94a3b8">مشخص نشده</span>'}</div></div>
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;">نوع محتوا:</strong> <div style="margin-top:4px;"><span style="background:rgba(99, 102, 241, 0.15); color:var(--primary-color); padding:4px 10px; border-radius:6px; font-weight:bold;">${escapeHtml(item.content_type || 'نامشخص')}</span></div></div>
                 
                 <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> مجموعه (آلبوم):</strong> <div style="margin-top:4px;">${colTitle}</div></div>
                 <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> مدیر پروژه:</strong> <div style="margin-top:4px;">${mgrDisplay}</div></div>
 <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> همکاران تیم:</strong> <div style="margin-top:4px;">${teamHtml}</div></div>
-                <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M8 2v4'/><path d='M16 2v4'/><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M3 10h18'/></svg> تاریخ انتشار:</strong> <div style="margin-top:4px;">${window.formatPublishDate(item.publish_date, item.publish_time)}</div></div>
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M8 2v4'/><path d='M16 2v4'/><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M3 10h18'/></svg> تاریخ انتشار:</strong> <div style="margin-top:4px;">${escapeHtml(window.formatPublishDate(item.publish_date, item.publish_time))}</div></div>
                 
                 <div style="grid-column: 1 / -1;"><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> پلتفرم‌های انتشار:</strong> <div style="margin-top:4px; display:flex; gap:4px; flex-wrap:wrap;">${platformsHtml}</div></div>
             </div>
         `;
     } else {
-        const orgOptions = (window.allOrgs || []).map(o => `<option value="${o.id}" ${item.org_id == o.id ? 'selected' : ''}>${o.org_name}</option>`).join('');
+        const orgOptions = (window.allOrgs || []).map(o => `<option value="${o.id}" ${item.org_id == o.id ? 'selected' : ''}>${escapeHtml(o.org_name)}</option>`).join('');
         
 let currentCollectionTitle = "";
 if (item.collection_id) {
@@ -377,22 +377,22 @@ if (item.collection_id) {
 }
 const colRadios = (window.allCollections || []).map(c => `
             <label class="col-radio-item" data-org-id="${c.org_id || ''}" style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
-                <input type="radio" name="edit_col_radio" value="${c.title}" ${currentCollectionTitle === c.title ? 'checked' : ''} onchange="document.getElementById('edit_collection_title').value = this.value">
-                <span class="col-title" style="font-size:0.9rem;">${c.title}</span>
+                <input type="radio" name="edit_col_radio" value="${escapeHtml(c.title)}" ${escapeHtml(currentCollectionTitle === c.title ? 'checked' : '')} onchange="document.getElementById('edit_collection_title').value = this.value">
+                <span class="col-title" style="font-size:0.9rem;">${escapeHtml(c.title)}</span>
             </label>
         `).join('');
 
-        const typeOptions = (window.allSettings?.content_type || []).map(t => `<option value="${t.setting_key}" ${item.content_type == t.setting_key ? 'selected' : ''}>${t.setting_key}</option>`).join('');
+        const typeOptions = (window.allSettings?.content_type || []).map(t => `<option value="${escapeHtml(t.setting_key)}" ${escapeHtml(item.content_type == t.setting_key ? 'selected' : '')}>${escapeHtml(t.setting_key)}</option>`).join('');
         setTimeout(() => { if(window.filterCol) window.filterCol(); }, 50);
-        const mgrDatalist = (window.allColleagues || []).map(u => `<option value="${u.full_name}">`).join('');
+        const mgrDatalist = (window.allColleagues || []).map(u => `<option value="${escapeHtml(u.full_name)}">`).join('');
         const teamCheckboxes = (window.allColleagues || []).map(u => `
             <label class="team-checkbox-item" style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
-                <input type="checkbox" name="edit_team_cb" value="${u.full_name}" ${(item.assigned_colleagues || []).includes(u.full_name) ? 'checked' : ''}>
-                <span class="team-name" style="font-size:0.9rem;">${u.full_name}</span>
+                <input type="checkbox" name="edit_team_cb" value="${escapeHtml(u.full_name)}" ${escapeHtml((item.assigned_colleagues || []).includes(u.full_name) ? 'checked' : '')}>
+                <span class="team-name" style="font-size:0.9rem;">${escapeHtml(u.full_name)}</span>
             </label>
         `).join('');
-        const platOptions = (window.allSettings?.platform || []).map(p => `<label style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;"><input type="checkbox" name="edit_platforms" value="${p.setting_key}" ${(item.publish_platforms || []).includes(p.setting_key) ? 'checked' : ''}> <span style="font-size:0.9rem;">${p.setting_key}</span></label>`).join('');
-        const stagesOptions = (window.allSettings?.stages || []).map(s => `<label style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;"><input type="checkbox" name="edit_stages" value="${s.setting_key}" ${(item.stages || []).includes(s.setting_key) ? 'checked' : ''}> <span style="font-size:0.9rem;">${s.setting_key}</span></label>`).join('');
+        const platOptions = (window.allSettings?.platform || []).map(p => `<label style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;"><input type="checkbox" name="edit_platforms" value="${escapeHtml(p.setting_key)}" ${escapeHtml((item.publish_platforms || []).includes(p.setting_key) ? 'checked' : '')}> <span style="font-size:0.9rem;">${escapeHtml(p.setting_key)}</span></label>`).join('');
+        const stagesOptions = (window.allSettings?.stages || []).map(s => `<label style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;"><input type="checkbox" name="edit_stages" value="${escapeHtml(s.setting_key)}" ${escapeHtml((item.stages || []).includes(s.setting_key) ? 'checked' : '')}> <span style="font-size:0.9rem;">${escapeHtml(s.setting_key)}</span></label>`).join('');
 
         fieldsHtml = `
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -406,7 +406,7 @@ const colRadios = (window.allCollections || []).map(c => `
                 <div>
                     <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> مجموعه:</strong>
                     <div style="margin-top:4px; border:1px solid #ddd; border-radius:6px; padding:8px; background: var(--card-bg);">
-                        <input type="text" id="edit_collection_title" value="${currentCollectionTitle}" placeholder="تایپ مجموعه جدید یا جستجو..." onkeyup="filterCol()" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:4px; margin-bottom:8px; font-size:0.85rem;">
+                        <input type="text" id="edit_collection_title" value="${escapeHtml(currentCollectionTitle)}" placeholder="تایپ مجموعه جدید یا جستجو..." onkeyup="filterCol()" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:4px; margin-bottom:8px; font-size:0.85rem;">
                         <div id="col_radio_list" style="max-height:160px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:8px;">
                             ${colRadios}
                         </div>
@@ -421,7 +421,7 @@ const colRadios = (window.allCollections || []).map(c => `
                 </div>
                 <div>
                     <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> مدیر پروژه:</strong>
-                    <input type="text" id="edit_project_manager" list="mgr_suggestions" value="${item.project_manager || ''}" onchange="handleManagerChange()" oninput="handleManagerChange()"  style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="جستجو یا انتخاب...">
+                    <input type="text" id="edit_project_manager" list="mgr_suggestions" value="${escapeHtml(item.project_manager || '')}" onchange="handleManagerChange()" oninput="handleManagerChange()"  style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="جستجو یا انتخاب...">
                     <datalist id="mgr_suggestions">
                         ${mgrDatalist}
                     </datalist>
@@ -437,7 +437,7 @@ const colRadios = (window.allCollections || []).map(c => `
                 </div>
                 <div>
                     <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M8 2v4'/><path d='M16 2v4'/><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M3 10h18'/></svg> تاریخ انتشار:</strong>
-                    <div style="display:flex; gap:10px;"><input type="text" id="edit_publish_date" data-jdp value="${window.toPersianDigits(item.publish_date || '')}" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="1405/05/10"><input type="time" id="edit_publish_time" value="${item.publish_time || ''}" style="width:120px; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="ساعت انتشار"></div>
+                    <div style="display:flex; gap:10px;"><input type="text" id="edit_publish_date" data-jdp value="${escapeHtml(window.toPersianDigits(item.publish_date || ''))}" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="1405/05/10"><input type="time" id="edit_publish_time" value="${escapeHtml(item.publish_time || '')}" style="width:120px; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;" placeholder="ساعت انتشار"></div>
                 </div>
                 <div>
                     <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> پلتفرم‌های انتشار:</strong>
@@ -474,7 +474,7 @@ const colRadios = (window.allCollections || []).map(c => `
                     <strong style="color: var(--text-gray);"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> متن کپشن:</strong>
                     <button onclick="navigator.clipboard.writeText(document.getElementById('caption_text').value); showToast('کپشن کپی شد')" style="background:var(--border-color); border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:0.9rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg> کپی کل متن</button>
                 </div>
-                <textarea id="caption_text" rows="4" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; resize:vertical; font-family:inherit;" placeholder="متن کپشن را اینجا بنویسید...">${item.caption || ''}</textarea>
+                <textarea id="caption_text" rows="4" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; resize:vertical; font-family:inherit;" placeholder="متن کپشن را اینجا بنویسید...">${escapeHtml(item.caption || '')}</textarea>
                 <div style="text-align:left; margin-top:8px;">
                     <button onclick="saveField(${item.id}, 'caption', document.getElementById('caption_text').value)" style="background: var(--success-color); color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer;">ذخیره کپشن</button>
                 </div>
@@ -495,23 +495,23 @@ const colRadios = (window.allCollections || []).map(c => `
                             <h4 style="margin-top:0; color:var(--text-gray);"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg> تاریخچه فعالیت‌ها</h4>
                             <div style="display: flex; flex-direction: column; gap: 12px; max-height: 250px; overflow-y: auto; padding-left: 10px;">
                                 ${item.activity_log.map(log => {
-                                    let actionHtml = log.action;
+                                    let actionHtml = escapeHtml(log.action);
                                     const statusMatch = log.action.match(/وضعیت را از (.*?) به (.*?) تغییر داد/);
-                                    const batchMatch = log.action.match(/وضعیت را دستهجمعی به (.*?) تغییر داد/);
+                                    const batchMatch = log.action.match(/وضعیت را دسته\u200c?جمعی به (.*?) تغییر داد/);
                                     if (statusMatch) {
                                         let fromStatus = statusMatch[1];
                                         let toStatus = statusMatch[2];
                                         if (fromStatus === 'در صف') fromStatus = 'در صف انتظار';
                                         if (toStatus === 'در صف') toStatus = 'در صف انتظار';
                                         const visual = `<div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:0.85rem;">
-                                            <span style="background:var(--border-color); color:var(--text-dark); padding:4px 8px; border-radius:6px; font-weight:bold;">${fromStatus}</span>
+                                            <span style="background:var(--border-color); color:var(--text-dark); padding:4px 8px; border-radius:6px; font-weight:bold;">${escapeHtml(fromStatus)}</span>
                                             <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style="color:var(--text-gray);"><path d='M19 12H5'/><path d='m12 19-7-7 7-7'/></svg>
-                                            <span style="background:rgba(99,102,241,0.1); color:var(--primary-color); padding:4px 8px; border-radius:6px; font-weight:bold;">${toStatus}</span>
+                                            <span style="background:rgba(99,102,241,0.1); color:var(--primary-color); padding:4px 8px; border-radius:6px; font-weight:bold;">${escapeHtml(toStatus)}</span>
                                         </div>`;
                                         if (log.action === statusMatch[0]) {
                                             actionHtml = visual;
                                         } else {
-                                            actionHtml = log.action.replace(statusMatch[0], visual);
+                                            actionHtml = escapeHtml(log.action).replace(escapeHtml(statusMatch[0]), visual);
                                         }
                                     } else if (batchMatch) {
                                         let toStatus = batchMatch[1];
@@ -519,19 +519,19 @@ const colRadios = (window.allCollections || []).map(c => `
                                         const visual = `<div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:0.85rem;">
                                             <span style="background:var(--border-color); color:var(--text-dark); padding:4px 8px; border-radius:6px; font-weight:bold;">دستهجمعی</span>
                                             <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style="color:var(--text-gray);"><path d='M19 12H5'/><path d='m12 19-7-7 7-7'/></svg>
-                                            <span style="background:rgba(99,102,241,0.1); color:var(--primary-color); padding:4px 8px; border-radius:6px; font-weight:bold;">${toStatus}</span>
+                                            <span style="background:rgba(99,102,241,0.1); color:var(--primary-color); padding:4px 8px; border-radius:6px; font-weight:bold;">${escapeHtml(toStatus)}</span>
                                         </div>`;
                                         if (log.action === batchMatch[0]) {
                                             actionHtml = visual;
                                         } else {
-                                            actionHtml = log.action.replace(batchMatch[0], visual);
+                                            actionHtml = escapeHtml(log.action).replace(escapeHtml(batchMatch[0]), visual);
                                         }
                                     }
                                     return `
                                     <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                                         <div style="display:flex; justify-content:space-between; margin-bottom: 6px;">
-                                            <strong style="color:var(--primary-color);">${log.user}</strong>
-                                            <span style="color:var(--text-gray); font-size:0.75rem; background: rgba(128,128,128,0.1); padding: 2px 6px; border-radius: 4px;">${log.timestamp}</span>
+                                            <strong style="color:var(--primary-color);">${escapeHtml(log.user)}</strong>
+                                            <span style="color:var(--text-gray); font-size:0.75rem; background: rgba(128,128,128,0.1); padding: 2px 6px; border-radius: 4px;">${escapeHtml(log.timestamp)}</span>
                                         </div>
                                         <div style="color:var(--text-dark); line-height: 1.5;">${actionHtml}</div>
                                     </div>
@@ -828,7 +828,7 @@ window.formatPublishDate = function(dateStr, timeStr) {
         const dayName = days[date.getDay()];
         return dayName + ' ' + window.toPersianDigits(dateStr) + (timePart ? window.toPersianDigits(timePart) : '');
     }
-    return window.toPersianDigits(`${dateStr}${timePart}`);
+    return window.toPersianDigits(`${escapeHtml(dateStr)}${escapeHtml(timePart)}`);
 };
 
 window.contentIdentityConfirmSave = async function() {

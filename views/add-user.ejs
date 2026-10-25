@@ -187,7 +187,7 @@
                 const sel = document.getElementById('roleId');
                 sel.innerHTML = '';
                 (data.roles || []).forEach(r => {
-                    sel.innerHTML += `<option value="${r.id}">${r.role_name}</option>`;
+                    sel.innerHTML += `<option value="${r.id}">${escapeHtml(r.role_name)}</option>`;
                 });
             } catch(e) { console.error(e); }
         });

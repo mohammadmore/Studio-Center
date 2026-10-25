@@ -166,10 +166,10 @@
                             tbody.innerHTML += `
                                 <tr>
                                     <td>${index + 1}</td>
-                                    <td style="font-weight: bold; color: var(--text-dark);">${exp.description}</td>
-                                    <td>${exp.project_name}</td>
+                                    <td style="font-weight: bold; color: var(--text-dark);">${escapeHtml(exp.description)}</td>
+                                    <td>${escapeHtml(exp.project_name)}</td>
                                     <td style="color: var(--error-color); font-weight: bold;">${formatMoney(exp.amount)} تومان</td>
-                                    <td>${dateStr}</td>
+                                    <td>${escapeHtml(dateStr)}</td>
                                 </tr>
                             `;
                         });

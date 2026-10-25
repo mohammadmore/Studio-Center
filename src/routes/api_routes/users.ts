@@ -4,7 +4,7 @@ import { colleagues, organizations, roles } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { getRoleInfoForUser, isAdmin, stripSecrets } from "../../utils/authUtils.js";
-import { nextId, toInt } from "../../utils/helpers.js";
+import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
 
 const subRouter = express.Router();
 
@@ -84,7 +84,7 @@ function createColleague(req: any, res: any) {
     shaba: "",
     ...profile,
     is_active: 1,
-    avatar_url: body.avatar_url || DEFAULT_AVATAR,
+    avatar_url: safeUrl(body.avatar_url) || DEFAULT_AVATAR,
     status: "active",
   });
   saveDatabase();
@@ -106,7 +106,12 @@ subRouter.post("/manage_roles", checkPermission("manage_roles"), (req: any, res)
   }
   if (action === "add") {
     if (!name || typeof name !== "string") return fail(res, 400, "نام نقش الزامی است");
-    roles.push({ id: nextId(roles), name: name.trim(), permissions: perms || [] });
+    roles.push({
+      id: nextId(roles),
+      name: name.trim(),
+      permissions: perms || [],
+      icon: sanitizeIcon(req.body.icon),
+    });
     saveDatabase();
     return res.json({ status: "success", message: "نقش جدید اضافه شد" });
   }
@@ -119,6 +124,7 @@ subRouter.post("/manage_roles", checkPermission("manage_roles"), (req: any, res)
     }
     if (name) role.name = String(name).trim();
     if (perms) role.permissions = perms;
+    if (req.body.icon !== undefined) role.icon = sanitizeIcon(req.body.icon);
     saveDatabase();
     return res.json({ status: "success", message: "نقش به‌روزرسانی شد" });
   }
@@ -157,6 +163,7 @@ subRouter.get("/get_roles", (req, res) => {
     name: r.name,
     role_name: r.name,
     permissions: r.permissions,
+    icon: r.icon || "",
   }));
   res.json({ status: "success", roles: mappedRoles, data: mappedRoles });
 });
@@ -221,7 +228,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => 
     }
     const name = String(full_name || fullName || "").trim();
     if (name) target.full_name = name;
-    if (avatar_url) target.avatar_url = avatar_url;
+    if (avatar_url && safeUrl(avatar_url)) target.avatar_url = safeUrl(avatar_url);
     Object.assign(target, profileFields(req.body));
     saveDatabase();
     return res.json({ status: "success", message: "اطلاعات با موفقیت به‌روزرسانی شد" });

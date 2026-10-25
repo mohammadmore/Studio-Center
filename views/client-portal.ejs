@@ -151,15 +151,15 @@
                 const baseUrl = window.location.origin;
 
                 (orgs || []).forEach(org => {
-                    const eventsLink = `${baseUrl}/client-events?org_id=${org.id}&year=${year}&month=${month}`;
+                    const eventsLink = `${escapeHtml(baseUrl)}/client-events?org_id=${org.id}&year=${year}&month=${month}`;
                     
                     list.innerHTML += `
                         <div class="org-card">
                             <div class="org-info">
-                                <img src="${org.logo_url}" class="org-logo" alt="${org.org_name}" loading="lazy">
+                                <img src="${escapeHtml(safeUrl(org.logo_url))}" class="org-logo" alt="${escapeHtml(org.org_name)}" loading="lazy">
                                 <div>
-                                    <h3 style="margin-bottom: 5px; color: var(--text-gray);">${org.org_name}</h3>
-                                    <span style="font-size: 0.85rem; color: var(--text-gray); background: rgba(128, 128, 128, 0.1); padding: 3px 8px; border-radius: 4px;">${org.industry}</span>
+                                    <h3 style="margin-bottom: 5px; color: var(--text-gray);">${escapeHtml(org.org_name)}</h3>
+                                    <span style="font-size: 0.85rem; color: var(--text-gray); background: rgba(128, 128, 128, 0.1); padding: 3px 8px; border-radius: 4px;">${escapeHtml(org.industry)}</span>
                                 </div>
                             </div>
                             
@@ -167,15 +167,15 @@
                                 <div>
                                     <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> لینک اختصاصی مناسبت‌های این ماه:</div>
                                     <div class="link-box">
-                                        <span style="overflow: hidden; text-overflow: ellipsis; max-width: 300px; white-space: nowrap;">${eventsLink}</span>
-                                        <button class="copy-btn" onclick="copyToClipboard('${eventsLink}')">کپی</button>
+                                        <span style="overflow: hidden; text-overflow: ellipsis; max-width: 300px; white-space: nowrap;">${escapeHtml(eventsLink)}</span>
+                                        <button class="copy-btn" onclick="copyToClipboard(${jsAttr(eventsLink)})">کپی</button>
                                     </div>
                                     <div style="margin-top: 10px;">
                                         <a href="client-dashboard?org_id=${org.id}" style=" color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg> <span>مشاهده داشبورد کارفرما</span></a>
                                     </div>
                                 </div>
                                 <div style="font-size: 0.85rem; color: var(--success-color);">
-                                    ✓ دسترسی به پورتال با نام کاربری: <strong>${org.username || 'تنظیم نشده'}</strong>
+                                    ✓ دسترسی به پورتال با نام کاربری: <strong>${escapeHtml(org.username || 'تنظیم نشده')}</strong>
                                 </div>
                                 <div style="font-size: 0.85rem; color: var(--warning-color); margin-top: 5px; display: flex; align-items: center; gap: 4px;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> <span>بازخورد‌ها: در این ماه بازخوردی ثبت نشده است.</span>

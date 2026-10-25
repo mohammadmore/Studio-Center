@@ -40,7 +40,7 @@ subRouter.post("/upload_image", checkPermission(IMAGE_UPLOAD_PERMS), async (req,
   if (!image || typeof image !== "string") {
     return res.status(400).json({ status: "error", message: "فرمت تصویر نامعتبر است" });
   }
-  if (/^https?:\/\//i.test(image)) {
+  if (/^https?:\/\/[^\s"'<>]+$/i.test(image)) {
     return res.json({ status: "success", url: image });
   }
   const matches = /^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/s.exec(image);

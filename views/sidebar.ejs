@@ -64,7 +64,7 @@
         transition.ready.then(() => {
             const clipPath = [
                 `circle(0px at ${x}px ${y}px)`,
-                `circle(${endRadius}px at ${x}px ${y}px)`
+                `circle(${escapeHtml(endRadius)}px at ${escapeHtml(x)}px ${escapeHtml(y)}px)`
             ];
             
             document.documentElement.animate(
@@ -988,18 +988,18 @@
                             actionBtns = `<a href="calendar" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem;  color: white; border-radius: 4px; ">مشاهده تقویم</a>`;
                         } else if (n.type === 'content_reviewed' || n.type === 'content_assigned') {
                             let link = '/depot';
-                            if (n.target_id) link += `?open=${n.target_id}`;
-                            actionBtns = `<a href="${link}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem;  color: white; border-radius: 4px; ">مشاهده محتوا در دپو</a>`;
+                            if (n.target_id) link += `?open=${escapeHtml(n.target_id)}`;
+                            actionBtns = `<a href="${escapeHtml(safeUrl(link))}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem;  color: white; border-radius: 4px; ">مشاهده محتوا در دپو</a>`;
                         } else if (n.link) {
-                            actionBtns = `<a href="${n.link}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem; background: var(--border-color); color: var(--text-gray); border-radius: 4px; ">مشاهده</a>`;
+                            actionBtns = `<a href="${escapeHtml(safeUrl(n.link))}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem; background: var(--border-color); color: var(--text-gray); border-radius: 4px; ">مشاهده</a>`;
                         }
 
                         list.innerHTML += `
                             <div style="display: block; padding: 15px; border-bottom: 1px solid var(--border-color); background: ${bg}; transition: 0.2s;" onmouseover="this.style.background='rgba(128, 128, 128, 0.05)'" onmouseout="this.style.background='${bg}'">
-                                <div style="font-weight: bold; color: var(--text-gray); font-size: 0.9rem; margin-bottom: 4px;">${window.toPersianDigits ? window.toPersianDigits(n.title) : n.title}</div>
-                                <div style="color: var(--text-gray); font-size: 0.8rem; line-height: 1.5;">${window.toPersianDigits ? window.toPersianDigits(n.description) : n.description}</div>
+                                <div style="font-weight: bold; color: var(--text-gray); font-size: 0.9rem; margin-bottom: 4px;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.title) : n.title)}</div>
+                                <div style="color: var(--text-gray); font-size: 0.8rem; line-height: 1.5;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.description) : n.description)}</div>
                                 ${actionBtns}
-                                <div style="color: var(--text-gray); font-size: 0.75rem; margin-top: 6px;">${window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at}</div>
+                                <div style="color: var(--text-gray); font-size: 0.75rem; margin-top: 6px;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at)}</div>
                             </div>
                         `;
                     });
@@ -1323,7 +1323,7 @@ window.showToast = function(message, type = 'info', action = null) {
     
     let innerHtml = `<div style="display: flex; align-items: center;"><span>${iconHtml}</span> <span>${message}</span></div>`;
     if (action) {
-        innerHtml += `<button class="toast-action-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; white-space: nowrap; transition: 0.2s;">${action.text}</button>`;
+        innerHtml += `<button class="toast-action-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; white-space: nowrap; transition: 0.2s;">${escapeHtml(action.text)}</button>`;
     }
     
     toast.innerHTML = innerHtml;
@@ -1576,8 +1576,11 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
 
     function highlightMatch(text, query) {
         if (!text) return '';
-        const regex = new RegExp(`(${query})`, 'gi');
-        return text.replace(regex, '<mark style="background: rgba(234,179,8,0.3); color: inherit; padding: 0 2px; border-radius: 2px;">$1</mark>');
+        const safeText = escapeHtml(text);
+        const safeQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!safeQuery) return safeText;
+        const regex = new RegExp(`(${safeQuery})`, 'gi');
+        return safeText.replace(regex, '<mark style="background: rgba(234,179,8,0.3); color: inherit; padding: 0 2px; border-radius: 2px;">$1</mark>');
     }
 
     function renderOmnibarResults(results, query) {
@@ -1617,11 +1620,11 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
                         <div style="flex: 1;">
                             <div style="font-weight: bold; font-size: 1rem; margin-bottom: 4px;">${highlightMatch(c.title, query)}</div>
                             <div style="font-size: 0.8rem; color: var(--text-gray); display: flex; gap: 8px; align-items: center;">
-                                <span>${c.org_name || 'بدون سازمان'}</span>
+                                <span>${escapeHtml(c.org_name || 'بدون سازمان')}</span>
                                 <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--border-color);"></span>
-                                <span>${c.content_type || 'محتوا'}</span>
+                                <span>${escapeHtml(c.content_type || 'محتوا')}</span>
                                 <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--border-color);"></span>
-                                <span>${c.status}</span>
+                                <span>${escapeHtml(c.status)}</span>
                             </div>
                         </div>
                     </a>
@@ -1644,12 +1647,12 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
                 html += `
                     <a href="javascript:void(0)" onclick="closeOmnibar(); window.location.href='media'" style="display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: inherit; transition: background 0.2s; border-right: 3px solid transparent;" onmouseover="this.style.background='var(--hover-bg)'; this.style.borderRight='3px solid var(--success-color, #10b981)'" onmouseout="this.style.background='transparent'; this.style.borderRight='3px solid transparent'">
                         <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(16,185,129,0.1); display: flex; align-items: center; justify-content: center; margin-left: 15px; color: var(--success-color, #10b981); overflow: hidden;">
-                            ${m.url && m.url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? `<img alt="" src="${m.url}" style="width:100%;height:100%;object-fit:cover;">` : `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='18' x='3' y='3' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>`}
+                            ${m.url && m.url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? `<img alt="" src="${escapeHtml(safeUrl(m.url))}" style="width:100%;height:100%;object-fit:cover;">` : `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='18' x='3' y='3' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>`}
                         </div>
                         <div style="flex: 1;">
                             <div style="font-weight: bold; font-size: 1rem; margin-bottom: 4px;">${highlightMatch(m.title, query)}</div>
                             <div style="font-size: 0.8rem; color: var(--text-gray);">
-                                ${m.type || 'فایل'}
+                                ${escapeHtml(m.type || 'فایل')}
                             </div>
                         </div>
                     </a>
@@ -1844,7 +1847,7 @@ function formatShortcut(shortcut) {
     if (shortcut.alt) parts.push('Alt');
     if (shortcut.shift) parts.push('Shift');
     parts.push(shortcut.key.toUpperCase());
-    return parts.map(p => `<kbd style="background: rgba(128,128,128,0.1); padding: 4px 8px; border-radius: 4px; font-family: monospace; border: 1px solid var(--border-color); color: var(--text-color);">${p}</kbd>`).join(' + ');
+    return parts.map(p => `<kbd style="background: rgba(128,128,128,0.1); padding: 4px 8px; border-radius: 4px; font-family: monospace; border: 1px solid var(--border-color); color: var(--text-color);">${escapeHtml(p)}</kbd>`).join(' + ');
 }
 
 window.showShortcutsModal = function() {
@@ -1918,7 +1921,7 @@ window.renderShortcutsEditor = function() {
             <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
                 <span style="color: var(--text-gray); display: flex; align-items: center; gap: 8px;">
                     ${item.icon}
-                    ${item.label}
+                    ${escapeHtml(item.label)}
                 </span>
                 <div style="display: flex; gap: 5px; align-items: center;">
                     <div id="shortcut-display-${item.id}" style="display: flex; gap: 5px;">

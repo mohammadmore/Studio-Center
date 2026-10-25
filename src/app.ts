@@ -18,7 +18,7 @@ import { settings } from "./store/state.js";
 import { isSafeFileName } from "./utils/files.js";
 
 // Exposed to every page: escapes text before it is put into innerHTML.
-const CLIENT_HELPERS = `<script>window.escapeHtml=function(v){return String(v==null?"":v).replace(/[&<>"'\`]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","\`":"&#96;"}[c]})};window.safeUrl=function(u){u=String(u==null?"":u).trim();return /^(https?:|\\/(?!\\/)|data:image\\/(png|jpe?g|gif|webp);|blob:)/i.test(u)?u:""};</script>`;
+export const CLIENT_HELPERS = `<script>window.escapeHtml=function(v){return String(v==null?"":v).replace(/[&<>"'\`]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","\`":"&#96;"}[c]})};window.jsAttr=function(v){return window.escapeHtml(JSON.stringify(String(v==null?"":v)))};window.safeColor=function(c){c=String(c==null?"":c).trim();return /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\\([\\d\\s.,%]+\\)|var\\(--[a-z0-9-]+\\)|[a-z]{3,20})$/i.test(c)?c:""};window.safeUrl=function(u){u=String(u==null?"":u).trim();return /^(https?:|\\/(?!\\/)|data:image\\/(png|jpe?g|gif|webp);|blob:)/i.test(u)?u:""};</script>`;
 
 function fontInjection() {
   const font = settings?.active_font;

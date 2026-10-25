@@ -235,7 +235,7 @@
             sel.innerHTML = '';
             (allRoles || []).forEach(r => {
                 if (r.name.includes('مدیر کل') && !isAdmin) return;
-                sel.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+                sel.innerHTML += `<option value="${r.id}">${escapeHtml(r.name)}</option>`;
             });
         }
         
@@ -311,7 +311,7 @@
                 const result = await res.json();
                 
                 if (result.status === 'error') {
-                    document.getElementById('usersContainer').innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: red; padding: 40px; font-weight: bold;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><circle cx='12' cy='12' r='10'/><path d='m4.9 4.9 14.2 14.2'/></svg> ${result.message}</div>`;
+                    document.getElementById('usersContainer').innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: red; padding: 40px; font-weight: bold;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><circle cx='12' cy='12' r='10'/><path d='m4.9 4.9 14.2 14.2'/></svg> ${escapeHtml(result.message)}</div>`;
                     return;
                 }
 
@@ -348,8 +348,8 @@
                         <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
                         </div>
-                        <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">${titleMsg}</h3>
-                        <p style="color: var(--text-gray); width: 100%; max-width: 400px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">${subMsg}</p>
+                        <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">${escapeHtml(titleMsg)}</h3>
+                        <p style="color: var(--text-gray); width: 100%; max-width: 400px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">${escapeHtml(subMsg)}</p>
                         ${ctaBtn}
                     </div>`;
                 return;
@@ -363,15 +363,15 @@
                 
                 let avatarHTML = '';
                 if (user.avatar_url && user.avatar_url !== '') {
-                    avatarHTML = `<img src="${user.avatar_url}" class="avatar" alt="Avatar" loading="lazy">`;
+                    avatarHTML = `<img src="${escapeHtml(safeUrl(user.avatar_url))}" class="avatar" alt="Avatar" loading="lazy">`;
                 } else {
                     const firstChar = user.full_name ? user.full_name.charAt(0) : `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>`;
-                    avatarHTML = `<div class="avatar-fallback">${firstChar}</div>`;
+                    avatarHTML = `<div class="avatar-fallback">${escapeHtml(firstChar)}</div>`;
                 }
 
                 let extraInfo = '';
-                if (user.phone) extraInfo += `<div><span style="color: var(--text-gray);">موبایل: </span><span style="font-weight: 500; color: var(--text-gray); direction: ltr; display: inline-block;">${window.toPersianDigits(user.phone)}</span></div>`;
-                if (user.work_type) extraInfo += `<div><span style="color: var(--text-gray);">نوع همکاری: </span><span style="font-weight: 600; color: #0284c7;">${user.work_type}</span></div>`;
+                if (user.phone) extraInfo += `<div><span style="color: var(--text-gray);">موبایل: </span><span style="font-weight: 500; color: var(--text-gray); direction: ltr; display: inline-block;">${escapeHtml(window.toPersianDigits(user.phone))}</span></div>`;
+                if (user.work_type) extraInfo += `<div><span style="color: var(--text-gray);">نوع همکاری: </span><span style="font-weight: 600; color: #0284c7;">${escapeHtml(user.work_type)}</span></div>`;
                 
                 let actionButtonsHTML = '';
                 if (user.is_active !== 0) {
@@ -405,16 +405,16 @@
                             ${avatarHTML}
                             <div>
                                 <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
-                                    ${user.full_name}
+                                    ${escapeHtml(user.full_name)}
                                     ${statusBadge}
                                 </div>
-                                <div style="display: flex; gap: 5px; margin-top: 5px; align-items: center;"><div class="${badgeClass}">${roleName}</div><button onclick="reorderUser(${user.id}, 'up')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; line-height: 1;" title="بالا">↑</button><button onclick="reorderUser(${user.id}, 'down')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; line-height: 1;" title="پایین">↓</button></div>
+                                <div style="display: flex; gap: 5px; margin-top: 5px; align-items: center;"><div class="${badgeClass}">${escapeHtml(roleName)}</div><button onclick="reorderUser(${user.id}, 'up')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; line-height: 1;" title="بالا">↑</button><button onclick="reorderUser(${user.id}, 'down')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; line-height: 1;" title="پایین">↓</button></div>
                             </div>
                         </div>
                         <div style="background: rgba(128, 128, 128, 0.05); padding: 10px; border-radius: 8px; font-size: 0.88rem; display: flex; flex-direction: column; gap: 4px;">
                             <div>
                                 <span style="color: var(--text-gray);">نام کاربری: </span>
-                                <span style="font-weight: bold; color: var(--primary-color); direction: ltr; display: inline-block;">${user.username}</span>
+                                <span style="font-weight: bold; color: var(--primary-color); direction: ltr; display: inline-block;">${escapeHtml(user.username)}</span>
                             </div>
                             ${extraInfo}
                         </div>

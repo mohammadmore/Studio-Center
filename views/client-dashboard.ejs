@@ -282,18 +282,18 @@
                             actionBtns = `<a href="client-events" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem;  color: white; border-radius: 4px; text-decoration: none;">مشاهده تقویم</a>`;
                         } else if (n.type === 'content_reviewed' || n.type === 'content_assigned') {
                             let link = '/client-review';
-                            if (n.target_id) link += `?open=${n.target_id}`;
-                            actionBtns = `<a href="${link}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem;  color: white; border-radius: 4px; text-decoration: none;">بازبینی محتوا</a>`;
+                            if (n.target_id) link += `?open=${escapeHtml(n.target_id)}`;
+                            actionBtns = `<a href="${escapeHtml(safeUrl(link))}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem;  color: white; border-radius: 4px; text-decoration: none;">بازبینی محتوا</a>`;
                         } else if (n.link) {
-                            actionBtns = `<a href="${n.link}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem; background: var(--border-color); color: var(--text-gray); border-radius: 4px; text-decoration: none;">مشاهده</a>`;
+                            actionBtns = `<a href="${escapeHtml(safeUrl(n.link))}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem; background: var(--border-color); color: var(--text-gray); border-radius: 4px; text-decoration: none;">مشاهده</a>`;
                         }
 
                         list.innerHTML += `
                             <div style="display: block; padding: 15px; border-bottom: 1px solid var(--border-color); background: ${bg}; transition: 0.2s;" onmouseover="this.style.background='rgba(128, 128, 128, 0.05)'" onmouseout="this.style.background='${bg}'">
-                                <div style="font-weight: bold; color: var(--text-gray); font-size: 0.9rem; margin-bottom: 4px;">${window.toPersianDigits ? window.toPersianDigits(n.title) : n.title}</div>
-                                <div style="color: var(--text-gray); font-size: 0.8rem; line-height: 1.5;">${window.toPersianDigits ? window.toPersianDigits(n.description) : n.description}</div>
+                                <div style="font-weight: bold; color: var(--text-gray); font-size: 0.9rem; margin-bottom: 4px;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.title) : n.title)}</div>
+                                <div style="color: var(--text-gray); font-size: 0.8rem; line-height: 1.5;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.description) : n.description)}</div>
                                 ${actionBtns}
-                                <div style="color: var(--text-gray); font-size: 0.75rem; margin-top: 6px;">${window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at}</div>
+                                <div style="color: var(--text-gray); font-size: 0.75rem; margin-top: 6px;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at)}</div>
                             </div>
                         `;
                     });

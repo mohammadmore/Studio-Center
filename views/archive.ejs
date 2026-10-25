@@ -197,7 +197,7 @@
             
             path.forEach((col, idx) => {
                 pathHtml += `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 4px;"><path d="m15 18-6-6 6-6"/></svg>`;
-                pathHtml += `<span class="breadcrumb-item" onclick="navigateUp(${col.id})">${col.title}</span>`;
+                pathHtml += `<span class="breadcrumb-item" onclick="navigateUp(${col.id})">${escapeHtml(col.title)}</span>`;
             });
             bcPath.innerHTML = pathHtml;
         }
@@ -271,10 +271,10 @@
                     <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-dark); display:flex; align-items:center; gap:8px;">
                         <svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>
                             <path d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/>
-                        </svg> ${col.title}
+                        </svg> ${escapeHtml(col.title)}
                         ${isFullArchived ? '<span style="background: rgba(239, 68, 68, 0.1); color: var(--error-color); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">آرشیو شده</span>' : ''}
                     </div>
-                    ${col.org_name ? `<div style="font-size:0.85rem; color:var(--text-gray); margin-top:10px;">سازمان: ${col.org_name}</div>` : ''}
+                    ${col.org_name ? `<div style="font-size:0.85rem; color:var(--text-gray); margin-top:10px;">سازمان: ${escapeHtml(col.org_name)}</div>` : ''}
                     ${isFullArchived ? `<div style="display:flex; gap:10px; margin-top:15px;">
                         <button class="btn-restore" style="flex:1; margin-top:0;" onclick="event.stopPropagation(); restoreCol(${col.id})">بازگردانی مجموعه</button>
                     </div>` : ''}
@@ -302,13 +302,13 @@
                 
                 card.innerHTML = `
                     <h3 style="margin: 0 0 10px 0; font-size: 1.1rem; color: var(--text-gray); display:flex; justify-content:space-between;">
-                        <span>${item.title || 'بدون عنوان'}</span>
+                        <span>${escapeHtml(item.title || 'بدون عنوان')}</span>
                     </h3>
                     <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px;">
-                        🏢 سازمان: ${item.org_name || 'نامشخص'}
+                        🏢 سازمان: ${escapeHtml(item.org_name || 'نامشخص')}
                     </div>
                     <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px;">
-                        📌 نوع: <span style="background: rgba(99, 102, 241, 0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px;">${item.content_type || 'نامشخص'}</span>
+                        📌 نوع: <span style="background: rgba(99, 102, 241, 0.15); color: var(--primary-color); padding: 2px 6px; border-radius: 4px;">${escapeHtml(item.content_type || 'نامشخص')}</span>
                     </div>
                     ${isImplicitlyArchived ? `<div style="font-size:0.8rem; color:var(--error-color); margin-top:5px; background:rgba(239, 68, 68, 0.1); padding: 4px 8px; border-radius: 4px;">بخشی از مجموعه آرشیو شده</div>` : ''}
                     <div style="display:flex; gap:10px; margin-top:15px;">

@@ -218,7 +218,7 @@
                 select.innerHTML = '<option value="">-- انتخاب کنید --</option>';
                 if(result.status === 'success' && result.data['industry']) {
                     (result.data && result.data['industry'] || []).forEach(item => {
-                        select.innerHTML += `<option value="${item.setting_key}">${item.setting_key}</option>`;
+                        select.innerHTML += `<option value="${escapeHtml(item.setting_key)}">${escapeHtml(item.setting_key)}</option>`;
                     });
                 }
             } catch(e) { console.log(e); }
@@ -261,26 +261,26 @@
                 
                 (result.data || []).forEach(org => {
                     const logoSrc = org.logo_url ? org.logo_url : '/assets/default-org-icon.png';
-                    const color = org.color || 'var(--primary-color)';
+                    const color = safeColor(org.color) || 'var(--primary-color)';
                     container.innerHTML += `
                         <div class="org-card searchable-item" style="border-right: 5px solid ${color}; opacity: ${org.is_active === 0 ? '0.6' : '1'};">
                             <div style="display:flex; gap:20px; align-items: flex-start;">
                                 <div style="position: relative;">
-                                    <img src="${logoSrc}" class="org-logo" alt="لوگو" style="border: 2px solid var(--border-color); padding: 4px; border-radius:50%; width:150px; height:150px; filter: ${org.is_active === 0 ? 'grayscale(100%)' : 'none'}; flex-shrink: 0; background: var(--card-bg); box-shadow: 0 2px 5px rgba(0,0,0,0.05);" loading="lazy">
+                                    <img src="${escapeHtml(logoSrc)}" class="org-logo" alt="لوگو" style="border: 2px solid var(--border-color); padding: 4px; border-radius:50%; width:150px; height:150px; filter: ${org.is_active === 0 ? 'grayscale(100%)' : 'none'}; flex-shrink: 0; background: var(--card-bg); box-shadow: 0 2px 5px rgba(0,0,0,0.05);" loading="lazy">
                                     ${org.is_active === 0 ? '<div style="position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); font-size: 0.7rem; color: var(--error-color); background: rgba(239, 68, 68, 0.15); padding: 2px 6px; border-radius: 12px; font-weight:bold; white-space:nowrap; border:1px solid rgba(239, 68, 68, 0.3);">غیرفعال</div>' : ''}
                                 </div>
                                 <div style="flex:1;">
                                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
                                         <div style="font-weight: bold; color: var(--text-gray); font-size: 1.25rem; line-height: 1.2;">
-                                            ${org.org_name}
+                                            ${escapeHtml(org.org_name)}
                                         </div>
                                     </div>
                                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
-                                        <span style="font-size: 0.8rem; color: ${color}; background: ${color}15; padding: 4px 10px; border-radius: 20px; border: 1px solid ${color}30; font-weight: bold;">${org.industry}</span>
+                                        <span style="font-size: 0.8rem; color: ${color}; background: ${color}15; padding: 4px 10px; border-radius: 20px; border: 1px solid ${color}30; font-weight: bold;">${escapeHtml(org.industry)}</span>
                                     </div>
                                     ${org.contact_name ? `<div style="font-size:0.85rem; color: var(--text-gray); display: flex; align-items: center; gap: 6px;">
                                         <span style="background: rgba(128, 128, 128, 0.1); padding: 4px; border-radius: 50%; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-phone"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
-                                        <span>${org.contact_name}: ${window.toPersianDigits(org.phone_number || '')}</span>
+                                        <span>${escapeHtml(org.contact_name)}: ${escapeHtml(window.toPersianDigits(org.phone_number || ''))}</span>
                                     </div>` : ''}
                                 </div>
                             </div>
@@ -622,7 +622,7 @@
             div.style.display = 'flex';
             div.style.gap = '8px';
             div.innerHTML = `
-                <input type="text" name="${nameAttr}" class="form-control" placeholder="${placeholder}" style="flex: 1;">
+                <input type="text" name="${escapeHtml(nameAttr)}" class="form-control" placeholder="${escapeHtml(placeholder)}" style="flex: 1;">
                 <button type="button" class="btn-outline" style="padding: 4px 8px; border-color: var(--error-color); color: var(--error-color);" onclick="this.parentElement.remove()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></button>
             `;
             container.appendChild(div);
@@ -766,14 +766,14 @@
         pendingExcelOrgs.forEach((org, index) => {
             container.innerHTML += `
                 <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background: ${org.color}; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                        ${org.org_name.charAt(0)}
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: ${escapeHtml(org.color)}; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                        ${escapeHtml(org.org_name.charAt(0))}
                     </div>
                     <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
-                        <div>نام: <span style="font-weight:bold;">${org.org_name}</span></div>
-                        <div>نوع: <span style="font-weight:bold;">${org.industry}</span></div>
-                        <div>رابط: <span style="font-weight:bold;">${org.contact_name || '-'}</span></div>
-                        <div>تلفن: <span style="font-weight:bold;">${org.phone_number || '-'}</span></div>
+                        <div>نام: <span style="font-weight:bold;">${escapeHtml(org.org_name)}</span></div>
+                        <div>نوع: <span style="font-weight:bold;">${escapeHtml(org.industry)}</span></div>
+                        <div>رابط: <span style="font-weight:bold;">${escapeHtml(org.contact_name || '-')}</span></div>
+                        <div>تلفن: <span style="font-weight:bold;">${escapeHtml(org.phone_number || '-')}</span></div>
                     </div>
                 </div>
             `;

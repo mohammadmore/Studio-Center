@@ -6,9 +6,14 @@ import type { BlobStore, StorageDriver } from "./drivers/types.js";
 import {
   applySnapshot,
   colleagues,
+  contents,
+  mediaAssets,
+  organizations,
   roles,
+  settings,
   snapshotState,
 } from "./state.js";
+import { sanitizeIcon, safeColor, safeUrl } from "../utils/helpers.js";
 
 const SAVE_DELAY_MS = 500;
 
@@ -49,6 +54,38 @@ function seedInitialData() {
   }
 }
 
+/** Repairs records written by older versions so the rest of the code can rely on them. */
+function normalizeLoadedData() {
+  for (const org of organizations) {
+    if (org.color !== undefined) org.color = safeColor(org.color);
+    if (org.is_active === undefined) org.is_active = 1;
+    if (org.logo_url) org.logo_url = safeUrl(org.logo_url);
+  }
+  for (const c of colleagues) {
+    if (c.avatar_url) c.avatar_url = safeUrl(c.avatar_url);
+  }
+  for (const role of roles) {
+    if (role.icon) role.icon = sanitizeIcon(role.icon);
+  }
+  for (const value of Object.values(settings)) {
+    if (!Array.isArray(value)) continue;
+    for (const item of value) {
+      if (item && item.icon) item.icon = sanitizeIcon(item.icon);
+      if (item && item.logo_url) item.logo_url = safeUrl(item.logo_url);
+    }
+  }
+  for (const asset of mediaAssets) {
+    if (asset.file_url) asset.file_url = safeUrl(asset.file_url);
+  }
+  const info = settings.studio_info;
+  if (info && typeof info === "object") {
+    for (const key of Object.keys(info)) if (/^logo/.test(key)) info[key] = safeUrl(info[key]);
+  }
+  for (const card of contents) {
+    if (card.org_color !== undefined) card.org_color = safeColor(card.org_color, "#4f46e5");
+  }
+}
+
 /**
  * Loads the stored state. Must finish before the server accepts requests: if
  * loading fails we throw instead of running on an empty state that the next
@@ -59,6 +96,7 @@ export async function initDatabase(customDriver?: StorageDriver) {
   const data = await driver.load();
   if (data) {
     applySnapshot(data);
+    normalizeLoadedData();
     console.log(`Database loaded (${driver.name})`);
   } else {
     applySnapshot({});

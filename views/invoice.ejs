@@ -148,7 +148,7 @@
             if (selectedArr.length === 0) {
                 display.innerHTML = '<span class="multi-select-tag">بدون پلتفرم</span>';
             } else {
-                display.innerHTML = selectedArr.map(plt => `<span class="multi-select-tag">${plt}</span>`).join('');
+                display.innerHTML = selectedArr.map(plt => `<span class="multi-select-tag">${escapeHtml(plt)}</span>`).join('');
             }
         }
         
@@ -187,7 +187,7 @@
                 display.innerHTML = '<span class="multi-select-tag">بدون پلتفرم</span>';
             } else {
                 const selectedArr = newValue.split(/[,،]/).map(s => s.trim()).filter(s => s);
-                display.innerHTML = selectedArr.map(plt => `<span class="multi-select-tag">${plt}</span>`).join('');
+                display.innerHTML = selectedArr.map(plt => `<span class="multi-select-tag">${escapeHtml(plt)}</span>`).join('');
             }
         }
     </script>
@@ -558,7 +558,7 @@
                 const orgData = await res.json();
                 const select = document.getElementById('orgSelector');
                 (orgData.data || []).forEach(org => {
-                    select.innerHTML += `<option value="${org.id}">${org.org_name}</option>`;
+                    select.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
                 });
             } catch (e) {
                 console.error("Failed to load organizations:", e);
@@ -577,7 +577,7 @@
                         dropdown.innerHTML = '';
                         window.availablePlatforms.forEach(p => {
                             const name = p.setting_key || p.name || p.key;
-                            dropdown.innerHTML += `<label><input type="checkbox" value="${name}" onchange="updateBulkMultiPlatform(this)"> ${name}</label>`;
+                            dropdown.innerHTML += `<label><input type="checkbox" value="${escapeHtml(name)}" onchange="updateBulkMultiPlatform(this)"> ${escapeHtml(name)}</label>`;
                         });
                         dropdown.innerHTML += `<label><input type="checkbox" value="بدون پلتفرم" onchange="updateBulkMultiPlatform(this)"> بدون پلتفرم</label>`;
                     }
@@ -585,7 +585,7 @@
                     if (platformSelect) {
                         window.availablePlatforms.forEach(p => {
                             const name = p.setting_key || p.name || p.key;
-                            platformSelect.innerHTML += `<option value="${name}">${name}</option>`;
+                            platformSelect.innerHTML += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
                         });
                         platformSelect.innerHTML += `<option value="بدون پلتفرم">بدون پلتفرم</option>`;
                     }
@@ -745,7 +745,7 @@
                 const data = await res.json();
                 if (data.status === 'success' && data.data && colSelect) {
                     data.data.forEach(col => {
-                        colSelect.innerHTML += `<option value="${col.id}">${col.title}</option>`;
+                        colSelect.innerHTML += `<option value="${col.id}">${escapeHtml(col.title)}</option>`;
                     });
                 }
             } catch(e) { console.error(e); if (typeof showToast === 'function') showToast('خطای شبکه. لطفا دوباره تلاش کنید.', 'error'); }
@@ -767,13 +767,13 @@
             if (endDate === '--/--/----') endDate = '';
             const noTimeLimit = document.getElementById('draftNoTimeLimit').checked;
             
-            let url = `/api/generate_invoice?org_id=${orgId}`;
-            if (colId) url += `&col_id=${colId}`;
-            if (status) url += `&status=${status}`;
+            let url = `/api/generate_invoice?org_id=${escapeHtml(orgId)}`;
+            if (colId) url += `&col_id=${escapeHtml(colId)}`;
+            if (status) url += `&status=${escapeHtml(status)}`;
             if (platform) url += `&platform=${encodeURIComponent(platform)}`;
             if (!noTimeLimit) {
-                if (startDate) url += `&start_date=${startDate}`;
-                if (endDate) url += `&end_date=${endDate}`;
+                if (startDate) url += `&start_date=${escapeHtml(startDate)}`;
+                if (endDate) url += `&end_date=${escapeHtml(endDate)}`;
             }
             
             try {
@@ -863,19 +863,19 @@
                         <tr>
                             <td class="no-print" style="text-align: center;"><input type="checkbox" class="item-checkbox" data-index="${index}" onclick="handleCheckboxClick(event, ${index})" onchange="updateSelection()" style="cursor: pointer;"></td>
                             <td style="text-align: center;">${toPersianDigits(index + 1)}</td>
-                            <td><input type="text" class="form-control" style="padding:5px;" value="${item.type}" onchange="updateItem(${index}, 'type', this.value)"></td>
+                            <td><input type="text" class="form-control" style="padding:5px;" value="${escapeHtml(item.type)}" onchange="updateItem(${index}, 'type', this.value)"></td>
                             <td>
                                 <div class="multi-select">
                                     <div class="multi-select-display" onclick="toggleMultiSelect(this)">
-                                        ${(item.platform || 'بدون پلتفرم').split(/[,،]/).filter(x => x.trim()).map(plt => `<span class="multi-select-tag">${plt.trim()}</span>`).join('')}
+                                        ${(item.platform || 'بدون پلتفرم').split(/[,،]/).filter(x => x.trim()).map(plt => `<span class="multi-select-tag">${escapeHtml(plt.trim())}</span>`).join('')}
                                     </div>
                                     <div class="multi-select-dropdown">
                                         ${window.availablePlatforms.map(p => {
                                             const pName = p.setting_key || p.name || p.key;
                                             const isChecked = (item.platform || '').split(/[,،]/).map(s=>s.trim()).includes(pName) ? 'checked' : '';
-                                            return `<label><input type="checkbox" value="${pName}" ${isChecked} onchange="updateMultiPlatform(${index}, this)"> ${pName}</label>`;
+                                            return `<label><input type="checkbox" value="${escapeHtml(pName)}" ${escapeHtml(isChecked)} onchange="updateMultiPlatform(${index}, this)"> ${escapeHtml(pName)}</label>`;
                                         }).join('')}
-                                        <label><input type="checkbox" value="بدون پلتفرم" ${(!item.platform || item.platform === 'بدون پلتفرم') ? 'checked' : ''} onchange="updateMultiPlatform(${index}, this)"> بدون پلتفرم</label>
+                                        <label><input type="checkbox" value="بدون پلتفرم" ${escapeHtml((!item.platform || item.platform === 'بدون پلتفرم') ? 'checked' : '')} onchange="updateMultiPlatform(${index}, this)"> بدون پلتفرم</label>
                                     </div>
                                 </div>
                             </td>

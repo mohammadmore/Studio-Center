@@ -88,11 +88,11 @@
 html += `
                             <div class="bin-card">
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="background:rgba(128,128,128,0.1); padding:4px 8px; border-radius:6px; font-size:0.75rem;">${typeName}</span>
-                                    <span class="bin-meta">${date}</span>
+                                    <span style="background:rgba(128,128,128,0.1); padding:4px 8px; border-radius:6px; font-size:0.75rem;">${escapeHtml(typeName)}</span>
+                                    <span class="bin-meta">${escapeHtml(date)}</span>
                                 </div>
-                                <div class="bin-title">${item.item_title}</div>
-                                <div class="bin-meta">حذف شده توسط: ${delBy}</div>
+                                <div class="bin-title">${escapeHtml(item.item_title)}</div>
+                                <div class="bin-meta">حذف شده توسط: ${escapeHtml(delBy)}</div>
                                 <div style="display:flex; gap:10px; margin-top:10px; flex-wrap: wrap; justify-content: flex-end;">
                                     ${item.restored ? 
   '<button class="btn-restore" disabled style="background:#ccc; color:white; cursor:not-allowed; width: 100%; display: flex; justify-content: center; align-items: center; flex: 1; min-width: 105px;">بازیابی شد</button>' : 

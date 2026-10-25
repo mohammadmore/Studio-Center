@@ -48,9 +48,9 @@
                             <div style="padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; gap: 15px; align-items: flex-start; background: ${bg}; cursor: pointer; transition: background 0.2s;">
                                 <div style="background: rgba(128, 128, 128, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${icon}</div>
                                 <div>
-                                    <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; color: var(--text-gray);">${n.title}</div>
-                                    <div style="font-size: 0.8rem; color: var(--border-color); line-height: 1.5; margin-bottom: 5px;">${n.description}</div>
-                                    <div style="font-size: 0.7rem; color: var(--border-color); opacity: 0.7;">${n.created_at}</div>
+                                    <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; color: var(--text-gray);">${escapeHtml(n.title)}</div>
+                                    <div style="font-size: 0.8rem; color: var(--border-color); line-height: 1.5; margin-bottom: 5px;">${escapeHtml(n.description)}</div>
+                                    <div style="font-size: 0.7rem; color: var(--border-color); opacity: 0.7;">${escapeHtml(n.created_at)}</div>
                                 </div>
                             </div>
                         `;
@@ -642,7 +642,7 @@
                     if (data.status === 'success') {
                         const sel = document.getElementById('orgSelect');
                         data.data.forEach(o => {
-                            sel.innerHTML += `<option value="${o.id}">${o.org_name}</option>`;
+                            sel.innerHTML += `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`;
                         });
                         if (queryOrgId) {
                             sel.value = queryOrgId;
@@ -689,7 +689,7 @@
                 if (data.status === 'success' && data.data && data.data.platform) {
                     const pSelect = document.getElementById('platformSelect');
                     data.data.platform.forEach(p => {
-                        pSelect.innerHTML += `<option value="${p.setting_key}">${p.setting_key}</option>`;
+                        pSelect.innerHTML += `<option value="${escapeHtml(p.setting_key)}">${escapeHtml(p.setting_key)}</option>`;
                     });
                 }
             } catch(e) { console.error(e); }
@@ -705,7 +705,7 @@
                     const data = await res.json();
                     if (data.status === 'success' && data.data) {
                         data.data.forEach(c => {
-                            colSelect.innerHTML += `<option value="${c.id}">${c.title}</option>`;
+                            colSelect.innerHTML += `<option value="${c.id}">${escapeHtml(c.title)}</option>`;
                         });
                     }
                 } catch(e) { console.error(e); }
@@ -737,21 +737,21 @@
                     document.getElementById('startDate').value = window.toPersianDigits(startDate);
                     document.getElementById('endDate').value = window.toPersianDigits(endDate);
                 }
-                let url = `/api/get_org_report?org_id=${orgId}`;
+                let url = `/api/get_org_report?org_id=${escapeHtml(orgId)}`;
                 
                 const colId = document.getElementById('colSelect') ? document.getElementById('colSelect').value : '';
                 const statusF = document.getElementById('statusSelect') ? document.getElementById('statusSelect').value : '';
                 const platformF = document.getElementById('platformSelect') ? document.getElementById('platformSelect').value : '';
                 const noTime = document.getElementById('noTimeLimit') ? document.getElementById('noTimeLimit').checked : false;
 
-                if (colId) url += `&col_id=${colId}`;
-                if (statusF) url += `&status=${statusF}`;
-                if (platformF) url += `&platform=${platformF}`;
+                if (colId) url += `&col_id=${escapeHtml(colId)}`;
+                if (statusF) url += `&status=${escapeHtml(statusF)}`;
+                if (platformF) url += `&platform=${escapeHtml(platformF)}`;
                 if (noTime) url += `&no_time_limit=true`;
 
                 if (!noTime) {
-                    if (startDate) url += `&start_date=${startDate}`;
-                    if (endDate) url += `&end_date=${endDate}`;
+                    if (startDate) url += `&start_date=${escapeHtml(startDate)}`;
+                    if (endDate) url += `&end_date=${escapeHtml(endDate)}`;
                 }
                 
                                 // Fetch studio info for PDF Header
@@ -831,7 +831,7 @@
                 const j = window.jalaali.toJalaali(dateObj);
                 const weekday = weekdays[dateObj.getDay()];
                 const monthName = months[j.jm - 1];
-                return `${weekday} ${toPersianNum(j.jd)} ${monthName} ${toPersianNum(j.jy)}`;
+                return `${escapeHtml(weekday)} ${toPersianNum(j.jd)} ${escapeHtml(monthName)} ${toPersianNum(j.jy)}`;
             }
 
             try {
@@ -850,7 +850,7 @@
                     if (p.type === 'year') year = p.value;
                 });
                 if (weekday && day && month && year) {
-                    return `${weekday} ${day} ${month} ${year}`;
+                    return `${escapeHtml(weekday)} ${day} ${month} ${year}`;
                 }
             } catch (e) {}
 
@@ -879,7 +879,7 @@
             } else {
                 logoImg.style.display = 'none';
                 avatarFallback.style.display = 'flex';
-                avatarFallback.style.background = data.organization.color || 'var(--primary-color)';
+                avatarFallback.style.background = safeColor(data.organization.color) || 'var(--primary-color)';
                 avatarFallback.innerText = data.organization.org_name.substring(0, 1);
             }
 
@@ -916,11 +916,11 @@
                     tbody.innerHTML += `
                         <tr>
                             <td>${toPersianDigits(index + 1)}</td>
-                            <td>${c.title}</td>
-                            <td>${c.content_type || '-'}</td>
+                            <td>${escapeHtml(c.title)}</td>
+                            <td>${escapeHtml(c.content_type || '-')}</td>
                             <td>${toPersianDigits(c.total_components || 1)}</td>
-                            <td><span style="display:inline-block; padding:3px 8px; border-radius:12px; background: rgba(128, 128, 128, 0.1); font-size:0.8rem;">${s}</span></td>
-                            <td>${plats}</td>
+                            <td><span style="display:inline-block; padding:3px 8px; border-radius:12px; background: rgba(128, 128, 128, 0.1); font-size:0.8rem;">${escapeHtml(s)}</span></td>
+                            <td>${escapeHtml(plats)}</td>
                             <td>${toPersianDigits(date)}</td>
                         </tr>
                     `;

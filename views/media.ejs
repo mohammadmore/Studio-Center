@@ -146,7 +146,7 @@
                 const select = document.getElementById('orgSelector');
                 select.innerHTML = '<option value="">-- انتخاب کنید --</option>';
                 (orgs || []).forEach(org => {
-                    select.innerHTML += `<option value="${org.id}">${org.org_name}</option>`;
+                    select.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
                 });
             } catch(e) { console.error(e); }
         }
@@ -184,12 +184,12 @@
                     if(asset.asset_type.includes('وکتور')) icon = '🎨';
 
                     container.innerHTML += `
-                        <div class="media-card" data-title="${asset.asset_name}" data-org="${asset.org_name}" style="border-right: 4px solid ${asset.org_color}; background: color-mix(in srgb, ${asset.org_color} 10%, transparent);">
+                        <div class="media-card" data-title="${escapeHtml(asset.asset_name)}" data-org="${escapeHtml(asset.org_name)}" style="border-right: 4px solid ${escapeHtml(asset.org_color)}; background: color-mix(in srgb, ${escapeHtml(asset.org_color)} 10%, transparent);">
                             <div class="media-icon">${icon}</div>
-                            <div class="media-title">${asset.asset_name}</div>
-                            <div class="media-org" style="background: color-mix(in srgb, ${asset.org_color} 15%, transparent); color: ${asset.org_color}; border: 1px solid color-mix(in srgb, ${asset.org_color} 30%, transparent); display: inline-flex; align-items: center; gap: 6px;">${asset.org_logo ? `<img alt="" src="${asset.org_logo}" style="width:24px; height:24px; border-radius:50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); object-fit:cover;" loading="lazy">` : `🏢`} ${asset.org_name}</div>
-                            <span style="font-size: 0.8rem; color: gray; margin-bottom: 15px;">${asset.asset_type}</span>
-                            <a href="${asset.file_url}" class="btn-download">⬇️ دریافت فایل</a>
+                            <div class="media-title">${escapeHtml(asset.asset_name)}</div>
+                            <div class="media-org" style="background: color-mix(in srgb, ${escapeHtml(asset.org_color)} 15%, transparent); color: ${escapeHtml(asset.org_color)}; border: 1px solid color-mix(in srgb, ${escapeHtml(asset.org_color)} 30%, transparent); display: inline-flex; align-items: center; gap: 6px;">${asset.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(asset.org_logo))}" style="width:24px; height:24px; border-radius:50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); object-fit:cover;" loading="lazy">` : `🏢`} ${escapeHtml(asset.org_name)}</div>
+                            <span style="font-size: 0.8rem; color: gray; margin-bottom: 15px;">${escapeHtml(asset.asset_type)}</span>
+                            <a href="${escapeHtml(safeUrl(asset.file_url))}" class="btn-download">⬇️ دریافت فایل</a>
                         </div>
                     `;
                 });
@@ -371,10 +371,10 @@
             container.innerHTML += `
                 <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
                     <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
-                        <div>نام فایل: <span style="font-weight:bold;">${media.asset_name}</span></div>
-                        <div>نوع فایل: <span style="font-weight:bold;">${media.asset_type}</span></div>
-                        <div style="grid-column: 1/-1;">لینک: <a href="${media.file_url}" target="_blank" style="color:var(--primary-color)">${media.file_url.substring(0,40)}...</a></div>
-                        <div>نام کاربری سازمان: <span style="font-weight:bold;">${media.org_username || 'بدون سازمان'}</span></div>
+                        <div>نام فایل: <span style="font-weight:bold;">${escapeHtml(media.asset_name)}</span></div>
+                        <div>نوع فایل: <span style="font-weight:bold;">${escapeHtml(media.asset_type)}</span></div>
+                        <div style="grid-column: 1/-1;">لینک: <a href="${escapeHtml(safeUrl(media.file_url))}" target="_blank" style="color:var(--primary-color)">${escapeHtml(media.file_url.substring(0,40))}...</a></div>
+                        <div>نام کاربری سازمان: <span style="font-weight:bold;">${escapeHtml(media.org_username || 'بدون سازمان')}</span></div>
                     </div>
                 </div>
             `;

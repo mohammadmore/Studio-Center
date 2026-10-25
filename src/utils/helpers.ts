@@ -70,3 +70,31 @@ export function escapeHtml(value: unknown) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
   );
 }
+
+const SAFE_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%]+\)|var\(--[a-z0-9-]+\)|[a-z]{3,20})$/i;
+
+/** Colors end up inside inline styles; anything that isn't a plain color is dropped. */
+export function safeColor(value: unknown, fallback = "#6366F1") {
+  const color = String(value ?? "").trim();
+  return SAFE_COLOR.test(color) ? color : fallback;
+}
+
+const UNSAFE_MARKUP =
+  /<\s*\/?\s*(script|foreignobject|iframe|object|embed|style|link|meta|a|image|use|animate|set)\b|\bon[a-z]+\s*=|javascript:|data:text|href\s*=/i;
+
+/**
+ * Icons are rendered as HTML. Plain text / emoji is kept, inline SVG only when it
+ * contains nothing that can run script; anything else is dropped.
+ */
+export function sanitizeIcon(value: unknown) {
+  const icon = String(value ?? "").trim().slice(0, 5000);
+  if (!icon.includes("<")) return icon;
+  if (/^<svg[\s>][\s\S]*<\/svg>$/i.test(icon) && !UNSAFE_MARKUP.test(icon)) return icon;
+  return "";
+}
+
+/** Keeps only URLs that are safe to put into src/href: http(s), our uploads, or inline images. */
+export function safeUrl(value: unknown) {
+  const url = String(value ?? "").trim();
+  return /^(https?:\/\/|\/(?!\/)|data:image\/(png|jpe?g|gif|webp);base64,)/i.test(url) ? url : "";
+}

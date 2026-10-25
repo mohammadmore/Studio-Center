@@ -2,7 +2,7 @@ import express from "express";
 import { organizations, settings, tokens } from "../../store/state.js";
 import { getBlobStore, saveDatabase } from "../../store/db.js";
 import { checkPermission, isClient } from "../../middleware/auth.js";
-import { nextId, toInt } from "../../utils/helpers.js";
+import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
 import { extensionOf, FONT_EXTENSIONS, isSafeFileName, randomFileName } from "../../utils/files.js";
 
 const DEFAULT_FONT = "vazirmatn";
@@ -92,8 +92,8 @@ subRouter.post(
             (item as any).price = parseInt(price) || 0;
             (item as any).base_price = parseInt(price) || 0;
           }
-          if (icon !== void 0) (item as any).icon = icon;
-          if (logo_url !== void 0) (item as any).logo_url = logo_url;
+          if (icon !== void 0) (item as any).icon = sanitizeIcon(icon);
+          if (logo_url !== void 0) (item as any).logo_url = safeUrl(logo_url);
           if (req.body.is_active !== void 0)
             item.is_active = req.body.is_active;
           saveDatabase();
@@ -127,10 +127,10 @@ subRouter.post(
         newItem.base_price = parseInt(price) || 0;
       }
       if (icon !== void 0) {
-        newItem.icon = icon;
+        newItem.icon = sanitizeIcon(icon);
       }
       if (logo_url !== void 0) {
-        newItem.logo_url = logo_url;
+        newItem.logo_url = safeUrl(logo_url);
       }
       if (!itemName) {
         return res.status(400).json({ status: "error", message: "نام آیتم الزامی است" });
@@ -349,7 +349,7 @@ subRouter.post(
       const updates: Record<string, any> = {};
       for (const [k, v] of Object.entries(req.body)) {
         if (/^[a-z][a-z0-9_]{0,40}$/i.test(k) && (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null)) {
-          updates[k] = v;
+          updates[k] = /^logo/.test(k) ? safeUrl(v) : v;
         }
       }
       settings.studio_info = { ...settings.studio_info, ...updates };

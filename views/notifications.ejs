@@ -121,13 +121,13 @@ body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; p
                         <div class="notif-card ${isUnread ? 'notif-unread' : ''}">
                             <div class="notif-title">
                                 ${isUnread ? '🔴 ' : '⚫ '} 
-                                ${window.toPersianDigits ? window.toPersianDigits(n.title) : n.title}
+                                ${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.title) : n.title)}
                             </div>
                             <div class="notif-msg">
-                                ${window.toPersianDigits ? window.toPersianDigits(n.description) : n.description}
+                                ${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.description) : n.description)}
                             </div>
                             <div class="notif-footer">
-                                <span>🕒 ثبت شده در: ${window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at}</span>
+                                <span>🕒 ثبت شده در: ${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at)}</span>
                                 <div class="notif-actions">
                                     ${isUnread ? `<a href="#" onclick="markRead(${n.id})" class="action-read">✓ متوجه شدم</a>` : ''}
                                     ${(() => {
@@ -135,10 +135,10 @@ body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; p
                                             return `<a href="calendar" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده تقویم ➔</a>`;
                                         } else if (n.type === 'content_reviewed' || n.type === 'content_assigned') {
                                             let link = '/depot';
-                                            if (n.target_id) link += `?open=${n.target_id}`;
-                                            return `<a href="${link}" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده در دپو ➔</a>`;
+                                            if (n.target_id) link += `?open=${escapeHtml(n.target_id)}`;
+                                            return `<a href="${escapeHtml(safeUrl(link))}" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده در دپو ➔</a>`;
                                         } else if (n.link) {
-                                            return `<a href="${n.link}" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده ➔</a>`;
+                                            return `<a href="${escapeHtml(safeUrl(n.link))}" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده ➔</a>`;
                                         }
                                         return '';
                                     })()}

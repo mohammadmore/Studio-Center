@@ -1,6 +1,6 @@
 import express from "express";
 import * as jalaali from "jalaali-js";
-import { authGuard, clientAuthGuard } from "../middleware/auth.js";
+import { authGuard, clientAuthGuard, limitSettingsForClient } from "../middleware/auth.js";
 import { getPermissionCategories, landingPageFor, stripSecrets } from "../utils/authUtils.js";
 
 const viewsRouter = express.Router();
@@ -81,6 +81,7 @@ viewsRouter.get("/reports", (req: any, res, next) => {
   const user = req.user;
   if (!user) return res.redirect("/");
   if (user.role_id === "client") {
+    limitSettingsForClient(res);
     res.locals.user = { ...user, full_name: req.account.org_name };
     return res.render("reports", { current: "reports", isClient: true, orgData: stripSecrets(req.account) });
   }

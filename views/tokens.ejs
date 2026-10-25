@@ -169,7 +169,7 @@ setTimeout( async () => {
                     const orgsData = await orgsRes.json();
                     const orgSelect = document.getElementById('newTokenOrg');
                     (orgsData.organizations || []).forEach(o => {
-                        orgSelect.innerHTML += `<option value="${o.id}">${o.org_name}</option>`;
+                        orgSelect.innerHTML += `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`;
                     });
                 } catch(e) {}
                 loadTokens();
@@ -209,20 +209,20 @@ setTimeout( async () => {
                     container.innerHTML += `
                         <div class="${cardClass}">
                             <div class="token-header">
-                                <span style="font-weight:900; font-size:1.1rem; color:var(--text-dark); display:flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-globe"><circle cx="12" cy="12" r="10"></circle><line x1="2" x2="22" y1="12" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg> ${token.platform_name}</span>
+                                <span style="font-weight:900; font-size:1.1rem; color:var(--text-dark); display:flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-globe"><circle cx="12" cy="12" r="10"></circle><line x1="2" x2="22" y1="12" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg> ${escapeHtml(token.platform_name)}</span>
                                 ${badge}
                             </div>
                             <div style="margin-bottom: 10px;">
                                 <span style="color: var(--text-gray); font-size: 0.9rem;">کارفرما:</span>
-                                <div style="font-weight: bold; margin-top: 5px; display:flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building-2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg> ${token.org_name}</div>
+                                <div style="font-weight: bold; margin-top: 5px; display:flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building-2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg> ${escapeHtml(token.org_name)}</div>
                             </div>
                             <div style="margin-bottom: 25px;">
                                 <span style="color: var(--text-gray); font-size: 0.9rem;">نام کاربری (اکانت):</span>
-                                <div style="font-weight: bold; direction: ltr; text-align: right; margin-top: 5px; background: rgba(128, 128, 128, 0.05); padding:8px; border-radius:6px;">${token.account_username}</div>
+                                <div style="font-weight: bold; direction: ltr; text-align: right; margin-top: 5px; background: rgba(128, 128, 128, 0.05); padding:8px; border-radius:6px;">${escapeHtml(token.account_username)}</div>
                             </div>
                             ${isExpired 
-                                ? `<button class="btn-refresh" onclick="showToast('انتقال به درگاه لاگینِ ${token.platform_name} جهت تایید مجدد دسترسی...')"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg> اتصال مجدد (Re-auth)</button>` 
-                                : `<div style="text-align:center; color: var(--text-gray); font-size: 0.85rem; background: rgba(128, 128, 128, 0.1); padding:8px; border-radius:6px;">انقضای توکن: ${expireDate}</div>`}
+                                ? `<button class="btn-refresh" onclick="showToast(${jsAttr('انتقال به درگاه لاگینِ ' + token.platform_name + ' جهت تایید مجدد دسترسی...')})"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg> اتصال مجدد (Re-auth)</button>` 
+                                : `<div style="text-align:center; color: var(--text-gray); font-size: 0.85rem; background: rgba(128, 128, 128, 0.1); padding:8px; border-radius:6px;">انقضای توکن: ${escapeHtml(expireDate)}</div>`}
                         </div>
                     `;
                 });

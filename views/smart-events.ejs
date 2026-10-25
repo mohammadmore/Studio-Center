@@ -674,9 +674,9 @@
                     const newEventOrgSel = document.getElementById('newEventOrg');
                     const viewOrgSel = document.getElementById('viewOrgSelector');
                     (data.data || []).forEach(org => {
-                        sel.innerHTML += `<option value="${org.id}">${org.org_name}</option>`;
-                        if(newEventOrgSel) newEventOrgSel.innerHTML += `<option value="${org.id}">${org.org_name}</option>`;
-                        if(viewOrgSel) viewOrgSel.innerHTML += `<option value="${org.id}">${org.org_name}</option>`;
+                        sel.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
+                        if(newEventOrgSel) newEventOrgSel.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
+                        if(viewOrgSel) viewOrgSel.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
                     });
                 }
             } catch(e) {}
@@ -764,7 +764,7 @@
                 let holidayClass = isSpecialHoliday ? 'holiday special-holiday' : (isRoutineHoliday ? 'holiday routine-holiday' : '');
 
                 let dayNameStr = dayNames[jsDate.getDay()];
-                let cellHtml = `<div class="calendar-cell ${isToday} ${holidayClass}" style="cursor: pointer;" onclick="openDayDetail(${d}, '${dayNameStr}')">
+                let cellHtml = `<div class="calendar-cell ${escapeHtml(isToday)} ${holidayClass}" style="cursor: pointer;" onclick="openDayDetail(${d}, ${jsAttr(dayNameStr)})">
                                     <div class="day-number">${toPersianDigits(d)}</div>`;
                 
                 
@@ -781,14 +781,14 @@
                         
                         let logoHtml = '';
                         if (ev.org_id && ev.org_logo) {
-                            logoHtml = `<img src="${ev.org_logo}" alt="logo" style="width: 16px; height: 16px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-left: 4px; object-fit: cover; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" loading="lazy">`;
+                            logoHtml = `<img src="${escapeHtml(safeUrl(ev.org_logo))}" alt="logo" style="width: 16px; height: 16px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-left: 4px; object-fit: cover; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" loading="lazy">`;
                         } else if (ev.org_id) {
-                            logoHtml = `<span style="display: inline-block; width: 14px; height: 14px; background: #6366f1; color: white; border-radius: 50%; font-size: 0.5rem; text-align: center; line-height: 14px; vertical-align: middle; margin-left: 4px;">${ev.org_name ? ev.org_name.charAt(0) : 'ا'}</span>`;
+                            logoHtml = `<span style="display: inline-block; width: 14px; height: 14px; background: #6366f1; color: white; border-radius: 50%; font-size: 0.5rem; text-align: center; line-height: 14px; vertical-align: middle; margin-left: 4px;">${escapeHtml(ev.org_name ? ev.org_name.charAt(0) : 'ا')}</span>`;
                         }
                         cellHtml += `
                             <div class="event-badge event-badge-${typeClass}" style="padding: 6px 8px; font-weight: bold; font-size: 0.8rem; border: 1px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; box-sizing: border-box; display: flex; align-items: center;">
                                 ${logoHtml}
-                                <span style="overflow: hidden; text-overflow: ellipsis;">${ev.title}</span>
+                                <span style="overflow: hidden; text-overflow: ellipsis;">${escapeHtml(ev.title)}</span>
                             </div>
                         `;
                     });
@@ -843,17 +843,17 @@
 
                     const rowHtml = `
                         <tr class="list-row ${isSpecialHoliday ? 'special-holiday' : (isRoutineHoliday ? 'routine-holiday' : '')}" style=" transition: 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                            <td style="padding: 12px 10px;"><input type="checkbox" class="ev-cb" value="${ev.id}" data-title="${ev.title}"></td>
+                            <td style="padding: 12px 10px;"><input type="checkbox" class="ev-cb" value="${ev.id}" data-title="${escapeHtml(ev.title)}"></td>
                             <td style="padding: 12px 10px; font-weight:bold; color:${dayColor};">${dayNames[currentDayOfWeek]} ${toPersianDigits(day)} ${monthNames[currentMonth-1]} ${toPersianDigits(currentYear)}</td>
 
                             <td style="padding: 12px 10px; font-weight:bold; color: var(--text-gray); display: flex; align-items: center;">
-                                ${ev.org_id && ev.org_logo ? `<img alt="" src="${ev.org_logo}" style="width: 20px; height: 20px; border-radius: 50%; margin-left: 8px; object-fit: cover; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" loading="lazy">` : (ev.org_id ? `<span style="display: inline-block; width: 20px; height: 20px; background: #6366f1; color: white; border-radius: 50%; font-size: 0.6rem; text-align: center; line-height: 20px; margin-left: 8px;">${ev.org_name ? ev.org_name.charAt(0) : 'ا'}</span>` : '')}
-                                ${ev.title}
+                                ${ev.org_id && ev.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(ev.org_logo))}" style="width: 20px; height: 20px; border-radius: 50%; margin-left: 8px; object-fit: cover; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" loading="lazy">` : (ev.org_id ? `<span style="display: inline-block; width: 20px; height: 20px; background: #6366f1; color: white; border-radius: 50%; font-size: 0.6rem; text-align: center; line-height: 20px; margin-left: 8px;">${escapeHtml(ev.org_name ? ev.org_name.charAt(0) : 'ا')}</span>` : '')}
+                                ${escapeHtml(ev.title)}
                             </td>
                             <td style="padding: 12px 10px; display: flex; align-items: center; justify-content: space-between;">
                                 <div style="display: flex; align-items: center;">
                                     <span style="background: var(--card-bg); border: 1px solid var(--border-color); color:${isHoliday ? '#9f1239' : '#475569'}; padding:4px 8px; border-radius:6px; font-size:0.8rem;">${badgeText}</span>
-                                    ${ev.org_id && ev.org_name ? `<span style="background:${ev.org_color || '#6366f1'}; color:#ffffff; padding:4px 8px; border-radius:6px; font-size:0.8rem; margin-right: 5px;">${ev.org_name}</span>` : ''}
+                                    ${ev.org_id && ev.org_name ? `<span style="background:${escapeHtml(ev.org_color || '#6366f1')}; color:#ffffff; padding:4px 8px; border-radius:6px; font-size:0.8rem; margin-right: 5px;">${escapeHtml(ev.org_name)}</span>` : ''}
                                 </div>
                                 ${(USER_ROLE === 1 || USER_ROLE === 2) ? `
                                 <div style="display: flex; gap: 8px;">
@@ -1006,7 +1006,7 @@
                 return;
             }
             const baseUrl = window.location.origin;
-            const link = `${baseUrl}/client-events?year=${currentYear}&month=${currentMonth}&org_id=${orgId}`;
+            const link = `${escapeHtml(baseUrl)}/client-events?year=${escapeHtml(currentYear)}&month=${escapeHtml(currentMonth)}&org_id=${escapeHtml(orgId)}`;
             
             document.getElementById('clientLinkInput').value = link;
             document.getElementById('clientLinkAnchor').href = link;
@@ -1044,7 +1044,7 @@
             
             monthSel.innerHTML = '';
             targetMonths.forEach((m, idx) => {
-                monthSel.innerHTML += `<option value="${idx + 1}">${m}</option>`;
+                monthSel.innerHTML += `<option value="${idx + 1}">${escapeHtml(m)}</option>`;
             });
             monthSel.value = currentMonth; // Try to keep current month index
             });
@@ -1058,11 +1058,11 @@
             let gregorian = jalaali.toGregorian(currentYear, currentMonth, day);
             let jsDate = new Date(gregorian.gy, gregorian.gm - 1, gregorian.gd);
             let dayName = dayNameStr || dayNames[jsDate.getDay()];
-            let jalaliText = `${dayName}، ${toPersianDigits(day)} ${monthNames[currentMonth - 1]} ${toPersianDigits(currentYear)}`;
+            let jalaliText = `${escapeHtml(dayName)}، ${toPersianDigits(day)} ${monthNames[currentMonth - 1]} ${toPersianDigits(currentYear)}`;
             let hijriText = new Intl.DateTimeFormat('fa-IR-u-ca-islamic', {day: 'numeric', month: 'long', year: 'numeric'}).format(jsDate);
             let miladiText = new Intl.DateTimeFormat('fa-IR-u-ca-gregory', {day: 'numeric', month: 'long', year: 'numeric'}).format(jsDate);
             
-            document.getElementById('dayDetailTitle').innerHTML = `<div style="font-size: 1.4rem; font-weight: bold; color: var(--text-gray); margin-bottom: 5px;">${jalaliText}</div><div style="font-size: 0.9rem; color: var(--text-gray); font-weight: normal; margin-top: 4px;">${hijriText} &nbsp;|&nbsp; ${miladiText}</div>`;
+            document.getElementById('dayDetailTitle').innerHTML = `<div style="font-size: 1.4rem; font-weight: bold; color: var(--text-gray); margin-bottom: 5px;">${escapeHtml(jalaliText)}</div><div style="font-size: 0.9rem; color: var(--text-gray); font-weight: normal; margin-top: 4px;">${escapeHtml(hijriText)} &nbsp;|&nbsp; ${escapeHtml(miladiText)}</div>`;
             
             const list = document.getElementById('dayDetailList');
             list.innerHTML = '';
@@ -1077,16 +1077,16 @@
                     
                     let logoHtml = '';
                     if (ev.org_id && ev.org_logo) {
-                        logoHtml = `<img src="${ev.org_logo}" alt="logo" style="width: 20px; height: 20px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-left: 8px; object-fit: cover; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" loading="lazy">`;
+                        logoHtml = `<img src="${escapeHtml(safeUrl(ev.org_logo))}" alt="logo" style="width: 20px; height: 20px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-left: 8px; object-fit: cover; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" loading="lazy">`;
                     } else if (ev.org_id) {
-                        logoHtml = `<span style="display: inline-block; width: 20px; height: 20px; background: #6366f1; color: white; border-radius: 50%; font-size: 0.6rem; text-align: center; line-height: 20px; vertical-align: middle; margin-left: 8px;">${ev.org_name ? ev.org_name.charAt(0) : 'ا'}</span>`;
+                        logoHtml = `<span style="display: inline-block; width: 20px; height: 20px; background: #6366f1; color: white; border-radius: 50%; font-size: 0.6rem; text-align: center; line-height: 20px; vertical-align: middle; margin-left: 8px;">${escapeHtml(ev.org_name ? ev.org_name.charAt(0) : 'ا')}</span>`;
                     }
                     
                     list.innerHTML += `
-                        <div title="${ev.description ? ev.description.replace(/"/g, '&quot;') : ''}" onclick="if(!event.target.closest('button')) showEventInfoModal('${encodeURIComponent(JSON.stringify(ev)).replace(/'/g, '%27')}')" style="background: rgba(128, 128, 128, 0.05); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='rgba(128,128,128,0.05)'">
+                        <div title="${escapeHtml(ev.description || '')}" onclick="if(!event.target.closest('button')) showEventInfoModal('${encodeURIComponent(JSON.stringify(ev)).split("'").join('%27')}')" style="background: rgba(128, 128, 128, 0.05); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='rgba(128,128,128,0.05)'">
                             <div style="display: flex; align-items: center;">
                                 ${logoHtml}
-                                <span style="font-weight: bold; color: var(--text-gray);">${ev.title}</span>
+                                <span style="font-weight: bold; color: var(--text-gray);">${escapeHtml(ev.title)}</span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 0.75rem; background: rgba(99, 102, 241, 0.15); color: #4338ca; padding: 3px 6px; border-radius: 4px;">${badgeText}</span>

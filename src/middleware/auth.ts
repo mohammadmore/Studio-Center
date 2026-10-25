@@ -30,11 +30,18 @@ export function loadSessionUser(req: any, res: any, next: any) {
   next();
 }
 
+/** Clients only get the lists used to label content, not studio-internal settings. */
+export function limitSettingsForClient(res: any) {
+  const all = res.locals.settings || {};
+  res.locals.settings = Object.fromEntries(Object.entries(all).filter(([, v]) => Array.isArray(v)));
+}
+
 export function clientAuthGuard(req: any, res: any, next: any) {
   const user = req.user;
   if (!user) return res.redirect("/");
   if (user.role_id !== "client") return res.redirect(landingPageFor(user));
   const org = req.account;
+  limitSettingsForClient(res);
   res.locals.user = {
     ...user,
     full_name: org.org_name || user.full_name,

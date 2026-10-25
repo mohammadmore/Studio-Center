@@ -10,7 +10,7 @@ import {
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
 import { hasPermission, stripSecrets } from "../../utils/authUtils.js";
-import { nextId, toInt } from "../../utils/helpers.js";
+import { nextId, safeColor, safeUrl, toInt } from "../../utils/helpers.js";
 import { moveToRecycleBin } from "../../utils/contentUtils.js";
 import { isUsernameTaken } from "./users.js";
 
@@ -193,8 +193,8 @@ function buildOrg(input: any, id: number) {
     id,
     org_name: input.org_name || "بدون نام",
     industry: input.industry || "سایر",
-    logo_url: input.logo_url || "",
-    color: input.color || "#6366F1",
+    logo_url: safeUrl(input.logo_url),
+    color: safeColor(input.color),
     contact_name: input.contact_name || "",
     phone_number: input.phone_number || "",
     has_telegram: input.has_telegram || false,
@@ -284,7 +284,7 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
       if (value === undefined) continue;
       // Empty name / logo / color in the form mean "unchanged".
       if (["org_name", "logo_url", "color"].includes(field) && !value) continue;
-      org[field] = value;
+      org[field] = field === "color" ? safeColor(value) : field === "logo_url" ? safeUrl(value) : value;
     }
     saveDatabase();
     return res.json({ status: "success" });

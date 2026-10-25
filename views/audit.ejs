@@ -236,9 +236,9 @@
                         : '<span style="background: rgba(16, 185, 129, 0.1); color: var(--success-color); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">انجام شده</span>';
                         
                     html += `<tr>
-                        <td style="font-weight: bold;">${item.title}</td>
+                        <td style="font-weight: bold;">${escapeHtml(item.title)}</td>
                                                 <td class="batch-desc-cell">
-                            ${item.description}
+                            ${escapeHtml(item.description)}
                             ${(() => {
                                 let titles = [];
                                 if (item.previous_states && Array.isArray(item.previous_states)) {
@@ -252,7 +252,7 @@
                                 return '';
                             })()}
                         </td>
-                        <td style="direction: ltr; text-align: right;">${date}</td>
+                        <td style="direction: ltr; text-align: right;">${escapeHtml(date)}</td>
                         <td >${statusHtml}</td>
                                                 <td style="text-align: left;">
                             ${!item.is_undone ? `<button onclick="undoBatch('${item.id}')" style="width: 155px; justify-content: center; display: inline-flex; background: var(--error-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">لغو عملیات (Undo)</button>` : `<button onclick="redoBatch('${item.id}')" style="width: 155px; justify-content: center; display: inline-flex; background: var(--primary-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">بازگردانی عملیات (Redo)</button>`}
@@ -261,7 +261,7 @@
                 });
                 tbody.innerHTML = html;
             } else {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">${result.message || 'خطا در دریافت اطلاعات'}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">${escapeHtml(result.message || 'خطا در دریافت اطلاعات')}</td></tr>`;
             }
         } catch (e) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">خطا در دریافت اطلاعات</td></tr>';
@@ -383,15 +383,15 @@
                         logUser = log.username;
                     }
 container.innerHTML += `
-                    <div class="timeline-item log-entry" data-username="${log.username || ''}" data-date="${rawDate}" data-jdate="${jDate}">
+                    <div class="timeline-item log-entry" data-username="${escapeHtml(log.username || '')}" data-date="${escapeHtml(rawDate)}" data-jdate="${escapeHtml(jDate)}">
                         <div class="timeline-badge ${badgeClass}"></div>
                         <div class="timeline-card">
                             <div>
-                                <div class="log-meta">کاربر: ${logUser} | آیپی: ${log.ip || '127.0.0.1'}</div>
-                                <div class="log-desc">${actionName}</div>
+                                <div class="log-meta">کاربر: ${escapeHtml(logUser)} | آیپی: ${log.ip || '127.0.0.1'}</div>
+                                <div class="log-desc">${escapeHtml(actionName)}</div>
                             </div>
                             <div class="log-time" style="direction: ltr; text-align: right;">
-                                ${dateStr} <span style="opacity:0.6;">|</span> ${timeStr}
+                                ${escapeHtml(dateStr)} <span style="opacity:0.6;">|</span> ${escapeHtml(timeStr)}
                             </div>
                         </div>
                     </div>
@@ -507,11 +507,11 @@ container.innerHTML += `
                     } else if (item.deleted_by) {
                         delBy = item.deleted_by;
                     }
-                    html += `<tr class="recycle-row" data-table="${item.table}">
-                        <td >${tName}</td>
-                        <td style="font-weight: bold;">${item.item_title}</td>
-                        <td >${delBy}</td>
-                        <td style="direction: ltr; text-align: right;">${date}</td>
+                    html += `<tr class="recycle-row" data-table="${escapeHtml(item.table)}">
+                        <td >${escapeHtml(tName)}</td>
+                        <td style="font-weight: bold;">${escapeHtml(item.item_title)}</td>
+                        <td >${escapeHtml(delBy)}</td>
+                        <td style="direction: ltr; text-align: right;">${escapeHtml(date)}</td>
                                                 <td style="text-align: left;">
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center;">
                             ${item.restored ? 
@@ -526,7 +526,7 @@ container.innerHTML += `
                 });
                 tbody.innerHTML = html;
             } else {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">${result.message || 'خطا در دریافت اطلاعات'}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">${escapeHtml(result.message || 'خطا در دریافت اطلاعات')}</td></tr>`;
             }
         } catch (e) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--error-color);">خطا در دریافت اطلاعات</td></tr>';

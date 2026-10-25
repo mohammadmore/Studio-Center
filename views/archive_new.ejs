@@ -263,7 +263,7 @@
                 
                 const card = document.createElement('div');
                 card.className = 'collection-card';
-                const cardColor = col.org_color || 'var(--primary-color)';
+                const cardColor = safeColor(col.org_color) || 'var(--primary-color)';
                 card.style.borderRight = `4px solid ${cardColor}`;
                 card.style.background = `color-mix(in srgb, ${cardColor} 10%, var(--card-bg))`;
                 
@@ -292,15 +292,15 @@
                         <button class="btn-delete" onclick="event.stopPropagation(); deleteCol(${col.id})">حذف</button>
                     </div>
                     
-                    <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-gray); padding-left: 90px; min-height: 2.8em; line-height: 1.4;">${col.title}</h3>
+                    <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-gray); padding-left: 90px; min-height: 2.8em; line-height: 1.4;">${escapeHtml(col.title)}</h3>
                     
                     <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
-                        ${col.org_logo ? `<img alt="" src="${col.org_logo}" style="width:24px; height:24px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : `<span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${col.org_color || 'var(--text-gray)'}"></span>`}
-                        <span style="font-size: 0.9rem; color: var(--text-gray);">${col.org_name}</span>
+                        ${col.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(col.org_logo))}" style="width:24px; height:24px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : `<span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${escapeHtml(col.org_color || 'var(--text-gray)')}"></span>`}
+                        <span style="font-size: 0.9rem; color: var(--text-gray);">${escapeHtml(col.org_name)}</span>
                     </div>
                     
                     <div style="margin-top: auto; padding-top: 15px; font-size: 0.85rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: flex-end;">
-                        <span>تاریخ ایجاد: ${col.created_at || 'نامشخص'}</span>
+                        <span>تاریخ ایجاد: ${escapeHtml(col.created_at || 'نامشخص')}</span>
                         <span style="background: rgba(128, 128, 128, 0.1); padding: 2px 8px; border-radius: 4px; color: var(--text-gray);">${window.toPersianDigits(itemsCount)} محتوا</span>
                     </div>
                 `;
@@ -374,8 +374,8 @@
                     div.onclick = () => { window.openContentDetails(item.id); };
                     div.innerHTML = `
                         <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px;">#${index + 1}</div>
-                        <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray);">${item.title}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${item.content_type || 'نامشخص'}</span></div>
+                        <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray);">${escapeHtml(item.title)}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${escapeHtml(item.content_type || 'نامشخص')}</span></div>
                         <div style="font-size: 0.85rem; margin-top: 10px; margin-bottom: 5px;">وضعیت: ${translateStatus(item.status)}</div>
                     `;
                     cardsGrid.appendChild(div);
@@ -391,7 +391,7 @@
             if(!col) return;
             
             if (col.parent_id) {
-                document.getElementById('viewModalBackButtonContainer').innerHTML = `<button onclick="openViewModal(${col.parent_id})" style="background:none; border:none; color:var(--primary-color); cursor:pointer; font-size:0.9rem; display:flex; align-items:center; gap:5px; padding: 0;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m15 18-6-6 6-6'/></svg> بازگشت به مجموعه قبلی</button>`;
+                document.getElementById('viewModalBackButtonContainer').innerHTML = `<button onclick="openViewModal(${escapeHtml(col.parent_id)})" style="background:none; border:none; color:var(--primary-color); cursor:pointer; font-size:0.9rem; display:flex; align-items:center; gap:5px; padding: 0;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m15 18-6-6 6-6'/></svg> بازگشت به مجموعه قبلی</button>`;
             } else {
                 document.getElementById('viewModalBackButtonContainer').innerHTML = '';
             }
@@ -438,7 +438,7 @@
                     div.onclick = () => { openViewModal(subCol.id); };
                     const subAllColIds = window.getAllDescendantCollectionIds(subCol.id);
                     const subCount = allContents.filter(c => subAllColIds.includes(c.collection_id)).length;
-                    div.innerHTML = `<div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 5px; color: var(--text-dark); display:flex; align-items:center; gap:8px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/></svg> ${subCol.title}</div><div style="font-size:0.8rem; color:var(--text-gray);">تعداد محتواها: ${subCount} | کلیک کنید تا باز شود</div>`;
+                    div.innerHTML = `<div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 5px; color: var(--text-dark); display:flex; align-items:center; gap:8px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/></svg> ${escapeHtml(subCol.title)}</div><div style="font-size:0.8rem; color:var(--text-gray);">تعداد محتواها: ${escapeHtml(subCount)} | کلیک کنید تا باز شود</div>`;
                     cardsGrid.appendChild(div);
                 });
             }
@@ -471,8 +471,8 @@
                 div.onclick = () => { window.openContentDetails(item.id); };
                 div.innerHTML = `
                     <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px;">#${index + 1}</div>
-                    <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray);">${item.title}</div>
-                    <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${item.content_type || 'نامشخص'}</span></div>
+                    <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray);">${escapeHtml(item.title)}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${escapeHtml(item.content_type || 'نامشخص')}</span></div>
                     <div style="font-size: 0.85rem; margin-top: 10px; margin-bottom: 5px;">وضعیت: ${translateStatus(item.status)}</div>
                 `;
                 cardsGrid.appendChild(div);
@@ -734,8 +734,8 @@ window.filterTeam = function() {
             container.innerHTML += `
                 <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
                     <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
-                        <div>عنوان: <span style="font-weight:bold;">${col.title}</span></div>
-                        <div>نام کاربری سازمان: <span style="font-weight:bold;">${col.org_username || 'بدون سازمان'}</span></div>
+                        <div>عنوان: <span style="font-weight:bold;">${escapeHtml(col.title)}</span></div>
+                        <div>نام کاربری سازمان: <span style="font-weight:bold;">${escapeHtml(col.org_username || 'بدون سازمان')}</span></div>
                     </div>
                 </div>
             `;

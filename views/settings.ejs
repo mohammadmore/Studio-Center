@@ -536,8 +536,8 @@
                 const isChecked = h.is_active === 1 ? 'checked' : '';
                 container.innerHTML += `
                     <label style="display: flex; align-items: center; justify-content: flex-start; gap: 8px; background: rgba(128, 128, 128, 0.05); padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer;">
-                        <input type="checkbox" ${isChecked} onchange="toggleHoliday(${h.id}, this.checked)" style="width: 18px; height: 18px;">
-                        ${h.setting_key}
+                        <input type="checkbox" ${escapeHtml(isChecked)} onchange="toggleHoliday(${h.id}, this.checked)" style="width: 18px; height: 18px;">
+                        ${escapeHtml(h.setting_key)}
                     </label>
                 `;
             });
@@ -659,7 +659,7 @@
             Array.from(items).forEach(item => {
                 const formatMoney = new Intl.NumberFormat('fa-IR').format(item.base_price || 0);
                 const priceBadge = (currentGroup === 'content_type' && item.base_price > 0) 
-                    ? `<span style="background: rgba(99, 102, 241, 0.15); color: var(--primary-color); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; margin-right: 10px;">${formatMoney} تومان</span>` 
+                    ? `<span style="background: rgba(99, 102, 241, 0.15); color: var(--primary-color); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; margin-right: 10px;">${escapeHtml(formatMoney)} تومان</span>` 
                     : '';
                 const iconBadge = (currentGroup === 'platform' && item.icon) 
                     ? `<span style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">${item.icon}</span>` 
@@ -669,15 +669,15 @@
                 if (currentGroup === 'platform' && item.logo_url) {
                     const isSvg = item.logo_url.toLowerCase().includes('.svg') || item.logo_url.toLowerCase().includes('data:image/svg');
                     if (isSvg) {
-                        iconHtml = `<span style="display:inline-block; width:24px; height:24px; background-color:currentColor; -webkit-mask-image:url('${item.logo_url}'); -webkit-mask-size:contain; -webkit-mask-repeat:no-repeat; -webkit-mask-position:center; mask-image:url('${item.logo_url}'); mask-size:contain; mask-repeat:no-repeat; mask-position:center;"></span>`;
+                        iconHtml = `<span style="display:inline-block; width:24px; height:24px; background-color:currentColor; -webkit-mask-image:url('${escapeHtml(safeUrl(item.logo_url))}'); -webkit-mask-size:contain; -webkit-mask-repeat:no-repeat; -webkit-mask-position:center; mask-image:url('${escapeHtml(safeUrl(item.logo_url))}'); mask-size:contain; mask-repeat:no-repeat; mask-position:center;"></span>`;
                     } else {
-                        iconHtml = `<img alt="" src="${item.logo_url}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" loading="lazy">`;
+                        iconHtml = `<img alt="" src="${escapeHtml(safeUrl(item.logo_url))}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" loading="lazy">`;
                     }
                 }
                     container.innerHTML += `
                     <div class="data-item">
                         <div style="display: flex; align-items: center;">
-                            <strong style="color: var(--text-dark); display: flex; align-items: center; gap: 8px;">${iconHtml} <span>${item.setting_key}</span></strong>
+                            <strong style="color: var(--text-dark); display: flex; align-items: center; gap: 8px;">${iconHtml} <span>${escapeHtml(item.setting_key)}</span></strong>
                             ${priceBadge}
                         </div>
                         <div style="display: flex; gap: 5px;">
@@ -992,7 +992,7 @@
                     currentFonts.forEach((font, idx) => {
                         if (font.filename !== 'vazirmatn') {
                             const fontId = 'font_preview_' + idx;
-                            styleHtml += `@font-face { font-family: '${fontId}'; src: url('/fonts/${font.filename}'); }`;
+                            styleHtml += `@font-face { font-family: '${escapeHtml(fontId)}'; src: url('/fonts/${escapeHtml(font.filename)}'); }`;
                         }
                     });
                     styleHtml += '</style>';
@@ -1006,28 +1006,28 @@
                         container.innerHTML += `
                             <div class="flex-responsive" style="display: flex; flex-direction: column; padding: 15px; border-bottom: 1px solid var(--border-color); gap: 10px;">
                                 <div style="display: flex; flex-direction: column; gap: 5px;">
-                                    <div style="font-family: '${fontId}'; font-size: 1.2rem; font-weight: bold;">
-                                        ${font.fa_name} - ${font.en_name}
+                                    <div style="font-family: '${escapeHtml(fontId)}'; font-size: 1.2rem; font-weight: bold;">
+                                        ${escapeHtml(font.fa_name)} - ${escapeHtml(font.en_name)}
                                     </div>
-                                    <div style="font-size: 0.75rem; color: var(--text-gray);">${font.filename}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-gray);">${escapeHtml(font.filename)}</div>
                                 </div>
                                 <div id="edit-font-form-${idx}" style="display: none; flex-direction: column; gap: 10px; background: rgba(128, 128, 128, 0.1); padding: 10px; border-radius: 8px;">
-                                    <input type="text" id="edit-fa-name-${idx}" class="form-control" placeholder="نام فارسی" value="${font.fa_name}">
-                                    <input type="text" id="edit-en-name-${idx}" class="form-control" placeholder="نام انگلیسی" value="${font.en_name}">
+                                    <input type="text" id="edit-fa-name-${idx}" class="form-control" placeholder="نام فارسی" value="${escapeHtml(font.fa_name)}">
+                                    <input type="text" id="edit-en-name-${idx}" class="form-control" placeholder="نام انگلیسی" value="${escapeHtml(font.en_name)}">
                                     <div style="display: flex; gap: 5px;">
-                                        <button onclick="saveFontName('${font.filename}', ${idx})" class="btn-primary" style="padding: 4px 10px; border-radius: 6px; font-size: 0.8rem;">ذخیره</button>
+                                        <button onclick="saveFontName(${jsAttr(font.filename)}, ${idx})" class="btn-primary" style="padding: 4px 10px; border-radius: 6px; font-size: 0.8rem;">ذخیره</button>
                                         <button type="button" class="btn-outline"  onclick="document.getElementById('edit-font-form-${idx}').style.display = 'none'" >انصراف</button>
                                     </div>
                                 </div>
                                 <div class="font-actions-wrapper" style="display: flex; gap: 5px; flex-wrap: wrap;">
                                     <div class="font-actions-row1" style="display: flex; gap: 5px;">
                                         <button onclick="document.getElementById('edit-font-form-${idx}').style.display = 'flex'" style="background: #fef08a; color: #854d0e; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold;">ویرایش نام</button>
-                                        <button onclick="deleteFont('${font.filename}')" class="btn-delete" style="padding: 6px 15px; font-size: 0.85rem;">حذف</button>
-                                        <button onclick="reorderFont('${font.filename}', 'up')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="بالا">↑</button>
-                                        <button onclick="reorderFont('${font.filename}', 'down')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="پایین">↓</button>
+                                        <button onclick="deleteFont(${jsAttr(font.filename)})" class="btn-delete" style="padding: 6px 15px; font-size: 0.85rem;">حذف</button>
+                                        <button onclick="reorderFont(${jsAttr(font.filename)}, 'up')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="بالا">↑</button>
+                                        <button onclick="reorderFont(${jsAttr(font.filename)}, 'down')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="پایین">↓</button>
                                     </div>
                                     <div class="font-actions-row2" style="display: flex; gap: 5px; flex: 1;">
-                                        <button onclick="setActiveFont('${font.filename}')" style="background: #e0f2fe; color: #0284c7; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; width: 100%;">اعمال به عنوان فونت فعال</button>
+                                        <button onclick="setActiveFont(${jsAttr(font.filename)})" style="background: #e0f2fe; color: #0284c7; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; width: 100%;">اعمال به عنوان فونت فعال</button>
                                     </div>
                                 </div>
                             </div>
@@ -1191,8 +1191,8 @@
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: rgba(128,128,128,0.05); border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-dark);">${r.icon ? r.icon : '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'}</div>
                             <div>
-                                <div style="font-weight: bold; color: var(--text-dark);">${r.name}</div>
-                                <div class="role-item-permissions" style="font-size: 0.8rem; color: var(--text-gray); margin-top: 5px; width: 100%; max-width: 400px; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${pList}">${pList || 'بدون دسترسی'}</div>
+                                <div style="font-weight: bold; color: var(--text-dark);">${escapeHtml(r.name)}</div>
+                                <div class="role-item-permissions" style="font-size: 0.8rem; color: var(--text-gray); margin-top: 5px; width: 100%; max-width: 400px; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(pList)}">${escapeHtml(pList || 'بدون دسترسی')}</div>
                             </div>
                         </div>
                         <div class="role-actions-wrapper">

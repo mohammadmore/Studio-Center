@@ -208,7 +208,7 @@
                 if (!orgGroups[orgId]) {
                     orgGroups[orgId] = {
                         name: p.org_name || 'بدون سازمان',
-                        color: p.org_color || 'var(--primary-color)',
+                        color: safeColor(p.org_color) || 'var(--primary-color)',
                         logo: p.org_logo || '',
                         projects: []
                     };
@@ -222,11 +222,11 @@
                 const org = orgGroups[orgId];
                 
                 html += `
-                    <div class="org-group" style="border-top: 4px solid ${org.color}; background: color-mix(in srgb, ${org.color} 10%, transparent);">
+                    <div class="org-group" style="border-top: 4px solid ${escapeHtml(org.color)}; background: color-mix(in srgb, ${escapeHtml(org.color)} 10%, transparent);">
                         <div class="org-header">
-                            ${org.logo ? `<img src="${org.logo}" alt="${org.name}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" loading="lazy">` : `<div style="width:40px; height:40px; border-radius:8px; background:${org.color}; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">${org.name.substring(0,1)}</div>`}
-                            <h3>${org.name}</h3>
-                            <span class="badge" style="background:color-mix(in srgb, ${org.color} 12%, transparent); color:${org.color}">${org.projects.length} پروژه</span>
+                            ${org.logo ? `<img src="${escapeHtml(safeUrl(org.logo))}" alt="${escapeHtml(org.name)}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" loading="lazy">` : `<div style="width:40px; height:40px; border-radius:8px; background:${escapeHtml(org.color)}; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">${escapeHtml(org.name.substring(0,1))}</div>`}
+                            <h3>${escapeHtml(org.name)}</h3>
+                            <span class="badge" style="background:color-mix(in srgb, ${escapeHtml(org.color)} 12%, transparent); color:${escapeHtml(org.color)}">${org.projects.length} پروژه</span>
                         </div>
                         <ul class="project-list">
                 `;
@@ -235,20 +235,20 @@
                     let statusLabel = translateStatus(p.status);
                     let statusHtml = '';
                     if (p.status === 'done' || p.status === 'approved_by_client' || p.status === 'ready_to_publish' || p.status === 'published') {
-                        statusHtml = `<span class="project-status" style="background:rgba(16, 185, 129, 0.15); color:#166534">${statusLabel}</span>`;
+                        statusHtml = `<span class="project-status" style="background:rgba(16, 185, 129, 0.15); color:#166534">${escapeHtml(statusLabel)}</span>`;
                     } else if (p.status === 'in_progress' || p.status === 'review' || p.status === 'client_review' || p.status === 'needs_revision' || (p.stages && p.stages.length > 0)) {
-                        statusHtml = `<span class="project-status" style="background:#fef9c3; color:#854d0e">${statusLabel}</span>`;
+                        statusHtml = `<span class="project-status" style="background:#fef9c3; color:#854d0e">${escapeHtml(statusLabel)}</span>`;
                     } else {
-                        statusHtml = `<span class="project-status" style="background: rgba(128, 128, 128, 0.1); color: var(--text-gray)">${statusLabel}</span>`;
+                        statusHtml = `<span class="project-status" style="background: rgba(128, 128, 128, 0.1); color: var(--text-gray)">${escapeHtml(statusLabel)}</span>`;
                     }
                     
                     html += `
                         <li class="project-item" style="cursor:pointer;" onclick="window.openContentDetails(${p.id})">
                             <div class="project-info">
-                                <div class="project-title">${p.title}</div>
+                                <div class="project-title">${escapeHtml(p.title)}</div>
                                 <div class="project-meta">
-                                    <span>نوع محتوا: ${p.content_type || 'نامشخص'}</span>
-                                    ${p.publish_date ? `<span>تاریخ انتشار: ${toPersianDigits(p.publish_date)}</span>` : ''}
+                                    <span>نوع محتوا: ${escapeHtml(p.content_type || 'نامشخص')}</span>
+                                    ${p.publish_date ? `<span>تاریخ انتشار: ${escapeHtml(toPersianDigits(p.publish_date))}</span>` : ''}
                                 </div>
                             </div>
                             <div>

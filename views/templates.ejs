@@ -248,15 +248,15 @@
                 const itemsCount = tpl.items ? tpl.items.length : 0;
                 let previewItems = '';
                 if (tpl.items) {
-                    previewItems = tpl.items.slice(0, 4).map(i => `<div style="padding:4px; background: rgba(128, 128, 128, 0.05); border-radius:4px; margin-bottom:4px; font-size:0.85rem;">روزم ${i.dayOffset}: ${i.type} - ${i.topic}</div>`).join('');
+                    previewItems = tpl.items.slice(0, 4).map(i => `<div style="padding:4px; background: rgba(128, 128, 128, 0.05); border-radius:4px; margin-bottom:4px; font-size:0.85rem;">روزم ${escapeHtml(i.dayOffset)}: ${escapeHtml(i.type)} - ${escapeHtml(i.topic)}</div>`).join('');
                     if (itemsCount > 4) previewItems += `<div style="font-size:0.8rem; color: var(--text-gray); text-align:center;">+ ${itemsCount - 4} آیتم دیگر...</div>`;
                 }
 
                 container.innerHTML += `
-                    <div class="template-card" data-title="${tpl.name}">
-                        <div class="template-title">${tpl.name}</div>
+                    <div class="template-card" data-title="${escapeHtml(tpl.name)}">
+                        <div class="template-title">${escapeHtml(tpl.name)}</div>
                         <div class="template-details">
-                            <div style="margin-bottom: 10px; font-weight:bold; font-size:0.9rem; color: var(--text-gray);">تعداد محتوا: ${itemsCount} آیتم</div>
+                            <div style="margin-bottom: 10px; font-weight:bold; font-size:0.9rem; color: var(--text-gray);">تعداد محتوا: ${escapeHtml(itemsCount)} آیتم</div>
                             ${previewItems}
                         </div>
                         <div class="card-actions">
@@ -319,17 +319,17 @@
             
             let typeOptions = '<option value="">-- نوع محتوا --</option>';
             contentTypes.forEach(t => {
-                typeOptions += `<option value="${t.setting_key}" ${data.type === t.setting_key ? 'selected' : ''}>${t.setting_key}</option>`;
+                typeOptions += `<option value="${escapeHtml(t.setting_key)}" ${escapeHtml(data.type === t.setting_key ? 'selected' : '')}>${escapeHtml(t.setting_key)}</option>`;
             });
             // Fallback for custom old types not in settings
             if (data.type && !contentTypes.find(t => t.setting_key === data.type)) {
-                typeOptions += `<option value="${data.type}" selected>${data.type}</option>`;
+                typeOptions += `<option value="${escapeHtml(data.type)}" selected>${escapeHtml(data.type)}</option>`;
             }
             
             row.innerHTML = `
                 <input type="text" inputmode="numeric" min="1" max="31" class="item-day" value="${window.toPersianDigits(data.dayOffset || 1)}" required>
                 <select class="item-type" required>${typeOptions}</select>
-                <input type="text" class="item-topic" value="${data.topic || ''}" placeholder="موضوع..." required>
+                <input type="text" class="item-topic" value="${escapeHtml(data.topic || '')}" placeholder="موضوع..." required>
                 <input type="text" inputmode="numeric" min="1" class="item-count" value="${window.toPersianDigits(data.count || 1)}" required>
                 <button type="button" style="background:none; border:none; color:var(--error-color); font-size:1.2rem; cursor:pointer;" onclick="this.parentElement.remove()">&times;</button>
             `;
@@ -477,16 +477,16 @@
             pendingExcelTemplates.forEach((tpl, index) => {
                 let itemsHtml = tpl.items.map(item => `
                     <div style="display: flex; gap: 10px; font-size: 0.9rem; margin-bottom: 5px; padding: 5px; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color);">
-                        <div style="flex: 1;">روز: <span style="font-weight:bold;">${item.dayOffset}</span></div>
-                        <div style="flex: 1;">نوع: <span style="font-weight:bold;">${item.type}</span></div>
-                        <div style="flex: 2;">موضوع: <span style="font-weight:bold;">${item.topic}</span></div>
+                        <div style="flex: 1;">روز: <span style="font-weight:bold;">${escapeHtml(item.dayOffset)}</span></div>
+                        <div style="flex: 1;">نوع: <span style="font-weight:bold;">${escapeHtml(item.type)}</span></div>
+                        <div style="flex: 2;">موضوع: <span style="font-weight:bold;">${escapeHtml(item.topic)}</span></div>
                         <div style="flex: 1;">تعداد: <span style="font-weight:bold;">${item.count}</span></div>
                     </div>
                 `).join('');
 
                 container.innerHTML += `
                     <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color);">
-                        <h4 style="margin-bottom: 10px; color: var(--primary-color);">${index + 1}. ${tpl.name}</h4>
+                        <h4 style="margin-bottom: 10px; color: var(--primary-color);">${index + 1}. ${escapeHtml(tpl.name)}</h4>
                         ${itemsHtml}
                     </div>
                 `;

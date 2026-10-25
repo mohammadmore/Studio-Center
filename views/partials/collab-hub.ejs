@@ -1,4 +1,4 @@
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <style>
 .collab-hub {
     margin-top: 24px;
@@ -178,10 +178,10 @@
                 <div id="commentsList">
                     ${comments.map(c => `
                         <div class="comment-item" style="display:flex; gap:12px; align-items:flex-start;">
-                            <img src="${c.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.user) + '&background=random'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${c.user}">
+                            <img src="${escapeHtml(safeUrl(c.avatar) || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(c.user) + '&background=random')}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${escapeHtml(c.user)}">
                             <div style="flex:1;">
-                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${c.user}</span><span style="font-size:0.75rem;">${new Date(c.timestamp).toLocaleString('fa-IR')}</span></div>
-                                <div class="comment-text" style="margin-top:4px;">${c.text}</div>
+                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${escapeHtml(c.user)}</span><span style="font-size:0.75rem;">${new Date(c.timestamp).toLocaleString('fa-IR')}</span></div>
+                                <div class="comment-text" style="margin-top:4px;">${escapeHtml(c.text)}</div>
                             </div>
                         </div>
                     `).join('')}
@@ -198,10 +198,10 @@
                 <div id="attachmentsList">
                     ${attachments.map(a => `
                         <div class="attachment-item" style="display:flex; gap:12px; align-items:flex-start;">
-                            <img src="${a.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(a.uploader) + '&background=random'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${a.uploader}">
+                            <img src="${escapeHtml(safeUrl(a.avatar) || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(a.uploader) + '&background=random')}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${escapeHtml(a.uploader)}">
                             <div style="flex:1;">
-                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${a.uploader}</span><span style="font-size:0.75rem;">${new Date(a.timestamp).toLocaleString('fa-IR')}</span></div>
-                                <a href="${a.url}" target="_blank" style="color:var(--primary-color); text-decoration:none; display:inline-block; margin-top:4px;">🔗 ${a.name}</a>
+                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${escapeHtml(a.uploader)}</span><span style="font-size:0.75rem;">${new Date(a.timestamp).toLocaleString('fa-IR')}</span></div>
+                                <a href="${escapeHtml(safeUrl(a.url))}" target="_blank" style="color:var(--primary-color); text-decoration:none; display:inline-block; margin-top:4px;">🔗 ${escapeHtml(a.name)}</a>
                             </div>
                         </div>
                     `).join('')}
@@ -213,12 +213,12 @@
                 <div id="historyList">
                     ${history.map(h => `
                         <div class="history-item" style="display:flex; gap:12px; align-items:flex-start;">
-                            <img src="${h.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(h.user) + '&background=random'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${h.user}">
+                            <img src="${escapeHtml(safeUrl(h.avatar) || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(h.user) + '&background=random')}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${escapeHtml(h.user)}">
                             <div style="flex:1;">
-                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${h.user}</span><span style="font-size:0.75rem;">${new Date(h.timestamp).toLocaleString('fa-IR')}</span></div>
-                                <div class="comment-text" style="margin-top:4px;">فیلد <b>${h.field}</b> تغییر کرد.</div>
-                                <div style="font-size:0.8rem; color:var(--text-gray); margin-top:4px;">قبلی: ${h.old_value || '-'}</div>
-                                <div style="font-size:0.8rem; color:var(--text-gray);">جدید: ${h.new_value || '-'}</div>
+                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${escapeHtml(h.user)}</span><span style="font-size:0.75rem;">${new Date(h.timestamp).toLocaleString('fa-IR')}</span></div>
+                                <div class="comment-text" style="margin-top:4px;">فیلد <b>${escapeHtml(h.field)}</b> تغییر کرد.</div>
+                                <div style="font-size:0.8rem; color:var(--text-gray); margin-top:4px;">قبلی: ${escapeHtml(h.old_value || '-')}</div>
+                                <div style="font-size:0.8rem; color:var(--text-gray);">جدید: ${escapeHtml(h.new_value || '-')}</div>
                             </div>
                         </div>
                     `).join('')}
