@@ -106,6 +106,17 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
     saveDatabase();
     return res.json({ status: "success", message: "مجموعه ویرایش شد" });
   }
+  if (action === "archive" || action === "restore") {
+    const col = collections.find((c) => c.id == id);
+    if (!col) return res.status(404).json({ status: "error", message: "مجموعه یافت نشد" });
+    // An archived collection hides all of its content; restoring brings it back as it was.
+    col.status = action === "archive" ? "archived" : "active";
+    saveDatabase();
+    return res.json({
+      status: "success",
+      message: action === "archive" ? "مجموعه آرشیو شد" : "مجموعه بازگردانی شد",
+    });
+  }
   if (action === "delete") {
     const idx = collections.findIndex((c) => c.id == id);
     if (idx === -1) return res.status(404).json({ status: "error", message: "مجموعه یافت نشد" });

@@ -3,6 +3,7 @@ import { contents, expenses, invoices, organizations, settings } from "../../sto
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { stripSecrets } from "../../utils/authUtils.js";
+import { moveToRecycleBin } from "../../utils/contentUtils.js";
 import { nextId, normalizeJalaliDate, toLatinDigits, todayJalali } from "../../utils/helpers.js";
 
 function priceOf(type: string) {
@@ -143,6 +144,15 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
         "فاکتور ذخیره شد",
       data: inv,
     });
+  }
+  if (action === "delete") {
+    const idx = invoices.findIndex((i) => i.id == id);
+    if (idx === -1) return res.status(404).json({ status: "error", message: "فاکتور یافت نشد" });
+    const inv = invoices[idx];
+    const binId = moveToRecycleBin("invoices", inv, `فاکتور ${inv.invoice_number}`, (req as any).user);
+    invoices.splice(idx, 1);
+    saveDatabase();
+    return res.json({ status: "success", message: "فاکتور به سطل زباله منتقل شد", bin_id: binId });
   }
   if (action === "update_status") {
     const inv = invoices.find((i) => i.id == id);

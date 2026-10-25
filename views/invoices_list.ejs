@@ -1,28 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | لیست فاکتور‌ها</title>
     <link href="assets/css/style.css?v=6" rel="stylesheet">
@@ -124,7 +103,7 @@
                     
                     const orgLogo = (org && org.logo_url) ? `<img src="${escapeHtml(safeUrl(org.logo_url))}" alt="${escapeHtml(orgName)}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color);">` : `<div style="width: 56px; height: 56px; border-radius: 50%; background: var(--bg-hover); color: var(--text-dark); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 1px solid var(--border-color);">${escapeHtml(orgName ? orgName.charAt(0) : '?')}</div>`;
 
-                    container.innerHTML += `
+                    container.insertAdjacentHTML('beforeend', `
                         <div class="invoice-card searchable-item" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                             <div style="display: flex; align-items: center; gap: 15px;">
                                 ${orgLogo}
@@ -149,7 +128,7 @@
                                 <button onclick="deleteInvoice(${inv.id})" class="btn-outline" style="border-color: var(--error-color); color: var(--error-color); background: var(--card-bg); width: 115px; text-align: center; justify-content: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">حذف</button>
                             </div>
                         </div>
-                    `;
+                    `);
                 });
             } catch(e) {
                 console.error(e);
@@ -197,9 +176,13 @@
                 });
                 const data = await res.json();
                 if(data.status === 'success') {
-                    showToast('فاکتور حذف شد', 'success');
                     document.getElementById('deleteModal').style.display = 'none';
                     loadInvoices();
+                    toastWithUndo('فاکتور حذف شد', async () => {
+                        const ok = await restoreFromBin(data.bin_id);
+                        if (ok) loadInvoices();
+                        return ok;
+                    });
                 } else {
                     showToast(data.message, 'error');
                 }

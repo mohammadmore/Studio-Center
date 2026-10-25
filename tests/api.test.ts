@@ -244,3 +244,71 @@ describe("data handling", () => {
     assert.ok(stored.collections.some((c: any) => c.title === "ذخیره روی دیسک"));
   });
 });
+
+describe("actions the UI relies on", () => {
+  it("deletes an invoice into the recycle bin and restores it", async () => {
+    const agent = await login("admin");
+    const save = await agent.post("/api/invoices").send({ action: "save", org_id: 1, items: [], total: 10 });
+    const id = save.body.data.id;
+    const del = await agent.post("/api/invoices").send({ action: "delete", id });
+    assert.equal(del.status, 200);
+    assert.ok(!state.invoices.some((i) => i.id === id));
+    await agent.post("/api/recycle_bin").send({ action: "restore", bin_id: del.body.bin_id });
+    assert.ok(state.invoices.some((i) => i.id === id));
+  });
+
+  it("archives and restores a collection", async () => {
+    const agent = await login("admin");
+    await agent.post("/api/manage_collections").send({ action: "add", title: "آرشیوی" });
+    const col = state.collections.find((c) => c.title === "آرشیوی")!;
+    assert.equal((await agent.post("/api/manage_collections").send({ action: "archive", id: col.id })).status, 200);
+    assert.equal(col.status, "archived");
+    await agent.post("/api/manage_collections").send({ action: "restore", id: col.id });
+    assert.equal(col.status, "active");
+  });
+
+  it("puts a restored item back into the bin (delete_again)", async () => {
+    const agent = await login("admin");
+    const del = await agent.post("/api/add_content").send({ action: "delete", id: 2 });
+    await agent.post("/api/recycle_bin").send({ action: "restore", bin_id: del.body.bin_id });
+    const again = await agent.post("/api/recycle_bin").send({ action: "delete_again", bin_id: del.body.bin_id });
+    assert.equal(again.status, 200);
+    assert.ok(!state.contents.some((c) => c.id === 2));
+    await agent.post("/api/recycle_bin").send({ action: "restore", bin_id: del.body.bin_id });
+  });
+
+  it("restores a deleted role together with its members", async () => {
+    const agent = await login("admin");
+    state.roles.push({ id: 7, name: "موقت", permissions: ["depot"] });
+    state.colleagues.find((c) => c.id === 2)!.role_id = 7;
+    const del = await agent.post("/api/manage_roles").send({ action: "delete", id: 7 });
+    assert.notEqual(state.colleagues.find((c) => c.id === 2)!.role_id, 7);
+    await agent.post("/api/recycle_bin").send({ action: "restore", bin_id: del.body.bin_id });
+    assert.ok(state.roles.some((r) => r.id === 7));
+    assert.equal(state.colleagues.find((c) => c.id === 2)!.role_id, 7);
+    state.colleagues.find((c) => c.id === 2)!.role_id = 3;
+  });
+
+  it("restores a deleted settings item", async () => {
+    const agent = await login("admin");
+    await agent.post("/api/manage_settings").send({ action: "delete", id: 1, group: "content_type" });
+    assert.equal(state.settings.content_type[0].is_active, 0);
+    await agent.post("/api/manage_settings").send({ action: "restore", id: 1, group: "content_type" });
+    assert.equal(state.settings.content_type[0].is_active, 1);
+  });
+
+  it("sends people back to the page they asked for after login", async () => {
+    const res = await request(app).get("/calendar");
+    assert.equal(res.status, 302);
+    assert.equal(res.headers.location, "/?next=%2Fcalendar");
+  });
+
+  it("tells the user how long a login lockout lasts", async () => {
+    let last: any;
+    for (let i = 0; i < 11; i++) {
+      last = await request(app).post("/api/login").set("X-Forwarded-For", "10.9.9.9").send({ username: "lockme", password: "wrong-pass" });
+    }
+    assert.equal(last.status, 429);
+    assert.match(last.body.message, /دقیقه/);
+  });
+});

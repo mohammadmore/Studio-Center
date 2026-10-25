@@ -2,29 +2,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | کتابخانه دارایی‌های دیجیتال</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -146,7 +125,7 @@
                 const select = document.getElementById('orgSelector');
                 select.innerHTML = '<option value="">-- انتخاب کنید --</option>';
                 (orgs || []).forEach(org => {
-                    select.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
+                    select.insertAdjacentHTML('beforeend', `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`);
                 });
             } catch(e) { console.error(e); }
         }
@@ -183,7 +162,7 @@
                     if(asset.asset_type.includes('سند')) icon = '📄';
                     if(asset.asset_type.includes('وکتور')) icon = '🎨';
 
-                    container.innerHTML += `
+                    container.insertAdjacentHTML('beforeend', `
                         <div class="media-card" data-title="${escapeHtml(asset.asset_name)}" data-org="${escapeHtml(asset.org_name)}" style="border-right: 4px solid ${escapeHtml(asset.org_color)}; background: color-mix(in srgb, ${escapeHtml(asset.org_color)} 10%, transparent);">
                             <div class="media-icon">${icon}</div>
                             <div class="media-title">${escapeHtml(asset.asset_name)}</div>
@@ -191,7 +170,7 @@
                             <span style="font-size: 0.8rem; color: gray; margin-bottom: 15px;">${escapeHtml(asset.asset_type)}</span>
                             <a href="${escapeHtml(safeUrl(asset.file_url))}" class="btn-download">⬇️ دریافت فایل</a>
                         </div>
-                    `;
+                    `);
                 });
             } catch(e) {
                 document.getElementById('mediaContainer').innerHTML = '<div style="color:red; grid-column:1/-1; text-align:center;">خطا در ارتباط با دیتابیس</div>';
@@ -254,7 +233,6 @@
             }
         }
     </script>
-<script src="/assets/js/xlsx.full.min.js"></script>
 <!-- Excel Guide Modal -->
 <div class="modal-overlay" id="excelGuideModal">
     <div class="modal-box" style="width: 100%; max-width: 600px; box-sizing: border-box;">
@@ -312,7 +290,8 @@
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
+            await ensureXLSX();
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
@@ -368,7 +347,7 @@
         container.innerHTML = '';
         
         pendingExcelMedia.forEach((media, index) => {
-            container.innerHTML += `
+            container.insertAdjacentHTML('beforeend', `
                 <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
                     <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
                         <div>نام فایل: <span style="font-weight:bold;">${escapeHtml(media.asset_name)}</span></div>
@@ -377,7 +356,7 @@
                         <div>نام کاربری سازمان: <span style="font-weight:bold;">${escapeHtml(media.org_username || 'بدون سازمان')}</span></div>
                     </div>
                 </div>
-            `;
+            `);
         });
         
         document.getElementById('excelPreviewModal').style.display = 'flex';

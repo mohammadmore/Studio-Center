@@ -1,29 +1,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | میز کار دپو</title>
     
@@ -51,6 +30,48 @@
     }
 
 
+    // ---- Column open/closed state ----
+    // Columns start collapsed. Columns the user opens are remembered in this
+    // browser; while a search or filter is active, columns with results open.
+    const OPEN_COLUMNS_KEY = 'asva-depot-open-columns';
+    function getSavedOpenColumns() {
+        try { return JSON.parse(localStorage.getItem(OPEN_COLUMNS_KEY) || '[]'); } catch (e) { return []; }
+    }
+    function setSavedOpenColumns(list) {
+        try { localStorage.setItem(OPEN_COLUMNS_KEY, JSON.stringify(Array.from(new Set(list)))); } catch (e) {}
+    }
+    function isFilterActive() {
+        return !!((document.getElementById('searchInput')?.value || '').trim() ||
+            document.getElementById('orgFilter')?.value || document.getElementById('statusFilter')?.value ||
+            document.getElementById('platformFilter')?.value || document.getElementById('typeFilter')?.value ||
+            window.showMyTasks);
+    }
+    function shouldOpenColumn(statusKey, count) {
+        if (isFilterActive()) return count > 0;
+        return getSavedOpenColumns().includes(statusKey);
+    }
+    function rememberColumnState(col) {
+        const key = col && col.dataset.status;
+        if (!key || isFilterActive()) return;
+        const open = getSavedOpenColumns().filter(k => k !== key);
+        if (!col.classList.contains('column-collapsed')) open.push(key);
+        setSavedOpenColumns(open);
+        updateToggleAllButton();
+    }
+    window.toggleAllColumns = function() {
+        const cols = Array.from(document.querySelectorAll('#kanbanBoard .kanban-column[data-status]'));
+        const anyOpen = cols.some(c => !c.classList.contains('column-collapsed'));
+        cols.forEach(c => c.classList.toggle('column-collapsed', anyOpen));
+        if (!isFilterActive()) setSavedOpenColumns(anyOpen ? [] : cols.map(c => c.dataset.status));
+        updateToggleAllButton();
+    };
+    function updateToggleAllButton() {
+        const btn = document.getElementById('toggleAllColumnsBtn');
+        if (!btn) return;
+        const anyOpen = Array.from(document.querySelectorAll('#kanbanBoard .kanban-column[data-status]')).some(c => !c.classList.contains('column-collapsed'));
+        btn.querySelector('span').textContent = anyOpen ? 'بستن همه ستون‌ها' : 'باز کردن همه ستون‌ها';
+    }
+
     function toggleColumnCollapse(btn) {
         const col = btn.closest('.kanban-column');
         const board = btn.closest('.kanban-board');
@@ -64,6 +85,7 @@
             }
         }
         col.classList.toggle('column-collapsed');
+        rememberColumnState(col);
     }
 
     function toggleColumnExpand(btn) {
@@ -473,7 +495,6 @@ async function submitBatchEdit() {
 }
 
 </script>
-    <script src="/assets/js/xlsx.full.min.js" defer></script>
     <link rel="stylesheet" href="/assets/css/jalalidatepicker.min.css">
     <script src="/assets/js/jalalidatepicker.min.js" defer></script>
     
@@ -537,6 +558,12 @@ async function submitBatchEdit() {
         jdp-container, .jdp-container, .jdp-overlay { z-index: 2147483647 !important; }
     
         .kanban-column { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
+        .col-meta { font-size: 0.75rem; font-weight: bold; border-radius: 10px; padding: 2px 6px; white-space: nowrap; }
+        .col-meta-overdue { background: rgba(239, 68, 68, 0.12); color: var(--error-color); }
+        .col-meta-mine { background: rgba(99, 102, 241, 0.12); color: var(--primary-color); }
+        .kanban-column:not(.column-collapsed) .col-meta { display: none; }
+        .show-more-cards { width: 100%; padding: 12px; margin: 4px 0 8px; border: 1px dashed var(--border-color); border-radius: 10px; background: transparent; color: var(--primary-color); font-weight: bold; cursor: pointer; font-family: inherit; }
+        .show-more-cards:hover { background: rgba(99, 102, 241, 0.06); }
         .column-collapsed { min-width: 60px !important; width: 60px !important; overflow: hidden; background: rgba(128, 128, 128, 0.02) !important; }
         .column-collapsed .column-body { display: none !important; }
         .col-toggle-btn svg { transition: transform 0.3s; transform: rotate(180deg); }
@@ -706,7 +733,7 @@ async function submitBatchEdit() {
     <div class="filter-container">
         <input type="text" id="searchInput" placeholder="جستجو در عنوان محتوا..." 
                style="flex: 1; min-width: 280px; padding: 14px; border:1px solid var(--border-color); border-radius:8px;" 
-               onkeyup="filterCards()">
+               oninput="filterCards()">
         
         <select id="orgFilter" onchange="filterCards()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
             <option value="">همه کارفرماها</option>
@@ -750,6 +777,12 @@ async function submitBatchEdit() {
         </div>
     </div>
 
+    <div style="display:flex; justify-content:flex-end; margin: 0 0 8px;">
+        <button id="toggleAllColumnsBtn" type="button" onclick="toggleAllColumns()" style="background: var(--card-bg); color: var(--text-gray); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 8px; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+            <span>باز کردن همه ستون‌ها</span>
+        </button>
+    </div>
     <div class="kanban-board" id="kanbanBoard"></div>
 </main>
 
@@ -1206,7 +1239,42 @@ function renderKanban(allItems) {
         { id: 'published', title: `<div style="display:flex; align-items:center; gap:10px; font-size:1.15rem; font-weight:800;"><svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> <span>منتشر شده</span></div>` }
     ];
 
-    function renderCards(colItems, statusKey) {
+    const today = (function () {
+        const j = window.jalaali ? jalaali.toJalaali(new Date()) : null;
+        return j ? `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}` : '';
+    })();
+    const normDate = (d) => {
+        const m = /^(\d{4})\D(\d{1,2})\D(\d{1,2})/.exec(String(d || '').replace(/[۰-۹]/g, c => '۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));
+        return m ? `${m[1]}/${m[2].padStart(2, '0')}/${m[3].padStart(2, '0')}` : '';
+    };
+    // Small summary shown on a collapsed column: overdue items and items of the current user.
+    function columnMeta(colItems, statusKey) {
+        if (['published', 'done', 'ready_to_publish', 'approved_by_client'].includes(statusKey)) return '';
+        const overdue = colItems.filter(i => { const d = normDate(i.publish_date); return d && today && d < today; }).length;
+        const me = window.currentUserFullName;
+        const mine = me ? colItems.filter(i => i.project_manager === me || (Array.isArray(i.assigned_colleagues) && i.assigned_colleagues.includes(me))).length : 0;
+        let html = '';
+        if (overdue) html += `<span class="col-meta col-meta-overdue" title="${escapeHtml(window.toPersianDigits(overdue) + ' مورد از تاریخ انتشار گذشته')}">⏰ ${window.toPersianDigits(overdue)}</span>`;
+        if (mine) html += `<span class="col-meta col-meta-mine" title="${escapeHtml(window.toPersianDigits(mine) + ' مورد مربوط به شما')}">👤 ${window.toPersianDigits(mine)}</span>`;
+        return html;
+    }
+
+    const CARDS_PER_PAGE = 30;
+    window.__depotColumns = {};
+    // Long columns render in pages so the board stays fast with thousands of items.
+    window.showMoreCards = function(btn, colKey) {
+        const entry = window.__depotColumns[colKey];
+        if (!entry) return;
+        const next = entry.items.slice(entry.shown, entry.shown + CARDS_PER_PAGE);
+        entry.shown += next.length;
+        btn.insertAdjacentHTML('beforebegin', next.map(item => window.__depotCardHtml(item, entry.statusKey)).join(''));
+        const left = entry.items.length - entry.shown;
+        if (left <= 0) btn.remove();
+        else btn.textContent = `نمایش ${window.toPersianDigits(Math.min(left, CARDS_PER_PAGE))} مورد بیشتر (${window.toPersianDigits(left)} باقی‌مانده)`;
+        if (typeof updateBatchUI === 'function') updateBatchUI();
+    };
+
+    function renderCards(colItems, statusKey, colKey) {
         let cardsHtml = '';
         if (colItems.length === 0 && statusKey === 'raw' && !window.isGroupedByOrg) {
             cardsHtml = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 10px; text-align: center; margin-top: 10px;">
@@ -1225,7 +1293,19 @@ function renderKanban(allItems) {
         } else if (colItems.length === 0) {
             cardsHtml = '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;" class="empty-state">خالی</div>';
         } else {
-            colItems.forEach(item => {
+            const shown = colItems.slice(0, CARDS_PER_PAGE);
+            window.__depotColumns[colKey || statusKey] = { items: colItems, shown: shown.length, statusKey };
+            cardsHtml = shown.map(item => cardHtml(item, statusKey)).join('');
+            const left = colItems.length - shown.length;
+            if (left > 0) {
+                cardsHtml += `<button type="button" class="show-more-cards" onclick="event.stopPropagation(); showMoreCards(this, ${jsAttr(colKey || statusKey)})">نمایش ${window.toPersianDigits(Math.min(left, CARDS_PER_PAGE))} مورد بیشتر (${window.toPersianDigits(left)} باقی‌مانده)</button>`;
+            }
+        }
+        return cardsHtml;
+    }
+
+    function cardHtml(item, statusKey) {
+                let cardsHtml = '';
                 let stagesHtml = '';
                 if (item.stages && item.stages.length > 0) {
                     let completed = item.completed_stages || [];
@@ -1242,7 +1322,7 @@ function renderKanban(allItems) {
                 let mgrDisplay = '<span style="color:#94a3b8">تعیین نشده</span>';
                 if (item.project_manager) {
                     const mgr = (window.allColleagues || []).find(c => c.full_name === item.project_manager);
-                    const mAvatar = mgr && mgr.avatar_url ? mgr.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+                    const mAvatar = mgr && mgr.avatar_url ? mgr.avatar_url : initialsAvatar(item.project_manager);
                     mgrDisplay = `<span style="display:inline-flex; align-items:center; gap:4px;"><img alt="" src="${escapeHtml(mAvatar)}" style="width:20px; height:20px; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${escapeHtml(item.project_manager)}</span>`;
                 }
                 
@@ -1306,10 +1386,9 @@ function renderKanban(allItems) {
                         </div>
                     </div>
                 `;
-            });
-        }
-        return cardsHtml;
+                return cardsHtml;
     }
+    window.__depotCardHtml = cardHtml;
 
     if (window.isGroupedByOrg) {
         let orgsSet = new Set();
@@ -1377,12 +1456,13 @@ function renderKanban(allItems) {
                 let textStr = sConfig.title.replace(/<[^>]+>/g, '').trim();
                 
                 html += `
-                    <div class="kanban-column column-collapsed" style="display:flex; flex-direction:column; overflow:hidden; cursor:pointer;" data-title="${escapeHtml(textStr)}" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)" onclick="if(this.classList.contains('column-collapsed') && !event.target.closest('button')) toggleColumnCollapse(this.querySelector('.col-toggle-btn'))">
+                    <div class="kanban-column ${colItems.length && isFilterActive() ? '' : 'column-collapsed'}" style="display:flex; flex-direction:column; overflow:hidden; cursor:pointer;" data-title="${escapeHtml(textStr)}" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)" onclick="if(this.classList.contains('column-collapsed') && !event.target.closest('button')) toggleColumnCollapse(this.querySelector('.col-toggle-btn'))">
                         <div class="column-header" onclick="handleHeaderClick(event, this)" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: rgba(128,128,128,0.02);">
                             <span class="col-title-text">${sConfig.title}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <div class="col-collapsed-icon" style="display:none; color: var(--text-gray);">${iconHtml}</div>
                                 <span id="col-count-${statusKey}-${index}" style="background: var(--text-gray); color: #ffffff; border-radius: 12px; padding: 2px 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold;">${window.toPersianDigits(colItems.length)}</span>
+                                ${columnMeta(colItems, statusKey)}
                                 
                                 <div class="col-actions" style="display: inline-flex; align-items: center; gap: 2px;">
                                     <button class="col-expand-btn" onclick="toggleColumnExpand(this)" style="background: none; border: none; cursor: pointer; color: var(--text-gray); padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='none'" title="تمام صفحه">
@@ -1396,7 +1476,7 @@ function renderKanban(allItems) {
                             </div>
                         </div>
                         <div id="col-body-${statusKey}-${index}" class="column-body" style="flex:1; overflow-y:auto; padding:8px; min-height: 150px;" >
-                            ${renderCards(colItems, statusKey)}
+                            ${renderCards(colItems, statusKey, statusKey + '-' + index)}
                         </div>
                     </div>
                 `;
@@ -1430,12 +1510,13 @@ function renderKanban(allItems) {
             let textStr = sConfig.title.replace(/<[^>]+>/g, '').trim();
             
             html += `
-                <div class="kanban-column column-collapsed" style="display:flex; flex-direction:column; overflow:hidden; cursor:pointer;" data-title="${escapeHtml(textStr)}" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)" onclick="if(this.classList.contains('column-collapsed') && !event.target.closest('button')) toggleColumnCollapse(this.querySelector('.col-toggle-btn'))">
+                <div class="kanban-column ${shouldOpenColumn(statusKey, colItems.length) ? '' : 'column-collapsed'}" data-status="${statusKey}" style="display:flex; flex-direction:column; overflow:hidden; cursor:pointer;" data-title="${escapeHtml(textStr)}" ondrop="drop(event, '${statusKey}')" ondragover="allowDrop(event)" onclick="if(this.classList.contains('column-collapsed') && !event.target.closest('button')) toggleColumnCollapse(this.querySelector('.col-toggle-btn'))">
                     <div class="column-header" onclick="handleHeaderClick(event, this)" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
                             <span class="col-title-text">${sConfig.title}</span>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <div class="col-collapsed-icon" style="display:none; color: var(--text-gray);">${iconHtml}</div>
                             <span id="col-count-${statusKey}" style="background: var(--primary-color, var(--primary-color)); color: #ffffff; border-radius: 50%; width: 44px; height: 44px; min-width: 44px; border: 2px solid var(--card-bg, #ffffff); box-shadow: 0 4px 10px rgba(0,0,0,0.18); display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 800;">${window.toPersianDigits(colItems.length)}</span>
+                            ${columnMeta(colItems, statusKey)}
                             <div class="col-actions" style="display: inline-flex; align-items: center; gap: 2px;">
                                 <button class="col-expand-btn" onclick="toggleColumnExpand(this)" style="background: none; border: none; cursor: pointer; color: var(--text-gray); padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='none'" title="تمام صفحه">
                                     <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
@@ -1455,14 +1536,19 @@ function renderKanban(allItems) {
         });
         board.innerHTML = html;
     }
+    updateToggleAllButton();
 }
 
+let filterTimer = null;
 function filterCards() {
-    renderKanban(window.allDepotItems);
+    // Typing in the search box re-renders at most every 200ms.
+    clearTimeout(filterTimer);
+    filterTimer = setTimeout(() => renderKanban(window.allDepotItems), 200);
 }
 
 window.isGroupedByOrg = false;
 window.showMyTasks = false;
+window.currentUserFullName = <%- JSON.stringify((typeof user !== 'undefined' && user && user.full_name) || '').replace(/</g, '\\u003c') %>;
 
 window.toggleGroupByOrg = function() {
     window.isGroupedByOrg = !window.isGroupedByOrg;
@@ -1625,6 +1711,7 @@ setTimeout(() => {
     window.resetExcelImport = resetExcelImport;
 
     async function handleExcelSelect(event) {
+        await ensureXLSX();
         const file = event.target.files ? event.target.files[0] : null;
         if (!file) return;
 
@@ -1734,7 +1821,8 @@ setTimeout(() => {
     }
     window.submitExcelImport = submitExcelImport;
 
-    function downloadExcelTemplate() {
+    async function downloadExcelTemplate() {
+        await ensureXLSX();
         if (typeof XLSX === 'undefined') {
             if (window.showToast) window.showToast('کتابخانه اکسل هنوز آماده نشده است', 'error');
             return;

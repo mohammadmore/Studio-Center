@@ -2,29 +2,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | مدیریت کارفرماها</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -218,7 +197,7 @@
                 select.innerHTML = '<option value="">-- انتخاب کنید --</option>';
                 if(result.status === 'success' && result.data['industry']) {
                     (result.data && result.data['industry'] || []).forEach(item => {
-                        select.innerHTML += `<option value="${escapeHtml(item.setting_key)}">${escapeHtml(item.setting_key)}</option>`;
+                        select.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(item.setting_key)}">${escapeHtml(item.setting_key)}</option>`);
                     });
                 }
             } catch(e) { console.log(e); }
@@ -262,7 +241,7 @@
                 (result.data || []).forEach(org => {
                     const logoSrc = org.logo_url ? org.logo_url : '/assets/default-org-icon.png';
                     const color = safeColor(org.color) || 'var(--primary-color)';
-                    container.innerHTML += `
+                    container.insertAdjacentHTML('beforeend', `
                         <div class="org-card searchable-item" style="border-right: 5px solid ${color}; opacity: ${org.is_active === 0 ? '0.6' : '1'};">
                             <div style="display:flex; gap:20px; align-items: flex-start;">
                                 <div style="position: relative;">
@@ -291,7 +270,7 @@
                                 <button style="background: rgba(128, 128, 128, 0.05); color: var(--error-color); border: 1px solid rgba(239, 68, 68, 0.3); padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;" onmouseover="this.style.background='rgba(239, 68, 68, 0.15)';" onmouseout="this.style.background='var(--bg-color)';" onclick="deleteOrg(${org.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg> <span>حذف</span></button>
                             </div>
                         </div>
-                    `;
+                    `);
                 });
             } catch(e) { console.log("خطا در لود کارفرماها"); }
         }
@@ -692,7 +671,6 @@
     </div>
 </div>
 
-<script src="/assets/js/xlsx.full.min.js"></script>
 <script>
     let pendingExcelOrgs = [];
 
@@ -704,7 +682,8 @@
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
+            await ensureXLSX();
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
@@ -764,7 +743,7 @@
         container.innerHTML = '';
         
         pendingExcelOrgs.forEach((org, index) => {
-            container.innerHTML += `
+            container.insertAdjacentHTML('beforeend', `
                 <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
                     <div style="width: 40px; height: 40px; border-radius: 50%; background: ${escapeHtml(org.color)}; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
                         ${escapeHtml(org.org_name.charAt(0))}
@@ -776,7 +755,7 @@
                         <div>تلفن: <span style="font-weight:bold;">${escapeHtml(org.phone_number || '-')}</span></div>
                     </div>
                 </div>
-            `;
+            `);
         });
         
         document.getElementById('excelPreviewModal').style.display = 'flex';

@@ -3,29 +3,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>صندوق پیام‌ها - <%= STUDIO_NAME %></title>
     <link href="assets/css/style.css?v=6" rel="stylesheet" type="text/css" />
@@ -96,6 +75,7 @@ body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; p
             loadNotifications();
         });
 
+        window.addEventListener('asva:notification', () => loadNotifications());
         async function loadNotifications() {
             try {
                 const res = await fetch('/api/get_notifications');

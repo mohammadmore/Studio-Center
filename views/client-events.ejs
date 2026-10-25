@@ -1,29 +1,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | انتخاب مناسبت‌های تقویمی</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -257,7 +236,7 @@
                         const isChecked = data.client_selection && data.client_selection.includes(ev.title) ? 'checked' : '';
                         const isDisabled = data.is_final ? 'disabled' : '';
                         
-                        list.innerHTML += `
+                        list.insertAdjacentHTML('beforeend', `
                             <label class="event-row" style="cursor: ${data.is_final ? 'not-allowed' : 'pointer'}; opacity: ${data.is_final && !isChecked ? '0.6' : '1'};">
                                 <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center;">
                                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -272,7 +251,7 @@
                                     <span class="event-badge" style="background: ${badgeBg}; color: ${badgeColor};">${badgeText}</span>
                                 </div>
                             </label>
-                        `;
+                        `);
                     });
                     
                     if (data.is_final) {

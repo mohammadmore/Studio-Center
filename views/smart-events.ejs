@@ -1,29 +1,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | سامانه مناسبت‌های هوشمند</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -54,6 +33,7 @@
             try {
                 // Delete them one by one or create a new endpoint. We can use a loop.
                 let successCount = 0;
+                const binIds = [];
                 for (let id of selected) {
                     const res = await fetch('/api/manage_smart_events', {
                         method: 'POST',
@@ -61,10 +41,15 @@
                         body: JSON.stringify({ action: 'delete', id: id })
                     });
                     const data = await res.json();
-                    if(data.status === 'success') successCount++;
+                    if(data.status === 'success') { successCount++; if (data.bin_id) binIds.push(data.bin_id); }
                 }
                 
-                                showToast(successCount + ' مناسبت با موفقیت حذف شد', 'success');
+                toastWithUndo(successCount + ' مناسبت حذف شد', async () => {
+                    let ok = true;
+                    for (const binId of binIds) ok = (await restoreFromBin(binId)) && ok;
+                    renderCalendar();
+                    return ok;
+                });
                 document.getElementById('deleteBatchModal').style.display = 'none';
                 document.getElementById('finalDeleteBatchBtn').innerText = 'بله، حذف کن';
                 document.getElementById('finalDeleteBatchBtn').disabled = false;
@@ -90,7 +75,8 @@
             document.getElementById('confirmModal').style.display = 'none';
         }
         async function finalSubmit() {
-            const orgId = document.getElementById('orgSelector').value || 1; // Default to org 1 if not selected, or require selection?
+            const orgId = document.getElementById('orgSelector').value;
+            if (!orgId) { showToast("لطفاً ابتدا سازمان را انتخاب کنید.", "error"); return; }
             const selected = Array.from(document.querySelectorAll('.ev-cb:checked')).map(cb => cb.dataset.title);
             if (selected.length === 0) return;
             
@@ -674,9 +660,9 @@
                     const newEventOrgSel = document.getElementById('newEventOrg');
                     const viewOrgSel = document.getElementById('viewOrgSelector');
                     (data.data || []).forEach(org => {
-                        sel.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
-                        if(newEventOrgSel) newEventOrgSel.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
-                        if(viewOrgSel) viewOrgSel.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
+                        sel.insertAdjacentHTML('beforeend', `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`);
+                        if(newEventOrgSel) newEventOrgSel.insertAdjacentHTML('beforeend', `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`);
+                        if(viewOrgSel) viewOrgSel.insertAdjacentHTML('beforeend', `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`);
                     });
                 }
             } catch(e) {}
@@ -863,7 +849,7 @@
                             </td>
                         </tr>
                     `;
-                    tbody.innerHTML += rowHtml;
+                    tbody.insertAdjacentHTML('beforeend', rowHtml);
                 });
             });
 
@@ -946,9 +932,13 @@
                 });
                 const data = await res.json();
                 if(data.status === 'success') {
-                    showToast('مناسبت با موفقیت حذف شد');
                     closeDayDetailModal();
                     renderCalendar();
+                    toastWithUndo('مناسبت حذف شد', async () => {
+                        const ok = await restoreFromBin(data.bin_id);
+                        if (ok) renderCalendar();
+                        return ok;
+                    });
                 } else {
                     showToast(data.message, 'error');
                 }
@@ -1044,7 +1034,7 @@
             
             monthSel.innerHTML = '';
             targetMonths.forEach((m, idx) => {
-                monthSel.innerHTML += `<option value="${idx + 1}">${escapeHtml(m)}</option>`;
+                monthSel.insertAdjacentHTML('beforeend', `<option value="${idx + 1}">${escapeHtml(m)}</option>`);
             });
             monthSel.value = currentMonth; // Try to keep current month index
             });
@@ -1082,7 +1072,7 @@
                         logoHtml = `<span style="display: inline-block; width: 20px; height: 20px; background: #6366f1; color: white; border-radius: 50%; font-size: 0.6rem; text-align: center; line-height: 20px; vertical-align: middle; margin-left: 8px;">${escapeHtml(ev.org_name ? ev.org_name.charAt(0) : 'ا')}</span>`;
                     }
                     
-                    list.innerHTML += `
+                    list.insertAdjacentHTML('beforeend', `
                         <div title="${escapeHtml(ev.description || '')}" onclick="if(!event.target.closest('button')) showEventInfoModal('${encodeURIComponent(JSON.stringify(ev)).split("'").join('%27')}')" style="background: rgba(128, 128, 128, 0.05); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(128,128,128,0.1)'" onmouseout="this.style.background='rgba(128,128,128,0.05)'">
                             <div style="display: flex; align-items: center;">
                                 ${logoHtml}
@@ -1095,7 +1085,7 @@
                                 ` : ''}
                             </div>
                         </div>
-                    `;
+                    `);
                 });
             } else {
                 list.innerHTML = '<div style="color: #94a3b8; text-align: center; padding: 10px;">مناسبتی برای این روز ثبت نشده است.</div>';

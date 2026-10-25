@@ -5,13 +5,14 @@ import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { getRoleInfoForUser, isAdmin, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
+import { moveToRecycleBin } from "../../utils/contentUtils.js";
 
 const subRouter = express.Router();
 
 const ADMIN_ROLE_ID = 1;
 const DEFAULT_ROLE_ID = 3;
-const DEFAULT_AVATAR =
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200";
+// Empty: the pages draw an initials avatar when a colleague has no picture.
+const DEFAULT_AVATAR = "";
 
 function fail(res: any, status: number, message: string) {
   return res.status(status).json({ status: "error", message });
@@ -135,13 +136,21 @@ subRouter.post("/manage_roles", checkPermission("manage_roles"), (req: any, res)
     if (roleGrantsAdmin(roles[idx].id) && !isAdmin(req.user)) {
       return fail(res, 403, "فقط مدیر کل می‌تواند این نقش را حذف کند.");
     }
+    const role = roles[idx];
     roles.splice(idx, 1);
     const fallback = roles.find((r) => r.id == DEFAULT_ROLE_ID && !roleGrantsAdmin(r.id));
+    const moved: number[] = [];
     colleagues.forEach((c) => {
-      if (c.role_id == id) c.role_id = fallback ? fallback.id : 0;
+      if (c.role_id == id) {
+        c.role_id = fallback ? fallback.id : 0;
+        moved.push(c.id);
+      }
+    });
+    const binId = moveToRecycleBin("roles", role, role.name || "نقش", req.user, {
+      moved_colleague_ids: moved,
     });
     saveDatabase();
-    return res.json({ status: "success", message: "نقش حذف شد" });
+    return res.json({ status: "success", message: "نقش حذف شد", bin_id: binId });
   }
   if (action === "reorder") {
     const index = roles.findIndex((r) => r.id == id);

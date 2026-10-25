@@ -2,29 +2,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | داشبورد سلامت توکن‌ها</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -169,7 +148,7 @@ setTimeout( async () => {
                     const orgsData = await orgsRes.json();
                     const orgSelect = document.getElementById('newTokenOrg');
                     (orgsData.organizations || []).forEach(o => {
-                        orgSelect.innerHTML += `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`;
+                        orgSelect.insertAdjacentHTML('beforeend', `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`);
                     });
                 } catch(e) {}
                 loadTokens();
@@ -206,7 +185,7 @@ setTimeout( async () => {
                     // فرمت کردن تاریخ
                     const expireDate = new Date(token.expires_at).toLocaleDateString('fa-IR');
                     
-                    container.innerHTML += `
+                    container.insertAdjacentHTML('beforeend', `
                         <div class="${cardClass}">
                             <div class="token-header">
                                 <span style="font-weight:900; font-size:1.1rem; color:var(--text-dark); display:flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-globe"><circle cx="12" cy="12" r="10"></circle><line x1="2" x2="22" y1="12" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg> ${escapeHtml(token.platform_name)}</span>
@@ -224,7 +203,7 @@ setTimeout( async () => {
                                 ? `<button class="btn-refresh" onclick="showToast(${jsAttr('انتقال به درگاه لاگینِ ' + token.platform_name + ' جهت تایید مجدد دسترسی...')})"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg> اتصال مجدد (Re-auth)</button>` 
                                 : `<div style="text-align:center; color: var(--text-gray); font-size: 0.85rem; background: rgba(128, 128, 128, 0.1); padding:8px; border-radius:6px;">انقضای توکن: ${escapeHtml(expireDate)}</div>`}
                         </div>
-                    `;
+                    `);
                 });
             } catch(e) {
                 document.getElementById('tokenContainer').innerHTML = '<div style="color:red; grid-column:1/-1; text-align:center;">خطا در برقراری ارتباط با دیتابیس</div>';

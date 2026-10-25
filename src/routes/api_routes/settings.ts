@@ -63,25 +63,20 @@ subRouter.post(
     if (id !== void 0 && id !== null && id !== "") {
       id = parseInt(id, 10);
     }
-    if (action === "delete") {
+    if (action === "delete" || action === "restore") {
       if (group && settings[group] && Array.isArray(settings[group])) {
         const item = settings[group].find((i) => i.id === id);
         if (item) {
-          item.is_active = 0;
+          // Items are only deactivated, so "undo" simply turns them back on.
+          item.is_active = action === "delete" ? 0 : 1;
           saveDatabase();
           return res.json({
             status: "success",
-            message: "آیتم حذف شد",
+            message: action === "delete" ? "آیتم حذف شد" : "آیتم بازگردانی شد",
           });
         }
       }
-      return res
-        .status(404)
-        .json({
-          status: "error",
-          message:
-            "آیتم یافت نشد",
-        });
+      return res.status(404).json({ status: "error", message: "آیتم یافت نشد" });
     }
     if (action === "edit") {
       if (group && settings[group] && Array.isArray(settings[group])) {

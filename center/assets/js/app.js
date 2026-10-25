@@ -22,7 +22,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     fetchNotifications();
-    setInterval(fetchNotifications, 60000);
+    // Live updates arrive over Socket.IO (core.js); polling is only a fallback.
+    window.addEventListener('asva:notification', fetchNotifications);
+    setInterval(fetchNotifications, 5 * 60000);
 
     function fetchStudioInfo() {
         const cached = localStorage.getItem('asva_studio_info');

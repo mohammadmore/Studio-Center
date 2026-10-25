@@ -190,11 +190,12 @@ subRouter.post(
       const evIndex = smartEventsBank.findIndex((e) => e.id === evId);
       if (evIndex !== -1) {
         const ev = smartEventsBank[evIndex];
-        moveToRecycleBin("smartEventsBank", ev, ev.title || "مناسبت بدون عنوان", req.user);
+        const binId = moveToRecycleBin("smartEventsBank", ev, ev.title || "مناسبت بدون عنوان", req.user);
         smartEventsBank.splice(evIndex, 1);
         saveDatabase();
         return res.json({
           status: "success",
+          bin_id: binId,
           message:
             "مناسبت به سطل زباله منتقل شد",
         });

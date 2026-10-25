@@ -1,5 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;900&display=swap');
-
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/vazirmatn/Vazirmatn-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
+    font-weight: 800 900;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'VazirmatnLocal';
+    src: url('../fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
+    font-weight: 800 900;
+    font-style: normal;
+    font-display: swap;
+}
 @font-face {
     font-family: 'VazirmatnLocal';
     src: url('../fonts/vazirmatn/Vazirmatn-Regular.woff2') format('woff2');
@@ -823,4 +849,21 @@ body.pdf-mode-active {
     overflow-y: visible !important;
     height: auto !important;
     min-height: auto !important;
+}
+
+/* Touch screens: controls get a finger-sized hit area (about 40px). */
+@media (pointer: coarse), (max-width: 768px) {
+    button, .btn-primary, .btn-outline, .btn-danger, a[role="button"], .asva-menu-link {
+        min-height: 40px;
+    }
+    button:not(.toast-action-btn) { min-width: 40px; }
+    select, input[type="text"], input[type="number"], input[type="search"], input[type="password"], input[type="email"], input[type="tel"], textarea {
+        min-height: 40px;
+        font-size: 16px; /* also stops iOS from zooming into the field */
+    }
+    input[type="checkbox"], input[type="radio"] {
+        min-width: 22px;
+        min-height: 22px;
+    }
+    html body .batch-checkbox { width: 28px !important; height: 28px !important; min-width: 28px !important; transform: none !important; }
 }

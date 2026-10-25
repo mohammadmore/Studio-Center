@@ -833,6 +833,15 @@ subRouter.post("/recycle_bin", (req: any, res) => {
     saveDatabase();
     return res.json({ status: "success", message: "با موفقیت بازیابی شد" });
   }
+  if (action === "delete_again") {
+    // Undo of a restore: the item goes back into the bin.
+    if (!isManager && !isOwnDeletion) return forbidden(res);
+    if (!reDeleteBinItem(binItem)) {
+      return res.status(400).json({ status: "error", message: "این مورد در حال حاضر در سطل زباله است" });
+    }
+    saveDatabase();
+    return res.json({ status: "success", message: "مجدداً به سطل زباله منتقل شد" });
+  }
   if (action === "delete_permanent") {
     if (!isManager) return forbidden(res);
     recycle_bin.splice(recycle_bin.indexOf(binItem), 1);
@@ -883,10 +892,10 @@ subRouter.post("/manage_content_template", checkPermission("templates"), (req: a
   }
   if (action === "delete") {
     if (!tpl) return res.status(404).json({ status: "error", message: "قالب یافت نشد" });
-    moveToRecycleBin("contentTemplates", tpl, tpl.name || "قالب محتوا", req.user);
+    const binId = moveToRecycleBin("contentTemplates", tpl, tpl.name || "قالب محتوا", req.user);
     contentTemplates.splice(contentTemplates.indexOf(tpl), 1);
     saveDatabase();
-    return res.json({ status: "success", message: "قالب به سطل زباله منتقل شد" });
+    return res.json({ status: "success", message: "قالب به سطل زباله منتقل شد", bin_id: binId });
   }
   res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
 });

@@ -3,8 +3,10 @@ import {
   collections,
   contentTemplates,
   contents,
+  invoices,
   organizations,
   recycle_bin,
+  roles,
   smartEventsBank,
 } from "../store/state.js";
 
@@ -36,6 +38,8 @@ const RESTORE_TARGETS: Record<string, any[]> = {
   smartEventsBank,
   contentTemplates,
   collections,
+  invoices,
+  roles,
 };
 
 export function newBinId() {
@@ -67,6 +71,12 @@ export function restoreBinItem(binItem: any) {
   // Deleting an organisation also removed its content cards; bring them back too.
   for (const card of binItem.related_contents || []) {
     if (!contents.some((c) => c.id === card.id)) contents.push(card);
+  }
+  // Deleting a role moved its members to another role; give them their role back.
+  if (binItem.table === "roles") {
+    for (const c of colleagues) {
+      if ((binItem.moved_colleague_ids || []).includes(c.id)) c.role_id = binItem.data.id;
+    }
   }
   binItem.restored = true;
   binItem.restored_at = new Date().toISOString();

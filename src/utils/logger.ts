@@ -1,5 +1,6 @@
 import { audit_logs, notifications } from "../store/state.js";
 import { nextId } from "./helpers.js";
+import { emitNotification } from "./socket.js";
 
 const MAX_AUDIT_LOGS = 1000;
 const MAX_NOTIFICATIONS = 1000;
@@ -76,7 +77,7 @@ export function addNotification(
   type = "general",
   target_id: any = null,
 ) {
-  notifications.push({
+  const notification = {
     id: nextId(notifications),
     title,
     description,
@@ -88,7 +89,9 @@ export function addNotification(
     link,
     type,
     target_id,
-  });
+  };
+  notifications.push(notification);
+  emitNotification(notification);
   if (notifications.length > MAX_NOTIFICATIONS) {
     notifications.splice(0, notifications.length - MAX_NOTIFICATIONS);
   }

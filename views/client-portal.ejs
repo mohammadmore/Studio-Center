@@ -1,29 +1,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | پورتال کارفرمایان (پنل مدیریت)</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -153,7 +132,7 @@
                 (orgs || []).forEach(org => {
                     const eventsLink = `${escapeHtml(baseUrl)}/client-events?org_id=${org.id}&year=${year}&month=${month}`;
                     
-                    list.innerHTML += `
+                    list.insertAdjacentHTML('beforeend', `
                         <div class="org-card">
                             <div class="org-info">
                                 <img src="${escapeHtml(safeUrl(org.logo_url))}" class="org-logo" alt="${escapeHtml(org.org_name)}" loading="lazy">
@@ -182,7 +161,7 @@
                                 </div>
                             </div>
                         </div>
-                    `;
+                    `);
                 });
             } catch(e) {
                 console.error(e);

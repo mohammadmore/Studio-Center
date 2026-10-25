@@ -144,7 +144,7 @@ function openContentDetails(id, editMode = false) {
     let mgrDisplay = '<span style="color:#94a3b8">تعیین نشده</span>';
     if (item.project_manager) {
         const mgr = (window.allColleagues || []).find(c => c.full_name === item.project_manager);
-        const mAvatar = mgr && mgr.avatar_url ? mgr.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+        const mAvatar = mgr && mgr.avatar_url ? mgr.avatar_url : initialsAvatar(item.project_manager);
         mgrDisplay = `<span style="display:inline-flex; align-items:center; gap:4px;"><img alt="" src="${escapeHtml(mAvatar)}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${escapeHtml(item.project_manager)}</span>`;
     }
     
@@ -152,7 +152,7 @@ function openContentDetails(id, editMode = false) {
     if (item.assigned_colleagues && item.assigned_colleagues.length > 0) {
         teamHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px;">' + item.assigned_colleagues.map(name => {
             const coll = (window.allColleagues || []).find(c => c.full_name === name);
-            const avatar = coll && coll.avatar_url ? coll.avatar_url : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+            const avatar = coll && coll.avatar_url ? coll.avatar_url : initialsAvatar(name);
             return `<span style="display:inline-flex; align-items:center; gap:4px; background: rgba(128, 128, 128, 0.1); padding:2px 8px; border-radius:12px; font-size:0.85rem; border:1px solid var(--border-color);"><img alt="" src="${escapeHtml(safeUrl(avatar))}" style="width:40px; height:40px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy"> ${escapeHtml(name)}</span>`;
         }).join('') + '</div>';
     }

@@ -2,29 +2,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | مدیریت تیم</title>
     <link type="text/css" rel="stylesheet" href="/assets/css/jalalidatepicker.min.css" />
@@ -235,7 +214,7 @@
             sel.innerHTML = '';
             (allRoles || []).forEach(r => {
                 if (r.name.includes('مدیر کل') && !isAdmin) return;
-                sel.innerHTML += `<option value="${r.id}">${escapeHtml(r.name)}</option>`;
+                sel.insertAdjacentHTML('beforeend', `<option value="${r.id}">${escapeHtml(r.name)}</option>`);
             });
         }
         
@@ -398,7 +377,7 @@
 
                 const statusBadge = user.is_active === 0 ? `<span style="background: rgba(239, 68, 68, 0.15); color: #dc2626; font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; font-weight: bold; border: 1px solid rgba(239, 68, 68, 0.3);">غیرفعال / آرشیو</span>` : '';
 
-                container.innerHTML += `
+                container.insertAdjacentHTML('beforeend', `
                     <div class="user-card searchable-item" style="${user.is_active === 0 ? 'opacity: 0.88; background: #fafafa; border-style: dashed;' : ''}">
                         ${actionButtonsHTML}
                         <div class="user-header">
@@ -419,7 +398,7 @@
                             ${extraInfo}
                         </div>
                     </div>
-                `;
+                `);
             });
 
             filterTeam();

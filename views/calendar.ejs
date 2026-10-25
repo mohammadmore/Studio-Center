@@ -2,29 +2,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | تقویم محتوایی دیواری</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -55,6 +34,7 @@
         }
 
         async function handleExcelScheduleFile(file) {
+            await ensureXLSX();
             if (!file) return;
             if (!window.XLSX) {
                 if (window.showToast) window.showToast('کتابخانه پردازش اکسل بارگذاری نشده است. صفحه را رفرش کنید', 'error');
@@ -225,6 +205,15 @@
             font-size: 0.95rem;
         }
 
+        /* Items fill the cell width so long titles end with "…" instead of being cut on both sides. */
+        .calendar-cell .day-content { width: 100%; min-width: 0; }
+        /* Cells grow to fit two items plus the "+N" line, so the day number is never cut off. */
+        @media (min-width: 769px) {
+            .calendar-cell { height: auto !important; min-height: 130px; justify-content: flex-start !important; }
+            .calendar-cell .day-number { margin-bottom: 4px !important; }
+        }
+        .calendar-cell .desktop-event-item { display: block; max-width: 100%; }
+        .desktop-more-items { font-size: 0.72rem; font-weight: bold; color: var(--primary-color); text-align: center; padding: 2px 4px; border-radius: 4px; background: rgba(99, 102, 241, 0.08); }
         .calendar-cell {
             background: var(--card-bg);
             height: 130px;
@@ -470,7 +459,6 @@
         }
 
     </style>
-<script src="/assets/js/xlsx.full.min.js"></script>
 </head>
 <body>
     <%- include('sidebar') %>
@@ -996,7 +984,7 @@
                 if (orgData.data) {
                     window.orgsData = orgData.data; // Store for preview usage
                     (orgData.data || []).forEach(o => {
-                        orgSelect.innerHTML += `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`;
+                        orgSelect.insertAdjacentHTML('beforeend', `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`);
                     });
                 }
                 
@@ -1004,7 +992,7 @@
                 tplSelect.innerHTML = '<option value="">-- انتخاب قالب --</option>';
                 if (tplData) {
                     (tplData || []).forEach(t => {
-                        tplSelect.innerHTML += `<option value="${t.id}">${escapeHtml(t.name)}</option>`;
+                        tplSelect.insertAdjacentHTML('beforeend', `<option value="${t.id}">${escapeHtml(t.name)}</option>`);
                     });
                 }
                 
@@ -1065,14 +1053,14 @@
                         list.innerHTML = '<div style="padding:10px; text-align:center; color: var(--text-gray);">محتوای آزادی در دپو یافت نشد.</div>';
                     } else {
                         (available || []).forEach(c => {
-                            list.innerHTML += `
+                            list.insertAdjacentHTML('beforeend', `
                                 <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background: var(--card-bg); border:1px solid var(--border-color); border-radius:6px; margin-bottom: 5px;">
                                     <div style="flex:1;">
                                         <div style="font-weight:bold; font-size:0.9rem;">${escapeHtml(c.title)}</div>
                                         <div style="font-size:0.8rem; color: var(--text-gray);">${escapeHtml(c.content_type || 'نامشخص')}</div>
                                     </div>
                                     <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="fulfillSuggestion(${escapeHtml(sugId)}, ${c.id})">تخصیص</button>
-                                </div>`;
+                                </div>`);
                         });
                     }
                 }
@@ -1302,6 +1290,9 @@
                             itemsHtml += `<div class="desktop-event-item" style="font-size: 0.75rem; background: color-mix(in srgb, ${blockColor} 8%, transparent); border-right: 3px solid ${blockColor}; padding: 3px 5px; border-radius: 4px; margin-bottom: 2px; color: var(--text-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" title="${escapeHtml(item.title || item.content_type)}" onclick="event.stopPropagation(); window.openContentDetails(${item.id})">${logoHtml} ${escapeHtml(item.title || item.content_type)}</div>`;
                         }
                     });
+                    if (hiddenCount > 0) {
+                        itemsHtml += `<div class="desktop-event-item desktop-more-items" title="مشاهده همه موارد این روز">+${toPersianDigits(hiddenCount)} مورد دیگر</div>`;
+                    }
                 }
                 
                 cellHtml += `<div class="day-content" style="margin-top: 8px;">${itemsHtml}</div>`;
@@ -1314,7 +1305,7 @@
             // List View Generation
             const tbody = document.getElementById('list-view-body');
             if (tbody) {
-                tbody.innerHTML = '';
+                let listHtml = '';
                 let hasItems = false;
                 Object.keys(window.monthlyData).sort((a,b)=>a-b).forEach(day => {
                     let d = parseInt(day);
@@ -1346,7 +1337,7 @@
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
                         `;
-                        tbody.innerHTML += dayHeaderHtml;
+                        listHtml += dayHeaderHtml;
                         
                         dayData.forEach(ev => {
                             let badgeText = ev.content_type || 'محتوا';
@@ -1379,12 +1370,14 @@
                                     </div>
                                 </div>
                             `;
-                            tbody.innerHTML += rowHtml;
+                            listHtml += rowHtml;
                         });
                         
-                        tbody.innerHTML += '</div>'; // close the date group container
+                        listHtml += '</div>'; // close the date group container
                     }
                 });
+                // One DOM update for the whole list instead of one per row.
+                tbody.innerHTML = listHtml;
                 if (!hasItems) {
                     tbody.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-gray); background: var(--card-bg); border-radius: 12px;">رویدادی برای این ماه ثبت نشده است</div>';
                 }
@@ -1481,7 +1474,7 @@
                     </button>
                 </div>
             `;
-            listEl.innerHTML += addBtnHtml;
+            listEl.insertAdjacentHTML('beforeend', addBtnHtml);
             document.getElementById('contentModal').style.display = 'flex';
         }
 
@@ -1700,7 +1693,7 @@
                 if (orgData.data) {
                     const select = document.getElementById('scheduleOrg');
                     orgData.data.forEach(o => {
-                        select.innerHTML += `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`;
+                        select.insertAdjacentHTML('beforeend', `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`);
                     });
                 }
                 
@@ -1713,8 +1706,8 @@
                 teamSelect.innerHTML = '';
                 if (colData.users) {
                     (colData.users || []).forEach(u => {
-                        mgrSelect.innerHTML += `<option value="${escapeHtml(u.full_name)}">${escapeHtml(u.full_name)}</option>`;
-                        teamSelect.innerHTML += `<label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; cursor:pointer;"><input type="checkbox" name="newScheduleTeam_cb" value="${escapeHtml(u.full_name)}"> ${escapeHtml(u.full_name)}</label>`;
+                        mgrSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(u.full_name)}">${escapeHtml(u.full_name)}</option>`);
+                        teamSelect.insertAdjacentHTML('beforeend', `<label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; cursor:pointer;"><input type="checkbox" name="newScheduleTeam_cb" value="${escapeHtml(u.full_name)}"> ${escapeHtml(u.full_name)}</label>`);
                     });
                 }
 
@@ -1726,14 +1719,14 @@
                         const tSelect = document.getElementById('newScheduleType');
                         tSelect.innerHTML = '';
                         (setData.data && setData.data.content_type || []).forEach(t => {
-                            tSelect.innerHTML += `<option value="${escapeHtml(t.setting_key)}">${escapeHtml(t.setting_key)}</option>`;
+                            tSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(t.setting_key)}">${escapeHtml(t.setting_key)}</option>`);
                         });
                     }
                     if (setData.data.stages) {
                         const stagesDiv = document.getElementById('newScheduleStages');
                         stagesDiv.innerHTML = '';
                         (setData.data && setData.data.stages || []).forEach(s => {
-                            stagesDiv.innerHTML += `<label><input type="checkbox" value="${escapeHtml(s.setting_key)}"> ${escapeHtml(s.setting_key)}</label>`;
+                            stagesDiv.insertAdjacentHTML('beforeend', `<label><input type="checkbox" value="${escapeHtml(s.setting_key)}"> ${escapeHtml(s.setting_key)}</label>`);
                         });
                     }
                 }
@@ -1788,21 +1781,21 @@
             </div>`;
     }
             list.forEach(c => {
-                container.innerHTML += `
+                container.insertAdjacentHTML('beforeend', `
             <div style="padding: 10px; background: var(--card-bg); border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: 0.2s;" 
                  onclick="selectContent(this, ${c.id})" class="org-content-item">
                 <strong>${escapeHtml(c.title)}</strong>
                 <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 5px;">وضعیت: ${escapeHtml(c.status)} | نوع: ${escapeHtml(c.content_type)}</div>
             </div>
-        `;
+        `);
     });
     
-    container.innerHTML += `
+    container.insertAdjacentHTML('beforeend', `
         <div style="padding: 12px; background: rgba(128, 128, 128, 0.1); border: 1px dashed #94a3b8; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; color: var(--text-gray); margin-top: 10px; transition: 0.2s;" 
              onclick="showNewContentSection()" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='var(--border-color)'">
             + تعریف محتوای جدید
         </div>
-    `;
+    `);
 }
 
         function showNewContentSection() {
@@ -1960,14 +1953,14 @@ function selectContent(element, id) {
                 const filter = document.getElementById('orgFilter');
                 filter.innerHTML = '<option value="all">همه تیم‌ها</option>';
                 (window.allOrgs || []).forEach(org => {
-                    filter.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
+                    filter.insertAdjacentHTML('beforeend', `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`);
                 });
                 
                 const tFilter = document.getElementById('typeFilter');
                 tFilter.innerHTML = '<option value="all">همه محتوا‌ها</option>';
                 if (window.allSettings && window.allSettings.content_type) {
                     (window.allSettings.content_type || []).forEach(t => {
-                        tFilter.innerHTML += `<option value="${escapeHtml(t.setting_key)}">${escapeHtml(t.setting_key)}</option>`;
+                        tFilter.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(t.setting_key)}">${escapeHtml(t.setting_key)}</option>`);
                     });
                 }
             } catch(e) { console.log(e); }

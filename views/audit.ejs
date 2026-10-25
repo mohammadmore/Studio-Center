@@ -2,29 +2,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | تاریخچه فعالیت‌ها (Audit Trail)</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -278,13 +257,13 @@
             });
             const result = await res.json();
             if (result.status === 'success') {
-                if(typeof showToast === 'function') showToast(result.message, 'success'); else alert(result.message);
+                showToast(result.message, 'success');
                 loadBatchOperations();
             } else {
-                if(typeof showToast === 'function') showToast(result.message || 'خطا در بازگردانی عملیات', 'error'); else alert(result.message || 'خطا در بازگردانی عملیات');
+                showToast(result.message || 'خطا در بازگردانی عملیات', 'error');
             }
         } catch (e) {
-            if(typeof showToast === 'function') showToast('خطا در ارتباط با سرور', 'error'); else alert('خطا در ارتباط با سرور');
+            showToast('خطا در ارتباط با سرور', 'error');
         }
     }
 
@@ -298,13 +277,13 @@
             });
             const result = await res.json();
             if (result.status === 'success') {
-                if(typeof showToast === 'function') showToast(result.message, 'success'); else alert(result.message);
+                showToast(result.message, 'success');
                 loadBatchOperations();
             } else {
-                if(typeof showToast === 'function') showToast(result.message || 'خطا در لغو عملیات', 'error'); else alert(result.message || 'خطا در لغو عملیات');
+                showToast(result.message || 'خطا در لغو عملیات', 'error');
             }
         } catch (e) {
-            if(typeof showToast === 'function') showToast('خطا در ارتباط با سرور', 'error'); else alert('خطا در ارتباط با سرور');
+            showToast('خطا در ارتباط با سرور', 'error');
         }
     }
 
@@ -382,7 +361,7 @@
                     } else if (log.username) {
                         logUser = log.username;
                     }
-container.innerHTML += `
+container.insertAdjacentHTML('beforeend', `
                     <div class="timeline-item log-entry" data-username="${escapeHtml(log.username || '')}" data-date="${escapeHtml(rawDate)}" data-jdate="${escapeHtml(jDate)}">
                         <div class="timeline-badge ${badgeClass}"></div>
                         <div class="timeline-card">
@@ -395,7 +374,7 @@ container.innerHTML += `
                             </div>
                         </div>
                     </div>
-                `;
+                `);
             });
         }
 
@@ -493,7 +472,8 @@ container.innerHTML += `
                     'smartEventsBank': 'مناسبت‌ها',
                     'contentTemplates': 'قالب‌های محتوا',
                     'collections': 'مجموعه محتوا',
-                    'invoices': 'فاکتور مالی'
+                    'invoices': 'فاکتور مالی',
+                    'roles': 'نقش‌های کاربری'
                 };
                 
                 let html = '';

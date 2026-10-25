@@ -1,29 +1,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | پورتال اختصاصی کارفرما</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -50,6 +29,9 @@
             gap: 20px;
             margin-bottom: 30px;
         }
+        .action-card { display: flex; flex-direction: column; }
+        .action-card .card-cta { margin-top: auto; display: block; text-align: center; padding: 8px; font-size: 0.85rem; text-decoration: none; border-radius: 8px; }
+        .awaiting-info { margin: 0 0 12px; padding: 6px 10px; border-radius: 8px; background: #fef9c3; color: #a16207; font-weight: bold; font-size: 0.85rem; text-align: center; }
         .action-card {
             background: var(--card-bg);
             border-radius: 12px;
@@ -237,6 +219,7 @@
                 <div style="margin-bottom: 15px; color: var(--primary-color);"><svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 3v18h18'/><path d='M18 17V9'/><path d='M13 17V5'/><path d='M8 17v-3'/></svg></div>
                 <h3>گزارش‌گیری جامع</h3>
                 <p style="color: var(--text-gray); font-size: 0.9rem;">گزارش تفصیلی از تمام فعالیت‌ها، وضعیت محتوا‌ها و نمودار‌های تحلیلی <%= (typeof orgData !== 'undefined' && orgData && orgData.org_name) ? orgData.org_name : 'برند شما' %> را مشاهده و دریافت کنید.</p>
+                <span class="btn-outline card-cta">مشاهده گزارش</span>
             </a>
             <div class="action-card" style="cursor: default;">
                 <div style="margin-bottom: 15px; color: var(--primary-color);"><svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5.8 11.3 2 22l10.7-3.79'/><path d='M4 3h.01'/><path d='M22 8h.01'/><path d='M15 2h.01'/><path d='M22 20h.01'/><path d='m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10'/><path d='m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17'/><path d='m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7'/><path d='M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z'/></svg></div>
@@ -251,11 +234,26 @@
                 <div style="margin-bottom: 15px; color: var(--primary-color);"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
                 <h3>تایید و بازبینی محتوا</h3>
                 <p style="color: var(--text-gray); font-size: 0.9rem;">محتوا‌های تولید شده برای <%= (typeof orgData !== 'undefined' && orgData && orgData.org_name) ? orgData.org_name : 'برند شما' %> را پیش از انتشار بررسی و تایید کنید.</p>
+                <div id="awaitingInfo" class="awaiting-info" style="display:none;"></div>
+                <span class="btn-primary card-cta">بررسی محتواها</span>
             </a>
         </div>
     </div>
 
     <script>
+    // How many items are waiting for the client's decision.
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const res = await fetch('/api/get_client_data');
+            const data = await res.json();
+            const waiting = (data.pending || []).filter(c => c.status === 'client_review' || c.status === 'pending_client_review').length;
+            const box = document.getElementById('awaitingInfo');
+            if (box && waiting > 0) {
+                box.textContent = (window.toPersianDigits ? window.toPersianDigits(waiting) : waiting) + ' محتوا منتظر تایید شماست';
+                box.style.display = 'block';
+            }
+        } catch (e) {}
+    });
     var notifLoaded = false;
     async function fetchNotifications() {
         try {
@@ -288,14 +286,14 @@
                             actionBtns = `<a href="${escapeHtml(safeUrl(n.link))}" style="display: inline-block; margin-top: 8px; padding: 4px 8px; font-size: 0.75rem; background: var(--border-color); color: var(--text-gray); border-radius: 4px; text-decoration: none;">مشاهده</a>`;
                         }
 
-                        list.innerHTML += `
+                        list.insertAdjacentHTML('beforeend', `
                             <div style="display: block; padding: 15px; border-bottom: 1px solid var(--border-color); background: ${bg}; transition: 0.2s;" onmouseover="this.style.background='rgba(128, 128, 128, 0.05)'" onmouseout="this.style.background='${bg}'">
                                 <div style="font-weight: bold; color: var(--text-gray); font-size: 0.9rem; margin-bottom: 4px;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.title) : n.title)}</div>
                                 <div style="color: var(--text-gray); font-size: 0.8rem; line-height: 1.5;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.description) : n.description)}</div>
                                 ${actionBtns}
                                 <div style="color: var(--text-gray); font-size: 0.75rem; margin-top: 6px;">${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at)}</div>
                             </div>
-                        `;
+                        `);
                     });
                 }
             }

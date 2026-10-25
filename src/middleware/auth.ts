@@ -36,9 +36,14 @@ export function limitSettingsForClient(res: any) {
   res.locals.settings = Object.fromEntries(Object.entries(all).filter(([, v]) => Array.isArray(v)));
 }
 
+function loginRedirect(req: any, res: any) {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  return res.redirect(`/?next=${encodeURIComponent(req.originalUrl || "/")}`);
+}
+
 export function clientAuthGuard(req: any, res: any, next: any) {
   const user = req.user;
-  if (!user) return res.redirect("/");
+  if (!user) return loginRedirect(req, res);
   if (user.role_id !== "client") return res.redirect(landingPageFor(user));
   const org = req.account;
   limitSettingsForClient(res);
@@ -55,10 +60,7 @@ export function clientAuthGuard(req: any, res: any, next: any) {
 export function authGuard(perm?: string | string[]) {
   return (req: any, res: any, next: any) => {
     const user = req.user;
-    if (!user) {
-      res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
-      return res.redirect("/");
-    }
+    if (!user) return loginRedirect(req, res);
     if (user.role_id === "client") return res.redirect("/client-dashboard");
     if (perm && !hasPermission(user, perm)) {
       const landing = landingPageFor(user);
@@ -112,6 +114,8 @@ export function apiAuthGuard(req: any, res: any, next: any) {
   }
   next();
 }
+
+export { loginRedirect };
 
 export function isClient(req: any) {
   return req.user?.role_id === "client";

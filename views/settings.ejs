@@ -2,29 +2,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | تنظیمات پیشرفته سیستم</title>
     <link rel="stylesheet" href="assets/css/style.css?v=1786775708516">
@@ -534,12 +513,12 @@
             const holidays = allSettings['routine_holidays'] || [];
             holidays.forEach(h => {
                 const isChecked = h.is_active === 1 ? 'checked' : '';
-                container.innerHTML += `
+                container.insertAdjacentHTML('beforeend', `
                     <label style="display: flex; align-items: center; justify-content: flex-start; gap: 8px; background: rgba(128, 128, 128, 0.05); padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer;">
                         <input type="checkbox" ${escapeHtml(isChecked)} onchange="toggleHoliday(${h.id}, this.checked)" style="width: 18px; height: 18px;">
                         ${escapeHtml(h.setting_key)}
                     </label>
-                `;
+                `);
             });
         }
         
@@ -674,7 +653,7 @@
                         iconHtml = `<img alt="" src="${escapeHtml(safeUrl(item.logo_url))}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" loading="lazy">`;
                     }
                 }
-                    container.innerHTML += `
+                    container.insertAdjacentHTML('beforeend', `
                     <div class="data-item">
                         <div style="display: flex; align-items: center;">
                             <strong style="color: var(--text-dark); display: flex; align-items: center; gap: 8px;">${iconHtml} <span>${escapeHtml(item.setting_key)}</span></strong>
@@ -687,7 +666,7 @@
                             <button onclick="deleteSetting(${item.id})" class="btn-delete">حذف</button>
                         </div>
                     </div>
-                `;
+                `);
             });
         }
 
@@ -802,8 +781,16 @@
                 });
                 const data = await res.json();
                 if(data.status === 'success') {
-                    showToast('آیتم حذف شد');
                     loadSettings();
+                    const group = currentGroup;
+                    toastWithUndo('آیتم حذف شد', async () => {
+                        const r = await fetch('/api/manage_settings', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'restore', id: id, group: group })
+                        }).then(x => x.json());
+                        if (r.status === 'success') loadSettings();
+                        return r.status === 'success';
+                    });
                 } else {
                     showToast('خطا در حذف', 'error');
                 }
@@ -858,9 +845,8 @@
             if (!input.files || input.files.length === 0) return;
             const file = input.files[0];
             
-            if (file.size > 8 * 1024 * 1024) {
-                 if (window.showToast) window.showToast('حجم فایل نباید بیشتر از 8 مگابایت باشد', 'error');
-                 else alert('حجم فایل بیش از حد مجاز است');
+            if (file.size > 5 * 1024 * 1024) {
+                 if (window.showToast) window.showToast('حجم فایل نباید بیشتر از ۵ مگابایت باشد', 'error');
                  input.value = '';
                  return;
             }
@@ -901,7 +887,6 @@
                         }
                     } else {
                         if (window.showToast) showToast('خطا در آپلود: ' + (result.message||''), 'error');
-                        else alert('خطا: ' + result.message);
                     }
                     if (btn) {
                         btn.innerHTML = originalText;
@@ -911,7 +896,6 @@
                 } catch(err) {
                     console.error(err);
                     if (window.showToast) showToast('خطا: ' + err.message, 'error');
-                    else alert('خطا: ' + err.message);
                     if (btn) {
                         btn.innerHTML = originalText;
                         btn.disabled = false;
@@ -1003,7 +987,7 @@
                     
                     currentFonts.forEach((font, idx) => {
                         const fontId = font.filename === 'vazirmatn' ? 'Vazirmatn' : 'font_preview_' + idx;
-                        container.innerHTML += `
+                        container.insertAdjacentHTML('beforeend', `
                             <div class="flex-responsive" style="display: flex; flex-direction: column; padding: 15px; border-bottom: 1px solid var(--border-color); gap: 10px;">
                                 <div style="display: flex; flex-direction: column; gap: 5px;">
                                     <div style="font-family: '${escapeHtml(fontId)}'; font-size: 1.2rem; font-weight: bold;">
@@ -1031,7 +1015,7 @@
                                     </div>
                                 </div>
                             </div>
-                        `;
+                        `);
                     });
                 }
             } catch(e) { console.error("Error loading fonts", e); }
@@ -1186,7 +1170,7 @@
                     `;
                 }
                 
-                container.innerHTML += `
+                container.insertAdjacentHTML('beforeend', `
                     <div class="data-item role-item">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: rgba(128,128,128,0.05); border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-dark);">${r.icon ? r.icon : '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'}</div>
@@ -1199,7 +1183,7 @@
                             ${actionButtons}
                         </div>
                     </div>
-                `;
+                `);
             });
         }
         
@@ -1292,12 +1276,21 @@
         async function deleteRole(id) {
             if(!(await window.customConfirm('آیا از حذف این نقش مطمئن هستید؟'))) return;
             try {
-                await fetch('/api/manage_roles', {
+                const data = await fetch('/api/manage_roles', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ action: 'delete', id: id })
-                });
+                }).then(r => r.json());
                 loadRoles();
-            } catch(e) {}
+                if (data.status === 'success') {
+                    toastWithUndo('نقش حذف شد', async () => {
+                        const ok = await restoreFromBin(data.bin_id);
+                        if (ok) loadRoles();
+                        return ok;
+                    });
+                } else {
+                    showToast(data.message || 'حذف نقش ممکن نشد', 'error');
+                }
+            } catch(e) { showToast('خطا در ارتباط با سرور', 'error'); }
         }
 
     </script>

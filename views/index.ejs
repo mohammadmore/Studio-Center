@@ -1,29 +1,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | سیستم یکپارچه (ERP)</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -50,12 +29,15 @@
         
         <form onsubmit="doLogin(event)">
             <div class="form-group">
-                <label>نام کاربری:</label>
-                <input type="text" id="username" class="form-control" required placeholder="username" dir="ltr" style="text-align: left;">
+                <label for="username">نام کاربری:</label>
+                <input type="text" id="username" class="form-control" required placeholder="username" dir="ltr" autocomplete="username" style="text-align: left;">
             </div>
             <div class="form-group">
-                <label>رمز عبور:</label>
-                <input type="password" id="password" class="form-control" required placeholder="******" dir="ltr" style="text-align: left;">
+                <label for="password">رمز عبور:</label>
+                <div style="position: relative;">
+                    <input type="password" id="password" class="form-control" required placeholder="******" dir="ltr" autocomplete="current-password" style="text-align: left; padding-left: 44px;">
+                    <button type="button" id="togglePassword" aria-label="نمایش رمز عبور" title="نمایش رمز عبور" onclick="togglePasswordVisibility()" style="position: absolute; left: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
             </div>
             <button type="submit" id="loginBtn" class="btn-login">ورود به پنل کاربری <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg></button>
             <div id="errorMsg" class="error-msg"></div>
@@ -67,6 +49,28 @@
     </div>
 
     <script>
+        function togglePasswordVisibility() {
+            const input = document.getElementById('password');
+            const btn = document.getElementById('togglePassword');
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.setAttribute('aria-label', show ? 'پنهان کردن رمز عبور' : 'نمایش رمز عبور');
+            btn.title = btn.getAttribute('aria-label');
+            btn.style.color = show ? 'var(--primary-color)' : '#64748b';
+        }
+        // Only same-site paths are accepted as a return address.
+        function safeNextPath() {
+            const next = new URLSearchParams(location.search).get('next') || '';
+            return /^\/(?!\/)[^\s]*$/.test(next) && !next.startsWith('/api/') ? next : '';
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            if (new URLSearchParams(location.search).get('expired') === '1') {
+                const err = document.getElementById('errorMsg');
+                err.style.color = '#b45309';
+                err.textContent = 'نشست شما به پایان رسیده است. لطفاً دوباره وارد شوید.';
+            }
+            document.getElementById('username').focus();
+        });
         async function doLogin(e) {
             e.preventDefault();
             const btn = document.getElementById('loginBtn');
@@ -74,6 +78,7 @@
             btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg> در حال بررسی...`;
             btn.disabled = true;
             err.innerText = '';
+            err.style.color = '';
             try {
                 const res = await fetch('/api/login', {
                     method: 'POST',
@@ -94,7 +99,7 @@
                 if (result.status === 'success') {
                     btn.style.background = 'var(--success-color)';
                     btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M20 6 9 17l-5-5"/></svg> ورود موفق`;
-                    setTimeout(() => { window.location.href = result.redirect; }, 600);
+                    setTimeout(() => { window.location.href = safeNextPath() || result.redirect; }, 600);
                 } else {
                     err.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> ` + result.message;
                     btn.innerHTML = `ورود به پنل کاربری <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07"/><path d="m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07"/></svg>`;

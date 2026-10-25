@@ -1,28 +1,7 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | فاکتور</title>
     <link href="assets/css/style.css?v=6" rel="stylesheet">
@@ -262,9 +241,15 @@
                     </select>
                 </div>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 5px;">
-                <input type="text" id="draftStartDate" class="form-control" placeholder="از تاریخ (مثلا 1403/01/01)" style="width: 160px;" data-jdp>
-                <input type="text" id="draftEndDate" class="form-control" placeholder="تا تاریخ (مثلا 1403/02/01)" style="width: 160px;" data-jdp>
+            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 5px;">
+                <div>
+                    <label for="draftStartDate" style="font-size: 0.85rem; margin-bottom: 4px; display: block;">از تاریخ:</label>
+                    <input type="text" id="draftStartDate" class="form-control" placeholder="مثلا ۱۴۰۵/۰۱/۰۱" style="width: 160px;" data-jdp>
+                </div>
+                <div>
+                    <label for="draftEndDate" style="font-size: 0.85rem; margin-bottom: 4px; display: block;">تا تاریخ:</label>
+                    <input type="text" id="draftEndDate" class="form-control" placeholder="مثلا ۱۴۰۵/۰۲/۰۱" style="width: 160px;" data-jdp>
+                </div>
                 <label style="display: flex; align-items: center; gap: 5px; color: var(--text-dark); cursor: pointer; white-space: nowrap; font-size: 0.9rem;">
                     <input type="checkbox" id="draftNoTimeLimit" onchange="toggleDraftTimeInputs()" style="width: 16px; height: 16px;">
                     بدون محدودیت زمانی
@@ -558,7 +543,7 @@
                 const orgData = await res.json();
                 const select = document.getElementById('orgSelector');
                 (orgData.data || []).forEach(org => {
-                    select.innerHTML += `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`;
+                    select.insertAdjacentHTML('beforeend', `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`);
                 });
             } catch (e) {
                 console.error("Failed to load organizations:", e);
@@ -577,17 +562,17 @@
                         dropdown.innerHTML = '';
                         window.availablePlatforms.forEach(p => {
                             const name = p.setting_key || p.name || p.key;
-                            dropdown.innerHTML += `<label><input type="checkbox" value="${escapeHtml(name)}" onchange="updateBulkMultiPlatform(this)"> ${escapeHtml(name)}</label>`;
+                            dropdown.insertAdjacentHTML('beforeend', `<label><input type="checkbox" value="${escapeHtml(name)}" onchange="updateBulkMultiPlatform(this)"> ${escapeHtml(name)}</label>`);
                         });
-                        dropdown.innerHTML += `<label><input type="checkbox" value="بدون پلتفرم" onchange="updateBulkMultiPlatform(this)"> بدون پلتفرم</label>`;
+                        dropdown.insertAdjacentHTML('beforeend', `<label><input type="checkbox" value="بدون پلتفرم" onchange="updateBulkMultiPlatform(this)"> بدون پلتفرم</label>`);
                     }
                     const platformSelect = document.getElementById('platformSelect');
                     if (platformSelect) {
                         window.availablePlatforms.forEach(p => {
                             const name = p.setting_key || p.name || p.key;
-                            platformSelect.innerHTML += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+                            platformSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`);
                         });
-                        platformSelect.innerHTML += `<option value="بدون پلتفرم">بدون پلتفرم</option>`;
+                        platformSelect.insertAdjacentHTML('beforeend', `<option value="بدون پلتفرم">بدون پلتفرم</option>`);
                     }
                 }
                 if (typeof renderItems === 'function') renderItems();
@@ -745,7 +730,7 @@
                 const data = await res.json();
                 if (data.status === 'success' && data.data && colSelect) {
                     data.data.forEach(col => {
-                        colSelect.innerHTML += `<option value="${col.id}">${escapeHtml(col.title)}</option>`;
+                        colSelect.insertAdjacentHTML('beforeend', `<option value="${col.id}">${escapeHtml(col.title)}</option>`);
                     });
                 }
             } catch(e) { console.error(e); if (typeof showToast === 'function') showToast('خطای شبکه. لطفا دوباره تلاش کنید.', 'error'); }
@@ -859,7 +844,7 @@
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">موردی یافت نشد.</td></tr>';
             } else {
                 currentInvoiceData.items.forEach((item, index) => {
-                    tbody.innerHTML += `
+                    tbody.insertAdjacentHTML('beforeend', `
                         <tr>
                             <td class="no-print" style="text-align: center;"><input type="checkbox" class="item-checkbox" data-index="${index}" onclick="handleCheckboxClick(event, ${index})" onchange="updateSelection()" style="cursor: pointer;"></td>
                             <td style="text-align: center;">${toPersianDigits(index + 1)}</td>
@@ -884,7 +869,7 @@
                             <td style="color:var(--primary-color); font-weight:bold; min-width: 150px; white-space: nowrap;">${formatFarsiMoney(item.qty * item.unit_price)}</td>
                             <td class="no-print"><button onclick="removeItem(${index})" style="background:none; border:none; color:red; cursor:pointer;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></button></td>
                         </tr>
-                    `;
+                    `);
                 });
             }
         }
@@ -1153,7 +1138,7 @@
                     if (typeof showToast === 'function') {
                         showToast("برای چاپ با کیفیت بالا، فاکتور در تب جدید مرورگر باز می‌شود...");
                     } else {
-                        if(typeof window.showToast === 'function') window.showToast("برای چاپ فاکتور در تب جدید باز می‌شود.", "info"); else alert("برای چاپ فاکتور در تب جدید باز می‌شود.");
+                        window.showToast("برای چاپ فاکتور در تب جدید باز می‌شود.", "info");
                     }
                     setTimeout(() => {
                         window.open(currentUrl.toString(), '_blank');
@@ -1246,9 +1231,7 @@
         }
         
         async function deleteSelectedItems() {
-            const confirmed = typeof window.customConfirm === 'function' 
-                ? await window.customConfirm('آیا از حذف موارد انتخاب شده اطمینان دارید؟')
-                : confirm('آیا از حذف موارد انتخاب شده اطمینان دارید؟');
+            const confirmed = await window.customConfirm('آیا از حذف موارد انتخاب شده اطمینان دارید؟');
             if(confirmed) {
                 const indices = Array.from(selectedItems).sort((a,b) => b-a);
                 indices.forEach(idx => {

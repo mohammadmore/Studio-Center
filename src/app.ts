@@ -1,4 +1,6 @@
+import crypto from "crypto";
 import express from "express";
+import fs from "fs";
 import "express-async-errors";
 import compression from "compression";
 import helmet from "helmet";
@@ -17,8 +19,43 @@ import { isDatabaseReady, saveDatabase } from "./store/db.js";
 import { settings } from "./store/state.js";
 import { isSafeFileName } from "./utils/files.js";
 
-// Exposed to every page: escapes text before it is put into innerHTML.
-export const CLIENT_HELPERS = `<script>window.escapeHtml=function(v){return String(v==null?"":v).replace(/[&<>"'\`]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","\`":"&#96;"}[c]})};window.jsAttr=function(v){return window.escapeHtml(JSON.stringify(String(v==null?"":v)))};window.safeColor=function(c){c=String(c==null?"":c).trim();return /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\\([\\d\\s.,%]+\\)|var\\(--[a-z0-9-]+\\)|[a-z]{3,20})$/i.test(c)?c:""};window.safeUrl=function(u){u=String(u==null?"":u).trim();return /^(https?:|\\/(?!\\/)|data:image\\/(png|jpe?g|gif|webp);|blob:)/i.test(u)?u:""};</script>`;
+/** Changes whenever a file under center/assets changes, so browsers can cache assets for long. */
+function computeAssetVersion() {
+  const hash = crypto.createHash("sha1");
+  const walk = (dir: string) => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((x, y) => x.name.localeCompare(y.name))) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else {
+        const stat = fs.statSync(full);
+        hash.update(`${full}:${stat.size}:${stat.mtimeMs}`);
+      }
+    }
+  };
+  walk(path.join(config.appRoot, "center", "assets"));
+  return hash.digest("hex").slice(0, 10);
+}
+const ASSET_VERSION = computeAssetVersion();
+
+/** Points every asset reference at the current version and loads core.js first. */
+function prepareHtml(html: string) {
+  html = html.replace(
+    /((?:src|href)=["'])\/?assets\/([^"'?#]+)(?:\?[^"'#]*)?(["'])/g,
+    (_m, start, file, end) => `${start}/assets/${file}?v=${ASSET_VERSION}${end}`,
+  );
+  // style.css used to be linked twice on some pages.
+  let seenStyle = false;
+  html = html.replace(/<link[^>]+assets\/css\/style\.css[^>]*>\s*/g, (tag) => {
+    if (seenStyle) return "";
+    seenStyle = true;
+    return tag;
+  });
+  const core = `<script src="/assets/js/core.js?v=${ASSET_VERSION}"></script>`;
+  if (/<meta charset="UTF-8">/i.test(html)) return html.replace(/<meta charset="UTF-8">/i, (m) => m + core);
+  if (html.includes("<head>")) return html.replace("<head>", `<head><meta charset="UTF-8">${core}`);
+  return core + html;
+}
 
 function fontInjection() {
   const font = settings?.active_font;
@@ -87,8 +124,8 @@ export function createApp() {
           // The views rely on inline scripts and handlers.
           scriptSrc: ["'self'", "'unsafe-inline'"],
           scriptSrcAttr: ["'unsafe-inline'"],
-          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-          fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          fontSrc: ["'self'", "data:"],
           imgSrc: ["'self'", "data:", "blob:", "https:"],
           mediaSrc: ["'self'", "data:", "blob:", "https:"],
           connectSrc: ["'self'"],
@@ -123,7 +160,15 @@ export function createApp() {
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true,
-    message: { status: "error", message: "تلاش‌های ناموفق ورود بیش از حد مجاز است. ۱۵ دقیقه دیگر تلاش کنید." },
+    handler: (req: any, res) => {
+      const reset = req.rateLimit?.resetTime ? new Date(req.rateLimit.resetTime).getTime() : Date.now() + 15 * 60 * 1000;
+      const minutes = Math.max(1, Math.ceil((reset - Date.now()) / 60000));
+      res.status(429).json({
+        status: "error",
+        message: `تلاش‌های ناموفق ورود بیش از حد مجاز است. ${minutes.toLocaleString("fa-IR")} دقیقه دیگر دوباره تلاش کنید.`,
+        retry_after_minutes: minutes,
+      });
+    },
   });
   const uploadLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -144,7 +189,15 @@ export function createApp() {
     app.use(p, uploadLimiter);
   }
 
-  app.use(express.static(path.join(config.appRoot, "center"), { index: false }));
+  // Versioned asset URLs never change content, so they can be cached for a year.
+  app.use("/assets", (req, res, next) => {
+    res.setHeader(
+      "Cache-Control",
+      req.query.v ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+    );
+    next();
+  });
+  app.use(express.static(path.join(config.appRoot, "center"), { index: false, cacheControl: false }));
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ limit: "10mb", extended: true }));
   app.use(hpp());
@@ -165,11 +218,11 @@ export function createApp() {
       }
       originalRender(view, options, (err: any, html: string) => {
         if (err) return callback ? callback(err, "") : next(err);
-        const injection = CLIENT_HELPERS + fontInjection();
         if (typeof html === "string") {
-          html = html.includes("</head>")
-            ? html.replace("</head>", injection + "</head>")
-            : injection + html;
+          const injection = fontInjection();
+          html = prepareHtml(
+            html.includes("</head>") ? html.replace("</head>", injection + "</head>") : injection + html,
+          );
         }
         if (callback) callback(null, html);
         else res.send(html);

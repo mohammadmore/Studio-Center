@@ -1,27 +1,6 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سطل زباله - استودیو آسوا</title>
@@ -74,7 +53,7 @@
                         else if (item.table === 'smartEventsBank') typeName = 'مناسبت تقویمی';
                         else if (item.table === 'contentTemplates') typeName = 'قالب محتوا';
                         else if (item.table === 'collections') typeName = 'مجموعه محتوا';
-                        else if (item.table === 'invoices') typeName = 'فاکتور مالی';
+                        else if (item.table === 'invoices') typeName = 'فاکتور مالی'; else if (item.table === 'roles') typeName = 'نقش کاربری';
                         
                         const date = new Date(item.deleted_at).toLocaleDateString('fa-IR');
                         

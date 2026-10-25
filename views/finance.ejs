@@ -2,29 +2,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | داشبورد ناظر مالی</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -163,7 +142,7 @@
                     } else {
                         (data.expenses || []).forEach((exp, index) => {
                             const dateStr = typeof exp.date === 'string' && exp.date.includes('/') ? exp.date : new Date(exp.date).toLocaleDateString('fa-IR');
-                            tbody.innerHTML += `
+                            tbody.insertAdjacentHTML('beforeend', `
                                 <tr>
                                     <td>${index + 1}</td>
                                     <td style="font-weight: bold; color: var(--text-dark);">${escapeHtml(exp.description)}</td>
@@ -171,7 +150,7 @@
                                     <td style="color: var(--error-color); font-weight: bold;">${formatMoney(exp.amount)} تومان</td>
                                     <td>${escapeHtml(dateStr)}</td>
                                 </tr>
-                            `;
+                            `);
                         });
                     }
                 }

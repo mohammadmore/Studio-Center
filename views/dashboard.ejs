@@ -1,29 +1,8 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<script>
-// Global Network Error Handler
-(function() {
-    if (window._fetchIntercepted) return;
-    window._fetchIntercepted = true;
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        try {
-            return await originalFetch.apply(this, args);
-        } catch (e) {
-            // Suppress network error toasts which commonly trigger on dev server restart polling
-            // console.error('Network Error:', e);
-            return new Response(JSON.stringify({status: 'error', message: 'Network error'}), {
-                status: 200, 
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    };
-})();
-</script>
-
-        <base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= STUDIO_NAME %> | داشبورد تحلیلی مدیر کل</title>
     <link rel="stylesheet" href="assets/css/style.css?v=6">
@@ -164,7 +143,7 @@
         
     let checkChartInterval = setInterval(function() {
         if (typeof Chart !== 'undefined') {
-            clearInterval(checkChartInterval);
+            clearInterval(checkChartInterval); if (window.setupCharts) window.setupCharts();
             loadDashboardData();
         }
     }, 50);
@@ -217,7 +196,12 @@
                             datasets: [{
                                 label: 'تعداد محتوا',
                                 data: counts,
-                                backgroundColor: ['#a855f7', 'var(--primary-color)', 'var(--success-color)', 'var(--error-color)', 'var(--warning-color)'],
+                                // One colour per workflow stage instead of a short list that ran out after five bars.
+                                backgroundColor: statuses.map(s => ({
+                                    raw: '#94a3b8', raw_event: '#a855f7', todo: '#f59e0b', in_progress: '#3b82f6', doing: '#3b82f6',
+                                    review: '#8b5cf6', client_review: '#ec4899', needs_revision: '#ef4444', done: '#14b8a6',
+                                    approved_by_client: '#22c55e', ready_to_publish: '#0ea5e9', published: '#10b981'
+                                })[s] || '#6366f1'),
                                 borderRadius: 8,
                                 maxBarThickness: 50
                             }]
