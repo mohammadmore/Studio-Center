@@ -17,6 +17,22 @@ function serve(kind: BlobKind) {
   return async (req: any, res: any) => {
     const filename = req.params.filename;
     if (!isSafeFileName(filename)) return res.status(404).send("Not found");
+    const mime = mimeForFile(filename);
+    const setHeaders = () => {
+      res.setHeader("Content-Type", mime);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      if (kind === "uploads" && (!isInlineSafe(mime) || req.query.download)) {
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      }
+      res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+    };
+    // Local files are streamed (with Range support, so videos can be seeked).
+    const local = getBlobStore().localPath?.(kind, filename);
+    if (local) {
+      setHeaders();
+      return res.sendFile(local, { headers: { "Content-Type": mime }, cacheControl: false, lastModified: true });
+    }
     const key = `${kind}/${filename}`;
     let blob = cache.get(key);
     if (!blob) {
@@ -25,14 +41,7 @@ function serve(kind: BlobKind) {
       cache.set(key, blob);
     }
     // The type comes from our own extension allow-list, never from the uploader.
-    const mime = mimeForFile(filename);
-    res.setHeader("Content-Type", mime);
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-    if (kind === "uploads" && !isInlineSafe(mime)) {
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    }
-    res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+    setHeaders();
     res.send(blob.buffer);
   };
 }

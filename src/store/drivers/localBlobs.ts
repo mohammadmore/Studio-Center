@@ -36,6 +36,22 @@ export function createLocalBlobStore(dataDir: string): BlobStore {
       if (!isSafeFileName(name)) return;
       await fs.promises.rm(fileFor(kind, name), { force: true });
     },
+    async putFile(kind, name, srcPath) {
+      const file = fileFor(kind, name);
+      try {
+        await fs.promises.rename(srcPath, file);
+      } catch (e: any) {
+        // Different file system: copy, then remove the source.
+        if (e.code !== "EXDEV") throw e;
+        await fs.promises.copyFile(srcPath, file);
+        await fs.promises.rm(srcPath, { force: true });
+      }
+    },
+    localPath(kind, name) {
+      if (!isSafeFileName(name)) return null;
+      const file = path.join(dataDir, kind, name);
+      return fs.existsSync(file) ? file : null;
+    },
     async list(kind) {
       return (await fs.promises.readdir(dirFor(kind))).filter(
         (f) => isSafeFileName(f) && !f.endsWith(".tmp"),

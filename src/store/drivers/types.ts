@@ -12,6 +12,10 @@ export interface BlobStore {
   get(kind: BlobKind, name: string): Promise<StoredBlob | null>;
   delete(kind: BlobKind, name: string): Promise<void>;
   list(kind: BlobKind): Promise<string[]>;
+  /** Moves a finished file into the store without loading it into memory. */
+  putFile?(kind: BlobKind, name: string, srcPath: string, mime: string): Promise<void>;
+  /** Path on disk for stores that keep files locally (lets big files be streamed). */
+  localPath?(kind: BlobKind, name: string): string | null;
 }
 
 export interface StorageDriver {

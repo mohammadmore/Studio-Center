@@ -1,5 +1,7 @@
 import express from "express";
-import { collections, contents, mediaAssets, organizations, tokens } from "../../store/state.js";
+import { applyStats, fetchPostStats } from "../../utils/stats.js";
+import { saveDatabase } from "../../store/db.js";
+import { collections, contents, mediaAssets, organizations } from "../../store/state.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { hasPermission } from "../../utils/authUtils.js";
 import { jalaliDiffDays, normalizeJalaliDate, todayJalali } from "../../utils/helpers.js";
@@ -184,32 +186,20 @@ subRouter.get("/get_dashboard_stats", checkPermission("dashboard"), (req, res) =
   res.json(response);
 });
 
-subRouter.post("/fetch_live_stats", checkPermission(["depot", "dashboard", "reports"]), (req, res) => {
-  const { org_id, platform, post_link } = req.body;
-  if (!post_link) {
-    return res.json({
-      status: "error",
-      message:
-        "لینک پست وارد نشده است.",
-    });
+subRouter.post("/fetch_live_stats", checkPermission(["depot", "dashboard", "reports"]), async (req, res) => {
+  const { content_id, platform } = req.body;
+  const card = content_id ? contents.find((c) => c.id == content_id) : null;
+  const orgId = card ? card.org_id : req.body.org_id;
+  const link = String(req.body.post_link || card?.platform_metrics?.[platform]?.post_link || "").trim();
+  if (!link) return res.json({ status: "error", message: "لینک پست وارد نشده است." });
+  try {
+    const stats = await fetchPostStats(orgId, platform, link);
+    const stored = card ? applyStats(card, platform, link, stats) : stats;
+    if (card) saveDatabase();
+    return res.json({ status: "success", data: stored });
+  } catch (e: any) {
+    return res.json({ status: "error", message: String(e?.message || e) });
   }
-  const token = tokens.find(
-    (t) =>
-      t.org_id == org_id &&
-      t.platform_name === platform &&
-      t.status === "active",
-  );
-  if (!token) {
-    return res.json({
-      status: "error",
-      message:
-        "اتصال به API این شبکه برای این کارفرما برقرار نیست. لطفا ابتدا در بخش سلامت توکن‌ها اتصال را انجام دهید.",
-    });
-  }
-  return res.json({
-    status: "success",
-    data: { views: 0, likes: 0, comments: 0, shares: 0 },
-  });
 });
 
 export default subRouter;

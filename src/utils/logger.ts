@@ -1,6 +1,7 @@
 import { audit_logs, notifications } from "../store/state.js";
 import { nextId } from "./helpers.js";
 import { emitNotification } from "./socket.js";
+import { dispatchExternal } from "./notifiers.js";
 
 const MAX_AUDIT_LOGS = 1000;
 const MAX_NOTIFICATIONS = 1000;
@@ -92,7 +93,9 @@ export function addNotification(
   };
   notifications.push(notification);
   emitNotification(notification);
+  dispatchExternal(notification);
   if (notifications.length > MAX_NOTIFICATIONS) {
     notifications.splice(0, notifications.length - MAX_NOTIFICATIONS);
   }
+  return notification;
 }

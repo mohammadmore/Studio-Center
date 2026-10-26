@@ -18,6 +18,18 @@ export const invoices: any[] = [];
 export const mediaAssets: any[] = [];
 export const smartEventsBank: any[] = [];
 export const clientSelections: any[] = [];
+// Content requests / briefs sent by brands (or logged by staff on their behalf).
+export const requests: any[] = [];
+export const time_entries: any[] = [];
+export const shoots: any[] = [];
+export const equipment: any[] = [];
+// Reusable caption snippets: hashtags and standard phrases, global or per brand.
+export const snippets: any[] = [];
+// Messages sent (or attempted) through SMS / email / messenger channels.
+export const outbox: any[] = [];
+// A single record holding the external-channel credentials. Kept out of
+// `settings` because settings are handed to every page.
+export const integrations: any[] = [];
 
 // Every persisted array, keyed by the name used in the stored snapshot.
 export const tables: Record<string, any[]> = {
@@ -40,6 +52,13 @@ export const tables: Record<string, any[]> = {
   mediaAssets,
   smartEventsBank,
   clientSelections,
+  requests,
+  time_entries,
+  shoots,
+  equipment,
+  snippets,
+  outbox,
+  integrations,
 };
 
 export type Snapshot = Record<string, any>;

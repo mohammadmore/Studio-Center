@@ -37,6 +37,14 @@ const STAFF_PAGES: [string, string, string | string[] | undefined][] = [
   ["/recycle_bin", "recycle_bin", "recycle_bin"],
   ["/tokens", "tokens", "tokens"],
   ["/notifications", "notifications", undefined],
+  ["/requests", "requests", "requests"],
+  ["/contracts", "contracts", "contracts"],
+  ["/workload", "workload", "workload"],
+  ["/timesheet", "timesheet", undefined],
+  ["/shoots", "shoots", "shoots"],
+  ["/call-sheet", "call-sheet", undefined],
+  ["/brand-kit", "brand-kit", undefined],
+  ["/integrations", "integrations", "integrations"],
 ];
 
 for (const [route, view, perm] of STAFF_PAGES) {
@@ -76,6 +84,31 @@ viewsRouter.get("/client-review", clientAuthGuard, (req: any, res) => {
   const org = stripSecrets(req.account);
   res.render("client-review", { org, orgData: org });
 });
+
+for (const view of ["client-requests", "client-files", "client-quotes"]) {
+  viewsRouter.get(`/${view}`, clientAuthGuard, (req: any, res) => {
+    const org = stripSecrets(req.account);
+    res.render(view, { current: view, org, orgData: org });
+  });
+}
+
+// Shared by staff (any brand, chosen in the page) and clients (their own brand).
+for (const view of ["monthly-report", "client-brand-kit"]) {
+  viewsRouter.get(`/${view}`, (req: any, res) => {
+    const user = req.user;
+    if (!user) return loginRedirect(req, res);
+    if (user.role_id === "client") {
+      limitSettingsForClient(res);
+      const org = stripSecrets(req.account);
+      res.locals.user = { ...user, full_name: req.account.org_name };
+      return res.render(view === "client-brand-kit" ? "brand-kit" : view, { current: view, isClient: true, org, orgData: org });
+    }
+    if (view === "client-brand-kit") return res.redirect("/brand-kit");
+    authGuard(["reports", "client-portal", "organizations", "contracts"])(req, res, () =>
+      res.render(view, { current: view, isClient: false }),
+    );
+  });
+}
 
 viewsRouter.get("/reports", (req: any, res, next) => {
   const user = req.user;

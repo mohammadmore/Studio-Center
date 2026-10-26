@@ -12,6 +12,7 @@ import { config } from "./config.js";
 import apiRouter from "./routes/api.js";
 import mediaRouter from "./routes/media.js";
 import viewsRouter from "./routes/views.js";
+import icsRouter from "./routes/ics.js";
 import { loadSessionUser } from "./middleware/auth.js";
 import { sessionMiddleware } from "./middleware/session.js";
 import { auditRequest } from "./middleware/audit.js";
@@ -246,6 +247,7 @@ export function createApp() {
     res.status(404).json({ status: "error", message: "API route not found" }),
   );
   app.use("/", mediaRouter);
+  app.use("/", icsRouter);
   app.use("/", viewsRouter);
   app.get("*", (req, res) => res.redirect("/"));
 

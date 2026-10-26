@@ -1,4 +1,5 @@
 import {
+  effectivePermissions,
   findClientOrg,
   findColleague,
   getRoleInfoForUser,
@@ -69,7 +70,7 @@ export function authGuard(perm?: string | string[]) {
     }
     const roleInfo = getRoleInfoForUser(user);
     const colleague = req.account;
-    res.locals.userPermissions = roleInfo.permissions;
+    res.locals.userPermissions = effectivePermissions(user);
     res.locals.user = {
       ...user,
       full_name: colleague?.full_name || user.full_name,
@@ -99,6 +100,23 @@ const CLIENT_API_ROUTES = [
   "/get_collections",
   "/get_studio_info",
   "/manage_settings",
+  "/upload_init",
+  "/upload_chunk",
+  "/upload_status",
+  "/upload_complete",
+  "/upload_cancel",
+  "/requests",
+  "/review_detail",
+  "/review_feedback",
+  "/caption_review",
+  "/client_deliverables",
+  "/client_quotes",
+  "/contract_usage",
+  "/brand_kit",
+  "/monthly_report_data",
+  "/ics_link",
+  "/my_channels",
+  "/workflow_settings",
 ];
 
 export function apiAuthGuard(req: any, res: any, next: any) {

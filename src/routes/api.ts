@@ -12,21 +12,15 @@ import mediaRouter from "./api_routes/media.js";
 import notificationsRouter from "./api_routes/notifications.js";
 import clientRouter from "./api_routes/client.js";
 import financesRouter from "./api_routes/finances.js";
+import uploadsRouter from "./api_routes/uploads.js";
+import workflowRouter from "./api_routes/workflow.js";
+import contractsRouter from "./api_routes/contracts.js";
+import teamopsRouter from "./api_routes/teamops.js";
+import productionRouter from "./api_routes/production.js";
+import integrationsRouter from "./api_routes/integrations.js";
 
 const apiRouter = express.Router();
 apiRouter.use(apiAuthGuard);
-
-
-
-
-
-
-
-
-
-
-
-
 
 apiRouter.use("/", usersRouter);
 apiRouter.use("/", authRouter);
@@ -40,5 +34,11 @@ apiRouter.use("/", mediaRouter);
 apiRouter.use("/", notificationsRouter);
 apiRouter.use("/", clientRouter);
 apiRouter.use("/", financesRouter);
+apiRouter.use("/", uploadsRouter);
+apiRouter.use("/", workflowRouter);
+apiRouter.use("/", contractsRouter);
+apiRouter.use("/", teamopsRouter);
+apiRouter.use("/", productionRouter);
+apiRouter.use("/", integrationsRouter);
 
 export default apiRouter;

@@ -4,20 +4,48 @@ import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { stripSecrets } from "../../utils/authUtils.js";
 import { moveToRecycleBin } from "../../utils/contentUtils.js";
+import { addNotification } from "../../utils/logger.js";
 import { nextId, normalizeJalaliDate, toLatinDigits, todayJalali } from "../../utils/helpers.js";
 
-function priceOf(type: string) {
+export function priceOf(type: string) {
   const list = Array.isArray(settings.content_type) ? settings.content_type : [];
   const setting = list.find((t: any) => t.setting_key === type);
   return setting ? Number(setting.price) || 0 : 0;
 }
 
-function toNumber(value: unknown) {
+export function toNumber(value: unknown) {
   const n = parseFloat(toLatinDigits(value).replace(/,/g, ""));
   return Number.isFinite(n) ? n : 0;
 }
 
 const INVOICE_STATUSES = ["draft", "issued", "paid", "cancelled"];
+const QUOTE_STATUSES = ["draft", "sent", "accepted", "rejected", "converted"];
+
+export function docType(inv: any) {
+  return inv?.doc_type === "quote" ? "quote" : "invoice";
+}
+
+/** Creates the invoice that follows an accepted quote. */
+export function convertQuote(quote: any, actor: string) {
+  const id = nextId(invoices);
+  const inv = {
+    ...JSON.parse(JSON.stringify(quote)),
+    id,
+    invoice_number: 1e3 + id,
+    doc_type: "invoice",
+    status: "issued",
+    quote_id: quote.id,
+    issue_date: todayJalali(),
+    paid_amount: 0,
+    created_at: new Date().toISOString(),
+    created_by: actor,
+  };
+  delete inv.client_decision;
+  invoices.push(inv);
+  quote.status = "converted";
+  quote.invoice_id = id;
+  return inv;
+}
 
 const subRouter = express.Router();
 
@@ -85,8 +113,11 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
     notes,
     paid_amount,
   } = req.body;
-  if (status !== undefined && status !== "" && !INVOICE_STATUSES.includes(status)) {
-    return res.status(400).json({ status: "error", message: "وضعیت فاکتور نامعتبر است" });
+  const existing = id ? invoices.find((i) => i.id == id) : null;
+  const kind = req.body.doc_type === "quote" || (!req.body.doc_type && docType(existing) === "quote") ? "quote" : "invoice";
+  const allowed = kind === "quote" ? QUOTE_STATUSES : INVOICE_STATUSES;
+  if (status !== undefined && status !== "" && !allowed.includes(status)) {
+    return res.status(400).json({ status: "error", message: "وضعیت سند نامعتبر است" });
   }
   if (action === "save") {
     if (org_id && !organizations.some((o) => o.id == org_id)) {
@@ -109,6 +140,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
         inv2.total = total;
         inv2.notes = notes;
         inv2.paid_amount = toNumber(paid_amount);
+        inv2.doc_type = kind;
         saveDatabase();
         return res.json({
           status: "success",
@@ -134,6 +166,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       total,
       notes,
       paid_amount: toNumber(paid_amount),
+      doc_type: kind,
       created_at: new Date().toISOString(),
     };
     invoices.push(inv);
@@ -149,7 +182,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
     const idx = invoices.findIndex((i) => i.id == id);
     if (idx === -1) return res.status(404).json({ status: "error", message: "فاکتور یافت نشد" });
     const inv = invoices[idx];
-    const binId = moveToRecycleBin("invoices", inv, `فاکتور ${inv.invoice_number}`, (req as any).user);
+    const binId = moveToRecycleBin("invoices", inv, `${docType(inv) === "quote" ? "پیش‌فاکتور" : "فاکتور"} ${inv.invoice_number}`, (req as any).user);
     invoices.splice(idx, 1);
     saveDatabase();
     return res.json({ status: "success", message: "فاکتور به سطل زباله منتقل شد", bin_id: binId });
@@ -165,6 +198,32 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
           "وضعیت تغییر کرد",
       });
     }
+  }
+  if (action === "send_quote") {
+    const quote = invoices.find((i) => i.id == id && docType(i) === "quote");
+    if (!quote) return res.status(404).json({ status: "error", message: "پیش‌فاکتور یافت نشد" });
+    if (!quote.org_id) return res.status(400).json({ status: "error", message: "کارفرمای پیش‌فاکتور مشخص نیست" });
+    quote.status = "sent";
+    quote.sent_at = new Date().toISOString();
+    addNotification(
+      "پیش‌فاکتور جدید",
+      `پیش‌فاکتور شماره ${quote.invoice_number} به مبلغ ${toNumber(quote.total).toLocaleString("fa-IR")} تومان برای بررسی و تایید شما ارسال شد.`,
+      "client",
+      quote.org_id,
+      "/client-quotes",
+      "quote_sent",
+      quote.id,
+    );
+    saveDatabase();
+    return res.json({ status: "success", message: "پیش‌فاکتور برای کارفرما ارسال شد" });
+  }
+  if (action === "convert_quote") {
+    const quote = invoices.find((i) => i.id == id && docType(i) === "quote");
+    if (!quote) return res.status(404).json({ status: "error", message: "پیش‌فاکتور یافت نشد" });
+    if (quote.status === "converted") return res.status(400).json({ status: "error", message: "این پیش‌فاکتور قبلا به فاکتور تبدیل شده است" });
+    const inv = convertQuote(quote, (req as any).user?.username);
+    saveDatabase();
+    return res.json({ status: "success", message: "فاکتور صادر شد", data: inv });
   }
   if (action === "add_payment") {
     const inv = invoices.find((i) => i.id == id);
@@ -214,6 +273,7 @@ subRouter.get(
         date: inv.issue_date,
         due_date: inv.due_date,
         status_name: inv.status,
+        doc_type: docType(inv),
         organization: org2 ? stripSecrets(org2) : null,
         items: inv.items,
         subtotal: inv.subtotal,

@@ -2,12 +2,16 @@ import { colleagues, invoices, leaves, notifications } from "./store/state.js";
 import { saveDatabase } from "./store/db.js";
 import { addNotification } from "./utils/logger.js";
 import { normalizeJalaliDate, todayJalali } from "./utils/helpers.js";
+import { checkStageDeadlines } from "./utils/workflowUtils.js";
+import { refreshRecentStats } from "./utils/stats.js";
+import { cleanupStaleUploads } from "./routes/api_routes/uploads.js";
+import { autoSendMonthlyReports } from "./routes/api_routes/integrations.js";
 
 /** Reminds admins and the client once a day about unpaid invoices past their due date. */
 export function notifyOverdueInvoices(today = todayJalali()) {
   let changed = false;
   for (const inv of invoices) {
-    if (inv.status === "paid" || inv.status === "cancelled") continue;
+    if (inv.status === "paid" || inv.status === "cancelled" || inv.doc_type === "quote") continue;
     const due = normalizeJalaliDate(inv.due_date);
     if (!due || due >= today) continue;
     const alreadyNotified = notifications.some(
@@ -61,12 +65,30 @@ export function syncLeaveStatuses(today = todayJalali()) {
 }
 
 export function startJobs() {
+  let statsRunOn = "";
   const run = () => {
     try {
-      const changed = [notifyOverdueInvoices(), syncLeaveStatuses()].some(Boolean);
+      const changed = [
+        notifyOverdueInvoices(),
+        syncLeaveStatuses(),
+        checkStageDeadlines(),
+        autoSendMonthlyReports(),
+      ].some(Boolean);
       if (changed) saveDatabase();
+      cleanupStaleUploads();
     } catch (e) {
       console.error("Scheduled job failed:", e);
+    }
+    // Post statistics are refreshed once a day, at night (Tehran time).
+    const today = todayJalali();
+    const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Tehran" }).format(new Date()));
+    if (statsRunOn !== today && hour >= 2 && hour < 6) {
+      statsRunOn = today;
+      refreshRecentStats()
+        .then((n) => {
+          if (n) saveDatabase();
+        })
+        .catch((e) => console.error("Stats refresh failed:", e));
     }
   };
   const first = setTimeout(run, 10_000);

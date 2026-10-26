@@ -46,6 +46,19 @@ export function getPermissionCategories() {
       permissions: [
         { id: "organizations", name: "مدیریت سازمان‌ها (برندها)" },
         { id: "client-portal", name: "پورتال کارفرما" },
+        { id: "contracts", name: "قراردادها و پکیج‌ها" },
+        { id: "brand_kit", name: "ویرایش کیت برند" },
+      ],
+    },
+    {
+      id: "workflow",
+      name: "گردش کار تولید",
+      permissions: [
+        { id: "requests", name: "درخواست‌ها و بریف‌ها" },
+        { id: "approve_content", name: "تایید داخلی محتوا (قبل از کارفرما)" },
+        { id: "workload", name: "بار کاری تیم" },
+        { id: "shoots", name: "برنامه تصویربرداری و تجهیزات" },
+        { id: "timesheet_report", name: "گزارش زمان و سودآوری" },
       ],
     },
     {
@@ -67,6 +80,7 @@ export function getPermissionCategories() {
         { id: "manage_roles", name: "مدیریت نقش‌ها" },
         { id: "audit", name: "گزارشات سیستم (Audit)" },
         { id: "tokens", name: "مدیریت توکن‌ها" },
+        { id: "integrations", name: "اعلان‌های خارجی (پیامک، ایمیل، پیام‌رسان)" },
         { id: "recycle_bin", name: "سطل زباله" },
       ],
     },
@@ -84,6 +98,13 @@ const IMPLIED_BY: Record<string, string[]> = {
   recycle_bin: ["audit"],
   reports: ["dashboard"],
   tokens: ["settings"],
+  integrations: ["settings"],
+  contracts: ["organizations", "finance"],
+  brand_kit: ["organizations"],
+  requests: ["client-portal", "organizations", "depot"],
+  workload: ["team", "leaves"],
+  shoots: ["depot", "calendar"],
+  timesheet_report: ["finance"],
 };
 
 export function findColleague(user: any) {
@@ -153,6 +174,13 @@ export function hasPermission(user: any, perm: string | string[]) {
   );
 }
 
+/** Every permission the user effectively holds, including the implied ones (for menus). */
+export function effectivePermissions(user: any) {
+  if (!user || user.role_id === "client") return [] as string[];
+  const owned = getRoleInfoForUser(user).permissions;
+  return Array.from(new Set([...owned, ...ALL_PERMISSIONS.filter((p) => hasPermission(user, p))]));
+}
+
 // Pages in the order the sidebar lists them, used to pick a landing page.
 export const PAGE_PERMISSIONS: [string, string][] = [
   ["/depot", "depot"],
@@ -166,6 +194,10 @@ export const PAGE_PERMISSIONS: [string, string][] = [
   ["/organizations", "organizations"],
   ["/client-portal", "client-portal"],
   ["/invoices_list", "invoice"],
+  ["/requests", "requests"],
+  ["/contracts", "contracts"],
+  ["/shoots", "shoots"],
+  ["/workload", "workload"],
   ["/team", "team"],
   ["/leaves", "leaves"],
   ["/reports", "reports"],

@@ -30,6 +30,19 @@ import {
   restoreBinItem,
 } from "../../utils/contentUtils.js";
 import { emitToStaff } from "../../utils/socket.js";
+import {
+  assignmentWarnings,
+  canSendToClient,
+  onStageCompleted,
+  SEND_TO_CLIENT_BLOCKED,
+} from "../../utils/workflowUtils.js";
+
+const CLIENT_REVIEW_STATUSES = ["client_review", "pending_client_review"];
+
+/** Internal approval gate: true when this status change has to be refused. */
+function blockedForClient(req: any, card: any, status: unknown) {
+  return CLIENT_REVIEW_STATUSES.includes(String(status)) && card.status !== status && !canSendToClient(card, req.user);
+}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const subRouter = express.Router();
@@ -178,6 +191,9 @@ subRouter.post("/schedule_content", checkPermission(["calendar", "depot"]), (req
   } = req.body;
   const card = contents.find((c) => c.id == id);
   if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
+  if (req.body.status && blockedForClient(req, card, req.body.status)) {
+    return res.status(400).json({ status: "error", message: SEND_TO_CLIENT_BLOCKED });
+  }
   card.publish_date = normalizeJalaliDate(publish_date) || "";
   if (publish_time !== undefined) card.publish_time = publish_time;
   if (req.body.status) card.status = req.body.status;
@@ -219,6 +235,9 @@ subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) =
     if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
     if (!status || typeof status !== "string") {
       return res.status(400).json({ status: "error", message: "وضعیت نامعتبر" });
+    }
+    if (blockedForClient(req, card, status)) {
+      return res.status(400).json({ status: "error", message: SEND_TO_CLIENT_BLOCKED });
     }
     batch_operations.unshift({
       id: "batch_" + Date.now(),
@@ -1006,6 +1025,10 @@ subRouter.post("/toggle_stage", (req, res) => {
     card.completed_stages = card.completed_stages.filter((s: any) => s !== stage);
   }
   logContentActivity(card, req, `مرحله «${stage}» را ${isChecked ? "تکمیل" : "باز"} کرد`);
+  if (isChecked) {
+    if (card.stage_plan?.[stage]) card.stage_plan[stage].completed_at = new Date().toISOString();
+    onStageCompleted(card, stage);
+  }
   saveDatabase();
   emitToStaff("content_updated", { contentId: card.id, card });
   return res.json({ status: "success", message: "مرحله به‌روزرسانی شد" });
@@ -1041,6 +1064,7 @@ subRouter.post("/batch_edit_contents", checkPermission(["depot", "calendar"]), (
   const previousStates: any[] = [];
   const deletedBinIds: number[] = [];
   let updatedCount = 0;
+  let skippedForApproval = 0;
 
   if (action === "delete") {
     for (const id of ids) {
@@ -1061,6 +1085,11 @@ subRouter.post("/batch_edit_contents", checkPermission(["depot", "calendar"]), (
       if (action === "archive") {
         card.status = "archived";
       } else if (action === "status" && status) {
+        if (blockedForClient(req, card, status)) {
+          changed = false;
+          skippedForApproval++;
+          continue;
+        }
         logContentActivity(card, req, `وضعیت را دسته‌جمعی به ${status} تغییر داد`);
         notifyStatusChange(card, status);
         card.status = status;
@@ -1153,7 +1182,13 @@ subRouter.post("/batch_edit_contents", checkPermission(["depot", "calendar"]), (
     if (batch_operations.length > 500) batch_operations.splice(500);
   }
   saveDatabase();
-  return res.json({ status: "success", updated: updatedCount });
+  return res.json({
+    status: "success",
+    updated: updatedCount,
+    ...(skippedForApproval
+      ? { message: `${skippedForApproval} محتوا به دلیل نداشتن تایید داخلی برای کارفرما ارسال نشد.` }
+      : {}),
+  });
 });
 
 subRouter.post("/update_content_details", (req: any, res) => {
@@ -1177,6 +1212,9 @@ subRouter.post("/update_content_details", (req: any, res) => {
   const card = contents.find((c) => c.id == id);
   if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
   if (!canEditCard(req, card)) return forbidden(res);
+  if (status !== undefined && blockedForClient(req, card, status)) {
+    return res.status(400).json({ status: "error", message: SEND_TO_CLIENT_BLOCKED });
+  }
   // Assigned colleagues without content permissions may only work on the card itself.
   const isManager = hasPermission(req.user, CONTENT_PERMS);
   const changes: string[] = [];
@@ -1247,7 +1285,11 @@ subRouter.post("/update_content_details", (req: any, res) => {
   }
   saveDatabase();
   emitToStaff("content_updated", { contentId: card.id, card });
-  return res.json({ status: "success" });
+  const warnings =
+    assigned_colleagues !== undefined && Array.isArray(assigned_colleagues)
+      ? assignmentWarnings(resolveColleagueIds(assigned_colleagues).map((cid) => ({ colleague_id: cid, date: card.publish_date })))
+      : [];
+  return res.json({ status: "success", warnings });
 });
 
 function opOwner(op: any) {
@@ -1350,11 +1392,32 @@ subRouter.post("/contents/:id/comments", (req: any, res) => {
     user: req.user.username,
     avatar: req.account?.avatar_url || "/assets/images/default-avatar.png",
     text,
+    full_name: req.account?.full_name || req.user.username,
     mentions: Array.isArray(req.body.mentions) ? req.body.mentions.slice(0, 50) : [],
+    parent_id: null as number | null,
     timestamp: new Date().toISOString(),
   };
+  const parent = req.body.parent_id ? card.comments.find((c: any) => c.id == req.body.parent_id) : null;
+  if (parent) comment.parent_id = parent.parent_id || parent.id;
   card.comments.push(comment);
+  const notified = new Set<number>();
+  if (parent) {
+    const [authorId] = resolveColleagueIds([parent.user]);
+    if (authorId && authorId != req.user.id) {
+      notified.add(authorId);
+      addNotification(
+        "پاسخ به نظر شما",
+        `${comment.full_name} در محتوای "${card.title}" به نظر شما پاسخ داد: ${text.slice(0, 200)}`,
+        "colleague",
+        authorId,
+        "/my-projects",
+        "mention",
+        card.id,
+      );
+    }
+  }
   for (const colleagueId of resolveColleagueIds(comment.mentions)) {
+    if (notified.has(colleagueId)) continue;
     if (colleagueId == req.user.id) continue;
     addNotification(
       "اشاره در نظر",
