@@ -90,7 +90,7 @@
     window.__wfJdpLoading = true;
     var css = document.createElement("link");
     css.rel = "stylesheet";
-    css.href = "/assets/css/jalalidatepicker.min.css";
+    css.href = window.asvaUrl("/assets/css/jalalidatepicker.min.css");
     document.head.appendChild(css);
     window.loadScriptOnce("/assets/js/jalalidatepicker.min.js").then(function () {
       if (window.jalaliDatepicker) window.jalaliDatepicker.startWatch({ persianDigits: true, autoHide: true, hideAfterChange: true, showTodayBtn: true, showEmptyBtn: true });
@@ -120,7 +120,7 @@
     if (!files || !files.length) return '<div class="wf-empty-sm">' + (opts.empty || "فایلی ثبت نشده است") + "</div>";
     return '<ul class="wf-files">' + files.map(function (f, i) {
       var url = window.safeUrl(f.url);
-      var dl = url && url.indexOf("/uploads/") === 0 ? url + (url.indexOf("?") === -1 ? "?" : "&") + "download=1" : url;
+      var dl = url && /^(\/[^/]+)*\/uploads\//.test(url) ? url + (url.indexOf("?") === -1 ? "?" : "&") + "download=1" : url;
       return "<li>" +
         '<span class="wf-file-icon">' + window.fileIcon(f) + "</span>" +
         '<a href="' + window.escapeHtml(url) + '" target="_blank" rel="noopener">' + window.escapeHtml(f.name || "فایل") + "</a>" +

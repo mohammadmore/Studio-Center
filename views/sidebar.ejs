@@ -1373,7 +1373,10 @@ window.showToast = function(message, type = 'info', action = null) {
     else if (type === 'error') iconHtml = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>";
     else iconHtml = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><circle cx='12' cy='12' r='10'/><path d='M12 16v-4'/><path d='M12 8h.01'/></svg>";
     
-    let innerHtml = `<div style="display: flex; align-items: center;"><span>${iconHtml}</span> <span>${message}</span></div>`;
+    // Messages often contain names and titles typed by users: always shown as text.
+    // (Some callers still prefix their own icon; the toast already has one.)
+    const safeMessage = escapeHtml(String(message == null ? '' : message).replace(/^\s*<svg[\s\S]*?<\/svg>\s*/i, ''));
+    let innerHtml = `<div style="display: flex; align-items: center;"><span>${iconHtml}</span> <span>${safeMessage}</span></div>`;
     if (action) {
         innerHtml += `<button class="toast-action-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; white-space: nowrap; transition: 0.2s;">${escapeHtml(action.text)}</button>`;
     }

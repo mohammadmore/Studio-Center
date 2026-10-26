@@ -9,6 +9,8 @@ const cookieSessionMiddleware = cookieSession({
   keys: [config.sessionSecret],
   maxAge: 7 * 24 * 60 * 60 * 1000,
   httpOnly: true,
+  // Scoped to the app's sub-path so other sites on the same domain never see it.
+  path: config.basePath || "/",
   // A cross-site iframe (preview) needs SameSite=None, which requires Secure.
   secure: crossSite || config.cookieSecure,
   sameSite: crossSite ? "none" : "lax",

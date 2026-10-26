@@ -54,7 +54,7 @@
 <script>
 (function() {
     // 1. Initialize Socket
-    const socket = window.asvaSocket || (window.asvaSocket = io());
+    const socket = window.asvaSocket || (window.asvaSocket = io({ path: window.asvaUrl('/socket.io') }));
     
     // 2. Request Notification Permission
     let notificationsEnabled = false;

@@ -1,9 +1,30 @@
-import { createServer } from "http";
+import { createServer, type Server } from "http";
 import { config } from "./src/config.js";
 import { createApp } from "./src/app.js";
 import { closeDatabase, initDatabase } from "./src/store/db.js";
 import { startJobs } from "./src/jobs.js";
 import { initSocket } from "./src/utils/socket.js";
+
+/**
+ * Behind a proxy that strips the sub-path, requests arrive as "/depot". Socket.IO
+ * only listens on "<base>/socket.io", so every request gets the prefix back
+ * before anything else sees it (Express removes it again).
+ */
+function addBasePathToRequests(server: Server) {
+  const base = config.basePath;
+  if (!base) return;
+  for (const event of ["request", "upgrade"] as const) {
+    const listeners = server.listeners(event).slice() as ((...args: any[]) => void)[];
+    server.removeAllListeners(event);
+    server.on(event, (req: any, ...rest: any[]) => {
+      const url = String(req.url || "/");
+      if (!(url === base || url.startsWith(base + "/") || url.startsWith(base + "?"))) {
+        req.url = base + (url.startsWith("/") ? url : "/" + url);
+      }
+      for (const listener of listeners) listener.call(server, req, ...rest);
+    });
+  }
+}
 
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err);
@@ -21,6 +42,7 @@ async function main() {
   const app = createApp();
   const httpServer = createServer(app);
   initSocket(httpServer);
+  addBasePathToRequests(httpServer);
   const stopJobs = startJobs();
 
   // Passenger (cPanel) passes a socket path or port through PORT.

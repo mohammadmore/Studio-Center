@@ -359,7 +359,7 @@
     var b = it.brief || {};
     var row = function (label, v) { return v ? "<dt>" + label + "</dt><dd>" + e(v) + "</dd>" : ""; };
     pane.innerHTML = '<dl class="wf-kv">' + row("هدف", b.goal) + row("مخاطب", b.audience) + row("پیام اصلی", b.key_message) + row("نمونه‌های مرجع", b.references) + row("مهلت درخواستی", b.deadline && window.fa(b.deadline)) + row("توضیحات", b.notes) + "</dl>" +
-      (it.request_id && can("requests") ? '<div class="wf-actions"><a class="wf-btn" href="/requests?id=' + it.request_id + '">مشاهده درخواست</a></div>' : "");
+      (it.request_id && can("requests") ? '<div class="wf-actions"><a class="wf-btn" href="' + window.asvaUrl('/requests?id=' + it.request_id) + '">مشاهده درخواست</a></div>' : "");
   }
 
   // ---------- floating timer (on every staff page) ----------

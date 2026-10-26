@@ -9,6 +9,37 @@
   if (window.__asvaCore) return;
   window.__asvaCore = true;
 
+  // ---------- base path ----------
+  // The app may live under a sub-path (e.g. /studio). The server tells us which
+  // one; every absolute app URL ("/api/...", "/uploads/...") goes through asvaUrl.
+  var BASE = String(window.ASVA_BASE || "").replace(/\/+$/, "");
+  window.ASVA_BASE = BASE;
+  function asvaUrl(u) {
+    if (!BASE || typeof u !== "string" || u.charAt(0) !== "/" || u.charAt(1) === "/") return u;
+    if (u === BASE || u.indexOf(BASE + "/") === 0 || u.indexOf(BASE + "?") === 0 || u.indexOf(BASE + "#") === 0) return u;
+    return BASE + u;
+  }
+  window.asvaUrl = asvaUrl;
+  /** Path inside the app, without the base path ("/studio/api/x" -> "/api/x"). */
+  function appPath(pathname) {
+    return BASE && (pathname === BASE || pathname.indexOf(BASE + "/") === 0) ? pathname.slice(BASE.length) || "/" : pathname;
+  }
+  window.asvaAppPath = appPath;
+  // Links built at runtime ("/depot", "/uploads/x.png") get the base path when clicked.
+  if (BASE) {
+    var fixLink = function (ev) {
+      var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+      if (!a) return;
+      var href = a.getAttribute("href");
+      var fixed = asvaUrl(href);
+      if (fixed !== href) a.setAttribute("href", fixed);
+    };
+    // mousedown also covers middle-click / "open in new tab".
+    document.addEventListener("mousedown", fixLink, true);
+    document.addEventListener("click", fixLink, true);
+    document.addEventListener("keydown", function (ev) { if (ev.key === "Enter") fixLink(ev); }, true);
+  }
+
   // ---------- escaping ----------
   var HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;" };
   window.escapeHtml = function (v) {
@@ -23,7 +54,7 @@
   };
   window.safeUrl = function (u) {
     u = String(u == null ? "" : u).trim();
-    return /^(https?:|\/(?!\/)|data:image\/(png|jpe?g|gif|webp);|data:image\/svg\+xml;charset=utf-8,|blob:)/i.test(u) ? u : "";
+    return /^(https?:|\/(?!\/)|data:image\/(png|jpe?g|gif|webp);|data:image\/svg\+xml;charset=utf-8,|blob:)/i.test(u) ? asvaUrl(u) : "";
   };
 
   // Local placeholder avatar (first letter on a colour derived from the name),
@@ -45,7 +76,7 @@
     if (!loadingScripts[src]) {
       loadingScripts[src] = new Promise(function (resolve, reject) {
         var s = document.createElement("script");
-        s.src = src;
+        s.src = asvaUrl(src);
         s.async = true;
         s.onload = function () { resolve(); };
         s.onerror = function () {
@@ -147,26 +178,28 @@
   window.clearApiCache = cacheClear;
 
   function sessionExpired() {
-    if (redirecting || /^\/(index|login)?$/.test(location.pathname)) return;
+    if (redirecting || /^\/(index|login)?$/.test(appPath(location.pathname))) return;
     redirecting = true;
     cacheClear();
     notify("نشست شما به پایان رسیده است. در حال انتقال به صفحه ورود...", "error");
     var next = location.pathname + location.search;
     setTimeout(function () {
-      location.href = "/?expired=1&next=" + encodeURIComponent(next);
+      location.href = asvaUrl("/") + "?expired=1&next=" + encodeURIComponent(next);
     }, 1500);
   }
 
   window.fetch = function (input, init) {
+    if (typeof input === "string") input = asvaUrl(input);
     var url = typeof input === "string" ? input : (input && input.url) || "";
     var path;
     try { path = new URL(url, location.href); } catch (e) { return originalFetch(input, init); }
-    if (path.origin !== location.origin || path.pathname.indexOf("/api/") !== 0) return originalFetch(input, init);
+    var apiPath = appPath(path.pathname);
+    if (path.origin !== location.origin || apiPath.indexOf("/api/") !== 0) return originalFetch(input, init);
 
     var method = String((init && init.method) || (input && input.method) || "GET").toUpperCase();
     var isRead = method === "GET" || method === "HEAD";
-    var cacheKey = path.pathname + path.search;
-    var cacheable = isRead && CACHEABLE.indexOf(path.pathname) !== -1;
+    var cacheKey = apiPath + path.search;
+    var cacheable = isRead && CACHEABLE.indexOf(apiPath) !== -1;
 
     if (cacheable) {
       var cached = cacheGet(cacheKey);
@@ -277,10 +310,10 @@
   // One Socket.IO connection per page; new notifications refresh the badge and
   // show a short toast instead of waiting for the next poll.
   function connectLive() {
-    if (/^\/(index|login)?$/.test(location.pathname)) return;
+    if (/^\/(index|login)?$/.test(appPath(location.pathname))) return;
     var start = function () {
       if (!window.io) return;
-      var socket = window.asvaSocket || (window.asvaSocket = window.io());
+      var socket = window.asvaSocket || (window.asvaSocket = window.io({ path: BASE + "/socket.io" }));
       socket.on("connect_error", function (err) {
         if (err && err.message === "unauthorized") socket.disconnect();
       });
@@ -320,7 +353,7 @@
       }
       var piece = file.slice(offset, offset + size);
       try {
-        var res = await originalFetch("/api/upload_chunk?upload_id=" + encodeURIComponent(id) + "&offset=" + offset, {
+        var res = await originalFetch(asvaUrl("/api/upload_chunk") + "?upload_id=" + encodeURIComponent(id) + "&offset=" + offset, {
           method: "POST",
           headers: { "Content-Type": "application/octet-stream" },
           body: piece,
@@ -339,7 +372,7 @@
         await sleep(Math.min(30000, 1000 * Math.pow(2, failures)));
         // Ask where the server stopped before sending again.
         try {
-          var st = await originalFetch("/api/upload_status?upload_id=" + encodeURIComponent(id), { credentials: "same-origin" });
+          var st = await originalFetch(asvaUrl("/api/upload_status") + "?upload_id=" + encodeURIComponent(id), { credentials: "same-origin" });
           var sd = await st.json();
           if (sd && typeof sd.received === "number") offset = sd.received;
         } catch (e2) {}

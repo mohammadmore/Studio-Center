@@ -52,6 +52,17 @@ function findSqliteFile() {
   return !fs.existsSync(configured) && fs.existsSync(legacy) ? legacy : configured;
 }
 
+/** "/studio", "studio/" or "" -> "/studio" or "" (no trailing slash). */
+export function normalizeBasePath(value: string | undefined) {
+  const trimmed = String(value || "").trim().replace(/^\/+|\/+$/g, "");
+  if (!trimmed) return "";
+  if (!/^[A-Za-z0-9._~\-/]+$/.test(trimmed)) {
+    console.error(`CRITICAL: BASE_PATH "${value}" contains invalid characters.`);
+    process.exit(1);
+  }
+  return "/" + trimmed;
+}
+
 export const config = {
   isProduction,
   appRoot,
@@ -72,4 +83,7 @@ export const config = {
     .map((s) => s.trim())
     .filter(Boolean),
   initialAdminPassword: env.ADMIN_PASSWORD || "",
+  // Sub-path the app is served under, e.g. "/studio" for example.com/studio.
+  // Passenger (cPanel) announces it in PASSENGER_BASE_URI.
+  basePath: normalizeBasePath(env.BASE_PATH ?? env.PASSENGER_BASE_URI),
 };

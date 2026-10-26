@@ -38,6 +38,37 @@ function computeAssetVersion() {
   return hash.digest("hex").slice(0, 10);
 }
 const ASSET_VERSION = computeAssetVersion();
+const BASE = config.basePath;
+
+/** True when a request path is under the base path ("/studio", "/studio/x", "/studio?x"). */
+export function hasBasePath(url: string) {
+  return !!BASE && (url === BASE || url.startsWith(BASE + "/") || url.startsWith(BASE + "?"));
+}
+
+/** Absolute app path -> public URL ("/depot" -> "/studio/depot"). */
+export function withBase(url: string) {
+  if (!BASE || !url.startsWith("/") || url.startsWith("//") || hasBasePath(url)) return url;
+  return BASE + url;
+}
+
+/**
+ * First segments of every route the app serves. Absolute links to them in the
+ * rendered pages (and in their inline scripts) get the base path.
+ */
+function appSegments() {
+  const views = fs.existsSync(path.join(config.appRoot, "views"))
+    ? fs.readdirSync(path.join(config.appRoot, "views")).filter((f) => f.endsWith(".ejs")).map((f) => f.slice(0, -4))
+    : [];
+  const fixed = ["api", "assets", "uploads", "fonts", "socket\\.io", "ics", "healthz", "index", "login", "client-brand-kit"];
+  return [...new Set([...fixed, ...views.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))])].sort((a, b) => b.length - a.length);
+}
+const APP_LINK = new RegExp(`(["'\`(=])\\/(?=(?:${appSegments().join("|")})(?:[/?#"'\`)\\s]|$))`, "g");
+const ROOT_LINK = /((?:href=|location(?:\.href)?\s*=\s*)["'`])\/(?=["'`?#])/g;
+
+function addBasePath(html: string) {
+  if (!BASE) return html;
+  return html.replace(APP_LINK, `$1${BASE}/`).replace(ROOT_LINK, `$1${BASE}/`);
+}
 
 /** Points every asset reference at the current version and loads core.js first. */
 function prepareHtml(html: string) {
@@ -52,7 +83,10 @@ function prepareHtml(html: string) {
     seenStyle = true;
     return tag;
   });
-  const core = `<script src="/assets/js/core.js?v=${ASSET_VERSION}"></script>`;
+  html = addBasePath(html);
+  const core =
+    (BASE ? `<script>window.ASVA_BASE=${JSON.stringify(BASE)};</script>` : "") +
+    `<script src="${BASE}/assets/js/core.js?v=${ASSET_VERSION}"></script>`;
   if (/<meta charset="UTF-8">/i.test(html)) return html.replace(/<meta charset="UTF-8">/i, (m) => m + core);
   if (html.includes("<head>")) return html.replace("<head>", `<head><meta charset="UTF-8">${core}`);
   return core + html;
@@ -64,9 +98,9 @@ function fontInjection() {
     "*, body, button, input, select, textarea, .asva-menu-link, .btn-primary, .btn-outline, .form-control, .s-tab, .tab-btn";
   if (font && font !== "vazirmatn" && isSafeFileName(font)) {
     return `
-<link rel="preload" href="/fonts/${font}" as="font" crossorigin>
+<link rel="preload" href="${BASE}/fonts/${font}" as="font" crossorigin>
 <style>
-@font-face { font-family: 'AppCustomFont'; src: url('/fonts/${font}'); font-display: swap; }
+@font-face { font-family: 'AppCustomFont'; src: url('${BASE}/fonts/${font}'); font-display: swap; }
 ${families} { font-family: 'AppCustomFont', Tahoma, sans-serif !important; }
 </style>`;
   }
@@ -102,6 +136,23 @@ function sameOriginGuard(req: any, res: any, next: any) {
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
+
+  // Under a sub-path the app sees "/studio/depot"; routes are defined without
+  // the prefix. Requests that already arrive without it (a proxy that strips
+  // the prefix) are accepted as they are.
+  if (BASE) {
+    app.use((req: any, res: any, next) => {
+      if (hasBasePath(req.url)) req.url = req.url.slice(BASE.length) || "/";
+      if (!req.url.startsWith("/")) req.url = "/" + req.url;
+      const redirect = res.redirect.bind(res);
+      res.redirect = (...args: any[]) => {
+        const i = typeof args[0] === "number" ? 1 : 0;
+        if (typeof args[i] === "string") args[i] = withBase(args[i]);
+        return redirect(...args);
+      };
+      next();
+    });
+  }
   const trustProxy = config.trustProxy;
   app.set(
     "trust proxy",
@@ -211,6 +262,7 @@ export function createApp() {
     res.locals.STUDIO_NAME = settings?.studio_info?.name || "استودیو اسوا";
     res.locals.STUDIO_LOGO = settings?.studio_info?.logo_light || settings?.studio_info?.logo || "";
     res.locals.settings = settings;
+    res.locals.BASE_URL = BASE;
     const originalRender = res.render.bind(res);
     (res as any).render = (view: string, options?: any, callback?: any) => {
       if (typeof options === "function") {

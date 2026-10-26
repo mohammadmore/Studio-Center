@@ -2,6 +2,7 @@ import crypto from "crypto";
 import express from "express";
 import { colleagues, contents, invoices, organizations, outbox } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
+import { config } from "../../config.js";
 import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
 import { hasPermission } from "../../utils/authUtils.js";
 import { addNotification } from "../../utils/logger.js";
@@ -165,7 +166,7 @@ subRouter.post("/saved_views", (req: any, res) => {
 // ───────────────────────────── Calendar subscription links ─────────────────────────────
 
 function baseUrl(req: any) {
-  return `${req.protocol}://${req.get("x-forwarded-host") || req.get("host")}`;
+  return `${req.protocol}://${req.get("x-forwarded-host") || req.get("host")}${config.basePath}`;
 }
 
 subRouter.get("/ics_link", (req: any, res) => {

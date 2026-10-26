@@ -2,6 +2,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { sessionMiddleware } from "../middleware/session.js";
 import { loadSessionUser } from "../middleware/auth.js";
 import { isAdmin } from "./authUtils.js";
+import { config } from "../config.js";
 
 let io: SocketIOServer | null = null;
 const STAFF_ROOM = "staff";
@@ -9,7 +10,7 @@ const ADMIN_ROOM = "admins";
 
 export function initSocket(server: any) {
   // Same-origin only: the pages are served by this server.
-  io = new SocketIOServer(server);
+  io = new SocketIOServer(server, { path: `${config.basePath}/socket.io` });
   const session = sessionMiddleware();
   io.use((socket, next) => {
     const req: any = socket.request;

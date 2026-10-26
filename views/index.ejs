@@ -61,7 +61,7 @@
         // Only same-site paths are accepted as a return address.
         function safeNextPath() {
             const next = new URLSearchParams(location.search).get('next') || '';
-            return /^\/(?!\/)[^\s]*$/.test(next) && !next.startsWith('/api/') ? next : '';
+            return /^\/(?!\/)[^\s]*$/.test(next) && !window.asvaAppPath(next).startsWith('/api/') ? window.asvaUrl(next) : '';
         }
         document.addEventListener('DOMContentLoaded', () => {
             if (new URLSearchParams(location.search).get('expired') === '1') {
