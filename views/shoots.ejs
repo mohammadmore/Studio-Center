@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'برنامه تصویربرداری' }) %>
+</head>
+<body>
+    <%- include('sidebar') %>
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title">🎬 <span>برنامه تصویربرداری و تجهیزات</span></h1>
+                <p class="page-subtitle">تاریخ و لوکیشن شوت، عوامل، رزرو تجهیزات (بدون رزرو دوباره) و برگه برنامه روز فیلم‌برداری.</p>
+            </div>
+            <button type="button" class="btn-primary" onclick="editShoot()">➕ تصویربرداری جدید</button>
+        </div>
+        <div class="wf-page">
+            <div class="wf-tabs" role="tablist">
+                <button type="button" class="wf-tab active" data-tab="upcoming">پیش رو</button>
+                <button type="button" class="wf-tab" data-tab="past">گذشته</button>
+                <button type="button" class="wf-tab" data-tab="equipment">تجهیزات</button>
+            </div>
+            <div id="pane"><div class="wf-empty">در حال بارگذاری…</div></div>
+        </div>
+    </main>
+    <script src="assets/js/app.js"></script>
+    <script>
+        let tab = 'upcoming', shoots = [], equipment = [], orgs = [], cards = [];
+        const STATUS = { planned: ['برنامه‌ریزی شده', 'blue'], done: ['انجام شد', 'green'], cancelled: ['لغو شد', 'red'] };
+        document.querySelectorAll('.wf-tab').forEach(b => b.onclick = () => {
+            document.querySelectorAll('.wf-tab').forEach(x => x.classList.toggle('active', x === b));
+            tab = b.getAttribute('data-tab');
+            render();
+        });
+        async function load() {
+            const [s, e, o, c, cl] = await Promise.all([api('/api/shoots'), api('/api/equipment'), api('/api/get_orgs'), api('/api/get_depot_contents', undefined, { quiet: true }), api('/api/get_colleagues')]);
+            shoots = (s && s.data) || [];
+            equipment = (e && e.data) || [];
+            orgs = (o && o.data) || [];
+            cards = ((c && c.data) || []).filter(x => !['archived', 'published', 'done'].includes(x.status));
+            window.allColleagues = (cl && cl.users) || [];
+            render();
+        }
+        function render() {
+            const pane = document.getElementById('pane');
+            const today = todayJalali();
+            if (tab === 'equipment') {
+                pane.innerHTML = `<div class="wf-row" style="margin-bottom:12px"><button type="button" class="wf-btn primary" onclick="editEquipment()">➕ تجهیز جدید</button></div>
+                    <div class="wf-card"><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>نام</th><th>دسته</th><th>سریال</th><th>وضعیت</th><th>رزروهای پیش رو</th><th></th></tr></thead><tbody>
+                    ${equipment.map(eq => {
+                        const next = shoots.filter(s => s.status === 'planned' && s.date >= today && (s.equipment_ids || []).includes(eq.id));
+                        return `<tr><td><b>${escapeHtml(eq.name)}</b>${eq.notes ? `<br><small class="muted">${escapeHtml(eq.notes)}</small>` : ''}</td><td>${escapeHtml(eq.category || '')}</td><td class="ltr">${escapeHtml(eq.serial || '')}</td>
+                            <td>${eq.is_active ? statusChip('آماده', 'green') : statusChip('غیرفعال / تعمیر', 'red')}</td>
+                            <td>${next.map(s => `<div style="font-size:.8rem">${fa(s.date)} ${fa(s.start_time || '')}: ${escapeHtml(s.title)}</div>`).join('') || '—'}</td>
+                            <td><button type="button" class="wf-btn sm" onclick="editEquipment(${eq.id})">ویرایش</button><button type="button" class="wf-btn sm danger" onclick="delEquipment(${eq.id})">حذف</button></td></tr>`;
+                    }).join('') || '<tr><td colspan="6" class="muted">تجهیزی ثبت نشده است.</td></tr>'}
+                    </tbody></table></div></div>`;
+                return;
+            }
+            const list = shoots.filter(s => tab === 'upcoming' ? s.date >= today && s.status !== 'cancelled' : s.date < today || s.status === 'cancelled');
+            if (tab === 'past') list.reverse();
+            if (!list.length) { pane.innerHTML = `<div class="wf-card wf-empty">${tab === 'upcoming' ? 'تصویربرداری پیش رویی ثبت نشده است.' : 'موردی نیست.'}</div>`; return; }
+            pane.innerHTML = list.map(s => `
+                <div class="wf-card" style="border-right:4px solid ${escapeHtml(safeColor(s.org_color || '') || 'var(--primary-color)')}">
+                    <div class="wf-row between"><div><b style="font-size:1.05rem">${escapeHtml(s.title)}</b> <span class="muted">${escapeHtml(s.org_name || '')}</span></div>${statusChip(...(STATUS[s.status] || ['', '']))}</div>
+                    <div class="wf-row" style="margin:8px 0;font-size:.9rem">📅 ${fa(s.date)} ${s.start_time ? '⏰ ' + fa(s.start_time) + (s.end_time ? '–' + fa(s.end_time) : '') : ''} ${s.location ? '📍 ' + escapeHtml(s.location) : ''}</div>
+                    <div style="font-size:.85rem">👥 ${s.crew.map(m => escapeHtml(m.name) + (m.role ? ` (${escapeHtml(m.role)})` : '')).join('، ') || '—'}</div>
+                    <div style="font-size:.85rem">🎥 ${s.equipment_items.map(e => escapeHtml(e.name)).join('، ') || '—'}</div>
+                    ${s.contents.length ? `<div style="font-size:.85rem">🗂️ ${s.contents.map(c => escapeHtml(c.title)).join('، ')}</div>` : ''}
+                    <div class="wf-actions"><a class="wf-btn" href="call-sheet?id=${s.id}" target="_blank">🖨️ برگه برنامه (Call Sheet)</a><button type="button" class="wf-btn" onclick="editShoot(${s.id})">ویرایش</button><button type="button" class="wf-btn danger" onclick="delShoot(${s.id})">حذف</button></div>
+                </div>`).join('');
+        }
+        function crewRow(m) {
+            return `<div class="wf-row crow" style="margin-bottom:6px"><select class="form-control cid" style="flex:2" aria-label="همکار">${optionList(window.allColleagues, 'id', 'full_name', m.colleague_id, '— همکار —')}</select>
+                <input class="form-control crole" placeholder="نقش (فیلمبردار، نور، صدا…)" value="${escapeHtml(m.role || '')}" style="flex:2" aria-label="نقش"><button type="button" class="wf-btn sm danger" onclick="this.parentNode.remove()">حذف</button></div>`;
+        }
+        function editShoot(id) {
+            const s = shoots.find(x => x.id == id) || { crew: [], equipment_ids: [], content_ids: [], status: 'planned' };
+            const m = wfModal(id ? 'ویرایش تصویربرداری' : 'تصویربرداری جدید', `
+                <label class="wf-label">عنوان *<input class="form-control" id="sTitle" value="${escapeHtml(s.title || '')}"></label>
+                <div class="wf-grid-2">
+                    <label class="wf-label">برند<select class="form-control" id="sOrg">${optionList(orgs, 'id', 'org_name', s.org_id, '— بدون برند —')}</select></label>
+                    <label class="wf-label">تاریخ *<input class="form-control" id="sDay" data-jdp value="${escapeHtml(fa(s.date || ''))}"></label>
+                    <label class="wf-label">ساعت حضور عوامل<input class="form-control ltr" id="sCall" type="time" value="${escapeHtml(s.call_time || '')}"></label>
+                    <label class="wf-label">وضعیت<select class="form-control" id="sStatus">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${s.status === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></label>
+                    <label class="wf-label">شروع<input class="form-control ltr" id="sStart" type="time" value="${escapeHtml(s.start_time || '')}"></label>
+                    <label class="wf-label">پایان<input class="form-control ltr" id="sEnd" type="time" value="${escapeHtml(s.end_time || '')}"></label>
+                </div>
+                <label class="wf-label">لوکیشن<input class="form-control" id="sLoc" value="${escapeHtml(s.location || '')}"></label>
+                <label class="wf-label">لینک نقشه<input class="form-control ltr" id="sLocUrl" value="${escapeHtml(s.location_url || '')}" placeholder="https://"></label>
+                <div class="wf-label">عوامل</div><div id="sCrew">${(s.crew.length ? s.crew : [{}]).map(crewRow).join('')}</div>
+                <button type="button" class="wf-btn sm" onclick="document.getElementById('sCrew').insertAdjacentHTML('beforeend', crewRow({}))">➕ عامل دیگر</button>
+                <div class="wf-label" style="margin-top:10px">تجهیزات (موارد رزروشده در همان ساعت قابل انتخاب نیستند؛ سرور هم بررسی می‌کند)</div>
+                <div id="sEquip" class="wf-row">${equipment.filter(e => e.is_active || s.equipment_ids.includes(e.id)).map(e => `<label class="wf-chip" style="cursor:pointer"><input type="checkbox" class="sEq" value="${e.id}" ${s.equipment_ids.includes(e.id) ? 'checked' : ''}> ${escapeHtml(e.name)}</label>`).join('') || '<span class="muted">ابتدا در تب تجهیزات، تجهیز ثبت کنید.</span>'}</div>
+                <label class="wf-label" style="margin-top:10px">کارت‌های محتوای این شوت<select class="form-control" id="sCards" multiple size="5">${cards.map(c => `<option value="${c.id}" ${s.content_ids.includes(c.id) ? 'selected' : ''}>${escapeHtml(c.title)} — ${escapeHtml(c.org_name || '')}</option>`).join('')}</select></label>
+                <label class="wf-label">بازیگر / مدل / مهمان<textarea class="form-control" id="sTalent">${escapeHtml(s.talent || '')}</textarea></label>
+                <label class="wf-label">برنامه زمانی روز (هر خط یک آیتم)<textarea class="form-control" id="sSchedule" placeholder="۰۹:۰۰ حضور و چیدمان&#10;۱۰:۰۰ شات‌های محصول">${escapeHtml(s.schedule || '')}</textarea></label>
+                <label class="wf-label">یادداشت<textarea class="form-control" id="sNotes">${escapeHtml(s.notes || '')}</textarea></label>
+                <div class="wf-actions"><button type="button" class="btn-primary" id="sSave">ذخیره</button></div>`, { wide: true });
+            const body = (force) => ({
+                action: 'save', id: s.id, force, title: m.q('#sTitle').value, org_id: m.q('#sOrg').value, date: latin(m.q('#sDay').value),
+                call_time: m.q('#sCall').value, start_time: m.q('#sStart').value, end_time: m.q('#sEnd').value, status: m.q('#sStatus').value,
+                location: m.q('#sLoc').value, location_url: m.q('#sLocUrl').value,
+                crew: [...m.el.querySelectorAll('.crow')].map(r => ({ colleague_id: r.querySelector('.cid').value, role: r.querySelector('.crole').value })).filter(x => x.colleague_id),
+                equipment_ids: [...m.el.querySelectorAll('.sEq:checked')].map(x => Number(x.value)),
+                content_ids: [...m.q('#sCards').selectedOptions].map(o => Number(o.value)),
+                talent: m.q('#sTalent').value, schedule: m.q('#sSchedule').value, notes: m.q('#sNotes').value,
+            });
+            m.q('#sSave').onclick = async () => {
+                let res = await api('/api/shoots', body(false), { raw: true });
+                if (res && res.errors) return wfModal('تداخل رزرو', res.errors.map(x => `<div class="wf-msg">⛔ ${escapeHtml(x)}</div>`).join(''));
+                if (res && res.status === 'warning') {
+                    const ok = await window.customConfirm('هشدار:\n' + res.warnings.join('\n') + '\n\nبا این حال ذخیره شود؟');
+                    if (!ok) return;
+                    res = await api('/api/shoots', body(true));
+                }
+                if (res && res.status === 'success') { showToast('ذخیره شد و عوامل خبردار شدند', 'success'); m.close(); load(); }
+            };
+        }
+        async function delShoot(id) {
+            if (!(await window.customConfirm('این برنامه حذف شود؟'))) return;
+            if (await api('/api/shoots', { action: 'delete', id }, { success: 'حذف شد' })) load();
+        }
+        function editEquipment(id) {
+            const e = equipment.find(x => x.id == id) || { is_active: 1 };
+            const m = wfModal(id ? 'ویرایش تجهیز' : 'تجهیز جدید', `
+                <label class="wf-label">نام *<input class="form-control" id="eName" value="${escapeHtml(e.name || '')}" placeholder="مثلاً دوربین Sony FX3"></label>
+                <div class="wf-grid-2"><label class="wf-label">دسته<input class="form-control" id="eCat" value="${escapeHtml(e.category || '')}" placeholder="دوربین، لنز، نور، صدا…"></label>
+                <label class="wf-label">شماره سریال<input class="form-control ltr" id="eSerial" value="${escapeHtml(e.serial || '')}"></label></div>
+                <label class="wf-label"><input type="checkbox" id="eActive" ${e.is_active ? 'checked' : ''}> آماده استفاده (برای تعمیر/امانت، تیک را بردارید)</label>
+                <label class="wf-label">یادداشت<textarea class="form-control" id="eNotes">${escapeHtml(e.notes || '')}</textarea></label>
+                <div class="wf-actions"><button type="button" class="btn-primary" id="eSave">ذخیره</button></div>`);
+            m.q('#eSave').onclick = async () => {
+                if (await api('/api/equipment', { action: 'save', id: e.id, name: m.q('#eName').value, category: m.q('#eCat').value, serial: m.q('#eSerial').value, is_active: m.q('#eActive').checked ? 1 : 0, notes: m.q('#eNotes').value }, { success: 'ذخیره شد' })) { m.close(); load(); }
+            };
+        }
+        async function delEquipment(id) {
+            if (!(await window.customConfirm('این تجهیز حذف شود؟'))) return;
+            if (await api('/api/equipment', { action: 'delete', id }, { success: 'حذف شد' })) load();
+        }
+        load();
+    </script>
+</body>
+</html>

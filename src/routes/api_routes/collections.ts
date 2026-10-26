@@ -163,7 +163,7 @@ subRouter.get(
       nextYear++;
     }
     const safeData = organizations.map((o) => {
-      const { passwordHash, ...safeO } = o;
+      const safeO: any = stripSecrets(o);
       const currentSelection = clientSelections.find(
         (cs) =>
           cs.org_id == o.id &&

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'فایل‌های تحویلی' }) %>
+</head>
+<body style="background: var(--bg-color);">
+<div class="wf-client-shell">
+    <%- include('partials/client-shell') %>
+    <h1 style="margin:0 0 4px;font-size:1.4rem">فایل‌های نهایی تحویلی</h1>
+    <p class="muted" style="margin:0 0 14px">فایل‌های باکیفیت محتواهای تاییدشده؛ هر زمان خواستید دوباره دانلود کنید.</p>
+    <div class="wf-toolbar"><input class="form-control" id="q" placeholder="جستجو در عنوان…" oninput="render()" aria-label="جستجو"></div>
+    <div id="list"><div class="wf-empty">در حال بارگذاری…</div></div>
+</div>
+<%- include('ux-script') %>
+<script>
+    let items = [];
+    async function load() {
+        const res = await api('/api/client_deliverables');
+        items = (res && res.data) || [];
+        render();
+    }
+    function render() {
+        const q = document.getElementById('q').value.trim();
+        const list = items.filter(i => !q || (i.title || '').includes(q));
+        const box = document.getElementById('list');
+        if (!list.length) { box.innerHTML = '<div class="wf-card wf-empty">هنوز فایلی تحویل نشده است.</div>'; return; }
+        box.innerHTML = list.map(i => `
+            <div class="wf-card">
+                <div class="wf-row between"><b>${escapeHtml(i.title)}</b>${statusChip('تحویل: ' + faDateTime(i.delivered_at), 'green')}</div>
+                <div class="muted" style="font-size:.82rem;margin:4px 0 8px">${escapeHtml(i.content_type || '')}${i.publish_date ? ' — انتشار ' + fa(i.publish_date) : ''}</div>
+                ${fileListHtml(i.files, { download: true })}
+            </div>`).join('');
+    }
+    window.addEventListener('asva:notification', load);
+    load();
+</script>
+</body>
+</html>

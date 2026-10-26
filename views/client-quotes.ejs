@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'پیش‌فاکتورها و فاکتورها' }) %>
+</head>
+<body style="background: var(--bg-color);">
+<div class="wf-client-shell">
+    <%- include('partials/client-shell') %>
+    <h1 style="margin:0 0 4px;font-size:1.4rem">پیش‌فاکتورها و فاکتورها</h1>
+    <p class="muted" style="margin:0 0 14px">پیش‌فاکتورها را بررسی و تایید کنید؛ با تایید، فاکتور به‌صورت خودکار صادر می‌شود.</p>
+    <div id="list"><div class="wf-empty">در حال بارگذاری…</div></div>
+</div>
+<%- include('ux-script') %>
+<script>
+    const QUOTE = { sent: ['منتظر تایید شما', 'amber'], accepted: ['تایید شد', 'green'], rejected: ['رد شد', 'red'], converted: ['تبدیل به فاکتور شد', 'green'] };
+    const INVOICE = { issued: ['صادر شده — منتظر پرداخت', 'amber'], paid: ['پرداخت شده', 'green'], cancelled: ['لغو شده', ''] };
+    let items = [];
+    async function load() {
+        const res = await api('/api/client_quotes');
+        items = (res && res.data) || [];
+        const box = document.getElementById('list');
+        if (!items.length) { box.innerHTML = '<div class="wf-card wf-empty">سندی برای شما صادر نشده است.</div>'; return; }
+        box.innerHTML = items.map(i => {
+            const quote = i.doc_type === 'quote';
+            const st = (quote ? QUOTE : INVOICE)[i.status] || [i.status, ''];
+            const remaining = Math.max(0, (Number(i.total) || 0) - (Number(i.paid_amount) || 0));
+            return `
+            <div class="wf-card">
+                <div class="wf-row between"><b>${quote ? 'پیش‌فاکتور' : 'فاکتور'} شماره ${fa(i.invoice_number)}</b>${statusChip(st[0], st[1])}</div>
+                <div class="muted" style="font-size:.82rem;margin:4px 0 8px">تاریخ: ${fa(i.issue_date || '—')}${i.due_date ? ' — سررسید: ' + fa(i.due_date) : ''}</div>
+                <details><summary style="cursor:pointer">جزئیات اقلام (${fa((i.items || []).length)})</summary>
+                    <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>شرح</th><th>تعداد</th><th>فی</th><th>جمع</th></tr></thead><tbody>
+                    ${(i.items || []).map(r => `<tr><td>${escapeHtml(r.type || r.title || '')}</td><td>${fa(r.qty || 1)}</td><td>${money(r.unit_price)}</td><td>${money(r.row_total)}</td></tr>`).join('')}
+                    </tbody></table></div>
+                    ${Number(i.tax) ? `<div>مالیات: ${money(i.tax)}</div>` : ''}${Number(i.discount) ? `<div>تخفیف: ${money(i.discount)}</div>` : ''}
+                    ${i.notes ? `<div class="muted" style="margin-top:6px">${escapeHtml(i.notes)}</div>` : ''}
+                </details>
+                <div class="wf-row between" style="margin-top:10px">
+                    <b>مبلغ کل: ${money(i.total)}</b>
+                    ${!quote && i.status === 'issued' && Number(i.paid_amount) ? `<span class="muted">پرداخت‌شده ${money(i.paid_amount)} — مانده ${money(remaining)}</span>` : ''}
+                    ${quote && i.status === 'sent' ? `<span class="wf-row"><button type="button" class="wf-btn danger" onclick="decide(${i.id}, 'reject')">رد</button><button type="button" class="wf-btn success" onclick="decide(${i.id}, 'accept')">✓ تایید پیش‌فاکتور</button></span>` : ''}
+                    ${i.client_decision && i.client_decision.comment ? `<span class="muted">توضیح شما: ${escapeHtml(i.client_decision.comment)}</span>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+    async function decide(id, decision) {
+        const comment = window.prompt(decision === 'accept' ? 'توضیح (اختیاری):' : 'دلیل رد یا تغییرات مورد نظر:');
+        if (comment === null) return;
+        if (await api('/api/client_quotes', { id, decision, comment }, { success: decision === 'accept' ? 'تایید شد و فاکتور صادر شد' : 'ثبت شد' })) load();
+    }
+    window.addEventListener('asva:notification', load);
+    load();
+</script>
+</body>
+</html>

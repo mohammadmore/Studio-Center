@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'بار کاری تیم' }) %>
+</head>
+<body>
+    <%- include('sidebar') %>
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title">⚖️ <span>بار کاری و ظرفیت تیم</span></h1>
+                <p class="page-subtitle">چه کسی چقدر کار دارد؛ با درنظرگرفتن مرخصی‌ها، موعد مراحل، انتشارها و تصویربرداری‌ها.</p>
+            </div>
+        </div>
+        <div class="wf-page" style="max-width:none">
+            <div class="wf-toolbar">
+                <button type="button" class="wf-btn" onclick="shift(-7)">→ هفته قبل</button>
+                <label class="wf-label" style="margin:0">از<input class="form-control" id="fFrom" data-jdp style="width:130px" onchange="load()"></label>
+                <label class="wf-label" style="margin:0">تا<input class="form-control" id="fTo" data-jdp style="width:130px" onchange="load()"></label>
+                <button type="button" class="wf-btn" onclick="shift(7)">هفته بعد ←</button>
+                <span class="muted" style="font-size:.8rem">🟩 سبک 🟨 متوسط 🟥 سنگین ▨ مرخصی</span>
+            </div>
+            <div id="summary" class="wf-grid" style="margin-bottom:16px"></div>
+            <div class="wf-card"><div class="wf-table-wrap" id="matrix"><div class="wf-empty">در حال بارگذاری…</div></div></div>
+        </div>
+    </main>
+    <script src="assets/js/app.js"></script>
+    <script>
+        const fromEl = document.getElementById('fFrom'), toEl = document.getElementById('fTo');
+        fromEl.value = fa(todayJalali());
+        toEl.value = fa(addDaysJalali(todayJalali(), 6));
+        function shift(days) {
+            fromEl.value = fa(addDaysJalali(latin(fromEl.value), days));
+            toEl.value = fa(addDaysJalali(latin(toEl.value), days));
+            load();
+        }
+        async function load() {
+            const res = await api(`/api/workload?from=${latin(fromEl.value)}&to=${latin(toEl.value)}`);
+            if (!res) return;
+            const rows = res.data || [];
+            const busiest = rows.slice().sort((a, b) => b.open_cards - a.open_cards)[0];
+            document.getElementById('summary').innerHTML = [
+                ['کارهای باز تیم', fa(rows.reduce((s, r) => s + r.open_cards, 0))],
+                ['مراحل عقب‌افتاده', fa(rows.reduce((s, r) => s + r.overdue, 0))],
+                ['ساعت تخمینی این بازه', fa(rows.reduce((s, r) => s + r.estimated_hours, 0))],
+                ['ساعت ثبت‌شده این بازه', fa(Math.round(rows.reduce((s, r) => s + r.logged_hours, 0)))],
+                ['پرکارترین', busiest ? escapeHtml(busiest.name) + ' (' + fa(busiest.open_cards) + ')' : '—'],
+            ].map(([l, v]) => `<div class="wf-card wf-stat"><b>${v}</b><span>${l}</span></div>`).join('');
+            const head = res.days.map(d => {
+                const wd = (() => { try { const p = d.split('/').map(Number); const g = jalaali.toGregorian(p[0], p[1], p[2]); return new Date(g.gy, g.gm - 1, g.gd).toLocaleDateString('fa-IR', { weekday: 'short' }); } catch (e) { return ''; } })();
+                return `<th>${wd}<br><small>${fa(d.slice(5))}</small></th>`;
+            }).join('');
+            document.getElementById('matrix').innerHTML = `<table class="wf-table wf-matrix"><thead><tr><th>همکار</th><th>کار باز</th><th>عقب‌افتاده</th>${head}</tr></thead><tbody>
+                ${rows.map(r => {
+                    const cap = r.capacity || 12;
+                    const heavy = r.open_cards >= cap;
+                    return `<tr><td style="white-space:nowrap"><b>${escapeHtml(r.name)}</b>${r.status === 'on_leave' ? ' ' + statusChip('مرخصی', 'amber') : ''}${r.no_date ? `<br><small class="muted">${fa(r.no_date)} مرحله بدون موعد</small>` : ''}</td>
+                        <td>${heavy ? `<span class="wf-chip red" title="ظرفیت ${fa(cap)}">${fa(r.open_cards)}</span>` : fa(r.open_cards)}</td>
+                        <td>${r.overdue ? `<span class="wf-chip red">${fa(r.overdue)}</span>` : '—'}</td>
+                        ${r.days.map(d => {
+                            const level = d.on_leave ? 'leave' : d.count === 0 ? '' : d.count <= 1 ? 'l1' : d.count <= 3 ? 'l2' : 'l3';
+                            const tip = [...d.stages.map(s => '⏰ ' + s.stage + ': ' + s.title), ...d.publishing.map(p => '📢 ' + p.title), ...d.shoots.map(s => '🎬 ' + s.title)].join('\n');
+                            return `<td><div class="wf-cell ${level}" title="${escapeHtml(tip)}">${d.on_leave ? 'مرخصی' : d.count ? fa(d.count) + (d.hours ? `<br><small>${fa(d.hours)} ساعت</small>` : '') : ''}</div></td>`;
+                        }).join('')}</tr>`;
+                }).join('')}
+            </tbody></table>`;
+        }
+        load();
+    </script>
+</body>
+</html>

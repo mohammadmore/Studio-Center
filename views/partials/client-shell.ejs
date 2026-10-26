@@ -1,0 +1,29 @@
+<%
+  const shellOrg = (typeof orgData !== 'undefined' && orgData) ? orgData : {};
+  const navItems = [
+    ['client-dashboard', 'خانه'],
+    ['client-review', 'تایید محتوا'],
+    ['client-requests', 'درخواست‌ها'],
+    ['client-files', 'فایل‌های تحویلی'],
+    ['client-quotes', 'پیش‌فاکتور و فاکتور'],
+    ['monthly-report', 'گزارش ماهانه'],
+    ['client-brand-kit', 'کیت برند'],
+  ];
+%>
+<script src="assets/js/wf.js"></script>
+<div class="wf-client-top no-print">
+    <div class="brand">
+        <% if (shellOrg.logo_url) { %><img src="<%= shellOrg.logo_url %>" alt=""><% } %>
+        <span><%= shellOrg.org_name || 'پنل کارفرما' %></span>
+    </div>
+    <div class="wf-row">
+        <button type="button" class="wf-btn" onclick="openMyChannels()" title="دریافت اعلان در تلگرام / بله">🔔 تنظیم اعلان‌ها</button>
+        <button type="button" class="wf-btn" onclick="(function(){var d=document.documentElement;var n=d.getAttribute('data-theme')==='dark'?'light':'dark';d.setAttribute('data-theme',n);try{localStorage.setItem('theme',n)}catch(e){}})()" aria-label="تغییر حالت روز / شب">🌓</button>
+        <a class="wf-btn danger" href="/api/logout">خروج</a>
+    </div>
+</div>
+<nav class="wf-client-nav no-print" aria-label="منوی پنل کارفرما">
+    <% navItems.forEach(function (n) { %>
+        <a class="wf-btn <%= current === n[0] ? 'primary' : '' %>" href="<%= n[0] %>"><%= n[1] %></a>
+    <% }) %>
+</nav>

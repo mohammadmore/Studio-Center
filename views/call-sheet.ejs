@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'برگه برنامه تصویربرداری' }) %>
+<style>
+    body { background: var(--bg-color); padding: 20px; }
+    .sheet { max-width: 820px; margin: 0 auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 28px; }
+    .sheet h1 { margin: 0 0 4px; font-size: 1.5rem; }
+    .sheet h2 { font-size: 1rem; margin: 18px 0 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
+    .big { font-size: 1.15rem; font-weight: 700; }
+    pre.schedule { white-space: pre-wrap; font-family: inherit; margin: 0; line-height: 1.9; }
+    @media print { .sheet { border: none; padding: 0; } }
+</style>
+</head>
+<body>
+    <div class="no-print wf-row" style="max-width:820px;margin:0 auto 12px;justify-content:space-between">
+        <a class="wf-btn" href="shoots">→ بازگشت</a>
+        <button type="button" class="wf-btn primary" onclick="window.print()">🖨️ چاپ / ذخیره PDF</button>
+    </div>
+    <div class="sheet" id="sheet"><div class="wf-empty">در حال بارگذاری…</div></div>
+    <script src="assets/js/wf.js"></script>
+    <script>
+        (async function () {
+            const id = new URLSearchParams(location.search).get('id');
+            const res = await api('/api/shoot?id=' + encodeURIComponent(id || ''));
+            const s = res && res.data;
+            const box = document.getElementById('sheet');
+            if (!s) { box.innerHTML = '<div class="wf-empty">برنامه یافت نشد یا به آن دسترسی ندارید.</div>'; return; }
+            document.title = 'Call Sheet — ' + s.title;
+            box.innerHTML = `
+                <div class="wf-row between"><div><h1>${escapeHtml(s.title)}</h1><div class="muted">${escapeHtml(s.org_name || '')}</div></div>
+                    <div style="text-align:left"><div class="big">📅 ${fa(s.date)}</div>${s.call_time ? `<div>حضور عوامل: <b>${fa(s.call_time)}</b></div>` : ''}${s.start_time ? `<div>تصویربرداری: ${fa(s.start_time)}${s.end_time ? ' تا ' + fa(s.end_time) : ''}</div>` : ''}</div></div>
+                <h2>📍 لوکیشن</h2><div>${escapeHtml(s.location || '—')}${s.location_url ? ` — <a href="${escapeHtml(safeUrl(s.location_url))}" target="_blank" rel="noopener">نقشه</a>` : ''}</div>
+                ${s.org_contact && (s.org_contact.name || s.org_contact.phone) ? `<div class="muted" style="margin-top:4px">هماهنگی با کارفرما: ${escapeHtml(s.org_contact.name)} <span class="ltr">${escapeHtml(fa(s.org_contact.phone))}</span></div>` : ''}
+                <h2>👥 عوامل</h2>
+                <table class="wf-table"><thead><tr><th>نام</th><th>نقش</th><th>تماس</th></tr></thead><tbody>
+                ${s.crew.map(m => `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.role || '')}</td><td class="ltr" style="text-align:right">${escapeHtml(fa(m.phone || ''))}</td></tr>`).join('') || '<tr><td colspan="3">—</td></tr>'}
+                </tbody></table>
+                ${s.talent ? `<h2>🎭 بازیگر / مدل / مهمان</h2><div style="white-space:pre-wrap">${escapeHtml(s.talent)}</div>` : ''}
+                <h2>⏱️ برنامه روز</h2><pre class="schedule">${escapeHtml(fa(s.schedule || '—'))}</pre>
+                <h2>🎥 تجهیزات</h2><div>${s.equipment_items.map(e => `☐ ${escapeHtml(e.name)}${e.serial ? ` <small class="muted ltr">(${escapeHtml(e.serial)})</small>` : ''}`).join('<br>') || '—'}</div>
+                ${s.contents.length ? `<h2>🗂️ محتواهای این شوت</h2><div>${s.contents.map(c => '• ' + escapeHtml(c.title) + (c.content_type ? ` <small class="muted">(${escapeHtml(c.content_type)})</small>` : '')).join('<br>')}</div>` : ''}
+                ${s.notes ? `<h2>📝 یادداشت</h2><div style="white-space:pre-wrap">${escapeHtml(s.notes)}</div>` : ''}`;
+        })();
+    </script>
+</body>
+</html>

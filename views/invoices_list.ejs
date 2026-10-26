@@ -13,6 +13,7 @@
         .badge-paid { background: rgba(16, 185, 129, 0.15); color: #16a34a; }
         .badge-cancelled { background: rgba(239, 68, 68, 0.15); color: var(--error-color); }
     </style>
+<link rel="stylesheet" href="assets/css/workflow.css">
 </head>
 <body>
     <%- include('sidebar') %>
@@ -41,11 +42,19 @@
 </svg> <span>سیستم مدیریت فاکتور‌ها</span></h1>
                 <p class="page-subtitle">تاریخچه و پیگیری وضعیت فاکتور‌های مالی کارفرمایان</p>
             </div>
-            <a href="invoice" class="btn-primary" style="text-decoration: none; padding: 10px 20px;">+ فاکتور جدید</a>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <a href="invoice?type=quote" class="btn-outline" style="text-decoration: none; padding: 10px 20px;">+ پیش‌فاکتور جدید</a>
+                <a href="invoice" class="btn-primary" style="text-decoration: none; padding: 10px 20px;">+ فاکتور جدید</a>
+            </div>
         </div>
 
         <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" class="flex-responsive">
             <input type="text" class="global-search-input" data-target="#invoicesList" placeholder="جستجوی سریع (کلمه مورد نظر را تایپ کنید)..." style="flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit;">
+        </div>
+        <div class="wf-tabs" role="tablist" id="docTabs" style="margin-top:10px">
+            <button type="button" class="wf-tab active" data-doc="">همه</button>
+            <button type="button" class="wf-tab" data-doc="invoice">فاکتورها</button>
+            <button type="button" class="wf-tab" data-doc="quote">پیش‌فاکتورها</button>
         </div>
         <div id="invoicesList">
     
@@ -67,8 +76,24 @@
             'draft': { text: 'پیشنویس', class: 'badge-draft' },
             'issued': { text: 'صادر شده', class: 'badge-issued' },
             'paid': { text: 'پرداخت شده', class: 'badge-paid' },
-            'cancelled': { text: 'لغو شده', class: 'badge-cancelled' }
+            'cancelled': { text: 'لغو شده', class: 'badge-cancelled' },
+            'sent': { text: 'ارسال برای کارفرما', class: 'badge-issued' },
+            'accepted': { text: 'تایید کارفرما', class: 'badge-paid' },
+            'rejected': { text: 'رد کارفرما', class: 'badge-cancelled' },
+            'converted': { text: 'تبدیل به فاکتور', class: 'badge-paid' }
         };
+        const STATUS_BY_DOC = { invoice: ['draft', 'issued', 'paid', 'cancelled'], quote: ['draft', 'sent', 'accepted', 'rejected', 'converted'] };
+        let docFilter = '';
+        const invTypes = {};
+        document.querySelectorAll('#docTabs .wf-tab').forEach(b => b.onclick = () => {
+            document.querySelectorAll('#docTabs .wf-tab').forEach(x => x.classList.toggle('active', x === b));
+            docFilter = b.getAttribute('data-doc');
+            loadInvoices();
+        });
+        async function quoteAction(action, id) {
+            const res = await api('/api/invoices', { action, id }, { success: action === 'send_quote' ? 'برای کارفرما ارسال شد' : 'فاکتور صادر شد' });
+            if (res) loadInvoices();
+        }
 
         async function loadInvoices() {
             try {
@@ -94,7 +119,9 @@
                     return;
                 }
                 
-                (data.data || []).slice().reverse().forEach(inv => {
+                (data.data || []).slice().reverse().filter(inv => !docFilter || (inv.doc_type === 'quote' ? 'quote' : 'invoice') === docFilter).forEach(inv => {
+                    const isQuote = inv.doc_type === 'quote';
+                    invTypes[inv.id] = isQuote ? 'quote' : 'invoice';
                     const org = orgs.find(o => o.id == inv.org_id);
                     const orgName = org ? org.org_name : 'نامشخص';
                     const st = statusMap[inv.status] || statusMap['draft'];
@@ -109,7 +136,7 @@
                                 ${orgLogo}
                                 <div>
                                     <a href="invoice?id=${inv.id}" style="text-decoration: none; color: inherit; display: inline-block;">
-                                        <h3 style="margin-bottom: 5px; transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color=''">فاکتور شماره ${escapeHtml(toPersianDigits(inv.invoice_number))} (${escapeHtml(orgName)})</h3>
+                                        <h3 style="margin-bottom: 5px; transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color=''">${isQuote ? 'پیش‌فاکتور' : 'فاکتور'} شماره ${escapeHtml(toPersianDigits(inv.invoice_number))} (${escapeHtml(orgName)})</h3>
                                     </a>
                                     <p style="color: var(--text-gray); font-size: 0.9rem;">
                                         مبلغ کل: <strong>${formatFarsiMoney(inv.total)} تومان</strong> ${escapeHtml(paidText)}
@@ -123,6 +150,8 @@
                                 <div style="width: 115px; display: flex; align-items: stretch;">
                                     <span class="badge ${st.class}" style="flex: 1; text-align: center; box-sizing: border-box; justify-content: center; display: flex; align-items: center; font-size: 0.85rem; height: 42px; margin: 0; padding: 0 10px; white-space: nowrap;">${escapeHtml(st.text)}</span>
                                 </div>
+                                ${isQuote && ['draft', 'rejected'].includes(inv.status) ? `<button onclick="quoteAction('send_quote', ${inv.id})" class="btn-outline" style="background: var(--card-bg); font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">📤 ارسال برای کارفرما</button>` : ''}
+                                ${isQuote && ['sent', 'accepted'].includes(inv.status) ? `<button onclick="quoteAction('convert_quote', ${inv.id})" class="btn-outline" style="background: var(--card-bg); font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">🧾 تبدیل به فاکتور</button>` : ''}
                                 <button onclick="changeStatus(${inv.id}, ${jsAttr(inv.status)})" class="btn-outline" style="background: var(--card-bg); width: 115px; text-align: center; justify-content: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">تغییر وضعیت</button>
                                 <a href="invoice?id=${inv.id}" class="btn-outline" style="text-decoration: none; width: 115px; text-align: center; justify-content: center; display: inline-flex; align-items: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap; box-sizing: border-box;">نمایش / ویرایش</a>
                                 <button onclick="deleteInvoice(${inv.id})" class="btn-outline" style="border-color: var(--error-color); color: var(--error-color); background: var(--card-bg); width: 115px; text-align: center; justify-content: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">حذف</button>
@@ -139,7 +168,9 @@
         
         function changeStatus(id, currentStatus) {
             document.getElementById('statusInvId').value = id;
-            if(currentStatus) document.getElementById('newStatusSelect').value = currentStatus;
+            const sel = document.getElementById('newStatusSelect');
+            sel.innerHTML = STATUS_BY_DOC[invTypes[id] || 'invoice'].map(k => `<option value="${k}">${statusMap[k].text}</option>`).join('');
+            if(currentStatus) sel.value = currentStatus;
             document.getElementById('statusModal').style.display = 'flex';
         }
         

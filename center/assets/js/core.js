@@ -295,5 +295,129 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", connectLive);
   else connectLive();
+
+  // ---------- resumable uploads for big files ----------
+  // Sends the file in pieces; a dropped piece is retried and the upload resumes
+  // where the server stopped, so a 2GB video survives a flaky connection.
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  async function postJson(url, body) {
+    var res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok || data.status !== "success") throw new Error(data.message || "خطا در ارتباط با سرور");
+    return data;
+  }
+  window.asvaUpload = async function (file, opts) {
+    opts = opts || {};
+    var init = await postJson("/api/upload_init", { name: file.name, size: file.size });
+    var id = init.upload_id;
+    var size = init.chunk_size || 4 * 1024 * 1024;
+    var offset = 0;
+    var failures = 0;
+    while (offset < file.size) {
+      if (opts.signal && opts.signal.aborted) {
+        postJson("/api/upload_cancel", { upload_id: id }).catch(function () {});
+        throw new Error("آپلود لغو شد");
+      }
+      var piece = file.slice(offset, offset + size);
+      try {
+        var res = await originalFetch("/api/upload_chunk?upload_id=" + encodeURIComponent(id) + "&offset=" + offset, {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: piece,
+          credentials: "same-origin",
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (res.status === 409 && typeof data.received === "number") { offset = data.received; continue; }
+        if (res.status === 401) { sessionExpired(); throw new Error("نشست منقضی شده است"); }
+        if (!res.ok || data.status !== "success") throw new Error(data.message || "خطا در ارسال فایل");
+        offset = data.received;
+        failures = 0;
+        if (opts.onProgress) opts.onProgress(offset / file.size, offset, file.size);
+      } catch (e) {
+        if (/نشست|منقضی/.test(e.message) || ++failures > 6) throw e;
+        setOffline(!navigator.onLine);
+        await sleep(Math.min(30000, 1000 * Math.pow(2, failures)));
+        // Ask where the server stopped before sending again.
+        try {
+          var st = await originalFetch("/api/upload_status?upload_id=" + encodeURIComponent(id), { credentials: "same-origin" });
+          var sd = await st.json();
+          if (sd && typeof sd.received === "number") offset = sd.received;
+        } catch (e2) {}
+      }
+    }
+    var done = await postJson("/api/upload_complete", { upload_id: id });
+    return { name: file.name, url: done.url, size: file.size, type: file.type || done.mime || "" };
+  };
+
+  /** Opens the file chooser, uploads every chosen file with a progress panel. */
+  window.asvaPickAndUpload = function (opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var input = document.createElement("input");
+      input.type = "file";
+      if (opts.multiple !== false) input.multiple = true;
+      if (opts.accept) input.accept = opts.accept;
+      input.style.display = "none";
+      input.onchange = async function () {
+        var files = Array.prototype.slice.call(input.files || []);
+        input.remove();
+        if (!files.length) return resolve([]);
+        resolve(await window.asvaUploadFiles(files));
+      };
+      document.body.appendChild(input);
+      input.click();
+    });
+  };
+
+  window.asvaUploadFiles = async function (files) {
+    var panel = document.createElement("div");
+    panel.className = "asva-upload-panel";
+    panel.setAttribute("role", "status");
+    panel.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:2147483646;background:var(--card-bg,#fff);color:var(--text-dark,#111);border:1px solid var(--border-color,#ddd);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:14px;width:320px;max-width:calc(100vw - 40px);font-size:.85rem;";
+    document.body.appendChild(panel);
+    var controller = new AbortController();
+    var uploaded = [];
+    var rows = files.map(function (f) {
+      var row = document.createElement("div");
+      row.style.cssText = "margin-bottom:10px";
+      row.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + window.escapeHtml(f.name) + '</span><span class="pct">۰٪</span></div><div style="height:6px;background:rgba(128,128,128,.2);border-radius:4px;margin-top:4px;overflow:hidden"><div class="bar" style="height:100%;width:0;background:var(--primary-color,#4f46e5);transition:width .2s"></div></div>';
+      panel.appendChild(row);
+      return row;
+    });
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "لغو آپلود";
+    cancel.style.cssText = "background:none;border:1px solid var(--border-color,#ddd);border-radius:8px;padding:4px 10px;cursor:pointer;color:inherit;font-family:inherit";
+    cancel.onclick = function () { controller.abort(); };
+    panel.appendChild(cancel);
+    for (var i = 0; i < files.length; i++) {
+      var row = rows[i];
+      try {
+        var result = await window.asvaUpload(files[i], {
+          signal: controller.signal,
+          onProgress: function (p) {
+            row.querySelector(".bar").style.width = Math.round(p * 100) + "%";
+            row.querySelector(".pct").textContent = Math.round(p * 100).toLocaleString("fa-IR") + "٪";
+          },
+        });
+        row.querySelector(".pct").textContent = "✓";
+        uploaded.push(result);
+      } catch (e) {
+        row.querySelector(".pct").textContent = "✗";
+        notify(files[i].name + ": " + e.message, "error");
+        if (controller.signal.aborted) break;
+      }
+    }
+    setTimeout(function () { panel.remove(); }, 1200);
+    return uploaded;
+  };
+
+  window.formatFileSize = function (bytes) {
+    var n = Number(bytes) || 0;
+    if (n < 1024) return n.toLocaleString("fa-IR") + " بایت";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0).replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; }) + " کیلوبایت";
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1).replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; }) + " مگابایت";
+    return (n / 1024 / 1024 / 1024).toFixed(2).replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; }) + " گیگابایت";
+  };
   window.nameUnlabelledFields = nameUnlabelledFields;
 })();

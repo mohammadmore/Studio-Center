@@ -351,6 +351,7 @@
 <div id="asva-sidebar-overlay" onclick="toggleAsvaSidebar()"></div>
 
 <% userPermissions = typeof userPermissions !== "undefined" ? userPermissions : []; %>
+<script>window.ASVA_ME = <%- JSON.stringify({ id: (typeof user !== "undefined" && user) ? user.id : null, username: (typeof user !== "undefined" && user) ? user.username : "", full_name: (typeof user !== "undefined" && user) ? user.full_name : "", permissions: userPermissions }).replace(/</g, "\\u003c") %>; window.asvaCan = function (p) { var ps = (window.ASVA_ME && window.ASVA_ME.permissions) || []; return ps.indexOf("admin") !== -1 || [].concat(p).some(function (x) { return ps.indexOf(x) !== -1; }); };</script>
 <div id="notif-dropdown" style="display: none; position: fixed; top: 65px; right: 240px; width: 320px; background: var(--card-bg); border-radius: 12px; box-shadow: 0 20px 40px -5px rgba(0,0,0,0.15); border: 1px solid var(--border-color); z-index: 995; overflow: hidden; color: var(--text-gray); direction: rtl;">
     <div style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
         <span style="color: var(--text-gray); font-weight: bold;">پیام‌ها و اعلان‌ها</span>
@@ -432,6 +433,10 @@
                 <a href="my-projects" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; width: 100%; text-decoration: none; border: none;">
                     پروژه‌های من
                 </a>
+                <div style="display:flex; gap:6px; margin-top:8px; justify-content:center;">
+                    <button type="button" class="wf-btn sm" onclick="openMyChannels()" title="دریافت اعلان در تلگرام و بله">🔔 اعلان‌های من</button>
+                    <button type="button" class="wf-btn sm" onclick="showIcsLink()" title="همگام‌سازی با تقویم گوشی">🗓️ تقویم</button>
+                </div>
             </div>
         </div>
     </div>
@@ -693,8 +698,26 @@
             </li>
             <% } %>
 
+            <!-- گردش کار تولید -->
+            <li style="margin-bottom: 8px;">
+                <div onclick="toggleMenu('workflow-menu', this)" class="asva-menu-title">
+                    <div class="asva-menu-title-label">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg>
+                        <span>گردش کار تولید</span>
+                    </div>
+                    <span class="asva-arrow <%= ['requests', 'shoots', 'workload', 'timesheet', 'brand-kit'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                </div>
+                <ul id="workflow-menu" class="asva-submenu <%= ['requests', 'shoots', 'workload', 'timesheet', 'brand-kit'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                    <% if (userPermissions.includes('requests')) { %><li><a href="requests" class="<%= current === 'requests' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center;font-size:1.05rem">📨</span> درخواست‌ها و بریف‌ها</a></li><% } %>
+                    <% if (userPermissions.includes('shoots')) { %><li><a href="shoots" class="<%= current === 'shoots' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center;font-size:1.05rem">🎬</span> برنامه تصویربرداری</a></li><% } %>
+                    <% if (userPermissions.includes('workload')) { %><li><a href="workload" class="<%= current === 'workload' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center;font-size:1.05rem">⚖️</span> بار کاری تیم</a></li><% } %>
+                    <% { %><li><a href="timesheet" class="<%= current === 'timesheet' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center;font-size:1.05rem">⏱️</span> تایم‌شیت من</a></li><% } %>
+                    <% { %><li><a href="brand-kit" class="<%= current === 'brand-kit' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center;font-size:1.05rem">🎨</span> کیت برندها</a></li><% } %>
+                </ul>
+            </li>
+
             <!-- امور کارفرمایان -->
-            <% if (userPermissions.some(p => ['organizations', 'client-portal', 'invoice'].includes(p))) { %>
+            <% if (userPermissions.some(p => ['organizations', 'client-portal', 'invoice', 'contracts'].includes(p))) { %>
             <li style="margin-bottom: 8px;">
                 <div onclick="toggleMenu('org-menu', this)" class="asva-menu-title">
                     <div class="asva-menu-title-label">
@@ -716,9 +739,9 @@
 </svg>
                         <span>امور کارفرمایان</span>
                     </div>
-                    <span class="asva-arrow <%= ['organizations', 'client-portal', 'invoices_list'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                    <span class="asva-arrow <%= ['organizations', 'client-portal', 'invoices_list', 'contracts', 'monthly-report'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
                 </div>
-                <ul id="org-menu" class="asva-submenu <%= ['organizations', 'client-portal', 'invoices_list'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                <ul id="org-menu" class="asva-submenu <%= ['organizations', 'client-portal', 'invoices_list', 'contracts', 'monthly-report'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
                     <% if (userPermissions.includes('organizations')) { %><li><a href="organizations" class="<%= current === 'organizations' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
 <svg
   class="lucide lucide-building-2"
@@ -754,6 +777,8 @@
   <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
   <path d="M12 18h.01" />
 </svg> پورتال کارفرما</a></li><% } %>
+                    <% if (userPermissions.includes('contracts')) { %><li><a href="contracts" class="<%= current === 'contracts' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center;font-size:1.05rem">📑</span> قراردادها و پکیج‌ها</a></li><% } %>
+                    <% if (userPermissions.some(p => ['reports', 'client-portal', 'organizations', 'contracts'].includes(p))) { %><li><a href="monthly-report" class="<%= current === 'monthly-report' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center;font-size:1.05rem">📊</span> گزارش ماهانه کارفرما</a></li><% } %>
                                         <% if (userPermissions.includes('invoice')) { %><li><a href="invoices_list" class="<%= current === 'invoices_list' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
 <svg
   class="lucide lucide-receipt"
@@ -862,7 +887,7 @@
             <% } %>
 
             <!-- امنیت و سیستم -->
-            <% if (userPermissions.some(p => ['settings', 'audit', 'tokens'].includes(p))) { %>
+            <% if (userPermissions.some(p => ['settings', 'audit', 'tokens', 'integrations'].includes(p))) { %>
             <li style="margin-bottom: 8px;">
                 <div onclick="toggleMenu('settings-menu', this)" class="asva-menu-title">
                     <div class="asva-menu-title-label">
@@ -883,14 +908,15 @@
 </svg>
                         <span>زیرساخت و امنیت</span>
                     </div>
-                    <span class="asva-arrow <%= ['settings', 'audit', 'tokens', 'recycle_bin'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                    <span class="asva-arrow <%= ['settings', 'audit', 'tokens', 'recycle_bin', 'integrations'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
                 </div>
-                <ul id="settings-menu" class="asva-submenu <%= ['settings', 'audit', 'tokens', 'recycle_bin'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                <ul id="settings-menu" class="asva-submenu <%= ['settings', 'audit', 'tokens', 'recycle_bin', 'integrations'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
                     <% if (userPermissions.includes('recycle_bin')) { %><li><a href="recycle_bin" class="<%= current === 'recycle_bin' ? 'active' : '' %> asva-menu-link" >
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                         سطل زباله
                     </a></li><% } %>
 
+                    <% if (userPermissions.includes('integrations')) { %><li><a href="integrations" class="<%= current === 'integrations' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center;font-size:1.05rem">📣</span> اعلان‌های خارجی و گردش کار</a></li><% } %>
                     <% if (userPermissions.includes('settings')) { %><li><a href="settings" class="<%= current === 'settings' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
 <svg
   class="lucide lucide-settings"
@@ -1189,6 +1215,9 @@ window.customConfirm = function(message) {
 
 
 <link rel="stylesheet" href="assets/css/jalalidatepicker.min.css">
+<link rel="stylesheet" href="assets/css/workflow.css">
+<script src="assets/js/wf.js"></script>
+<script src="assets/js/workflow-card.js"></script>
 <script src="assets/js/jalalidatepicker.min.js" defer></script>
 <script>
     let checkJdpIntervalSidebar = setInterval(function() {

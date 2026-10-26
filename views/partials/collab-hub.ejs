@@ -171,29 +171,23 @@
             </div>
             
             <div id="collab-pane-comments" class="collab-pane active">
-                <div style="margin-bottom:16px; display:flex; gap:8px;">
-                    <input type="text" id="newCommentInput" class="input-text" style="flex:1;" placeholder="نظر خود را بنویسید (منشن با @)...">
-                    <button class="btn-primary" onclick="submitComment(${id})">ارسال</button>
+                <div style="margin-bottom:16px; display:flex; gap:8px; position:relative;">
+                    <input type="text" id="newCommentInput" class="input-text form-control" style="flex:1;" placeholder="نظر خود را بنویسید (برای اشاره @ بزنید)..." aria-label="نظر جدید" autocomplete="off">
+                    <button class="btn-primary" type="button" onclick="submitComment(${id})">ارسال</button>
                 </div>
+                <div id="replyingTo" style="display:none; font-size:0.8rem; margin:-10px 0 10px; color:var(--text-gray);"></div>
                 <div id="commentsList">
-                    ${comments.map(c => `
-                        <div class="comment-item" style="display:flex; gap:12px; align-items:flex-start;">
-                            <img src="${escapeHtml(safeUrl(c.avatar) || initialsAvatar(c.user))}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${escapeHtml(c.user)}">
-                            <div style="flex:1;">
-                                <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${escapeHtml(c.user)}</span><span style="font-size:0.75rem;">${new Date(c.timestamp).toLocaleString('fa-IR')}</span></div>
-                                <div class="comment-text" style="margin-top:4px;">${escapeHtml(c.text)}</div>
-                            </div>
-                        </div>
-                    `).join('')}
+                    ${renderCommentThreads(comments, id)}
                     ${comments.length === 0 ? '<div style="color:var(--text-gray); text-align:center;">نظری ثبت نشده است.</div>' : ''}
                 </div>
             </div>
 
             <div id="collab-pane-attachments" class="collab-pane">
-                <div style="margin-bottom:16px; display:flex; gap:8px;">
-                    <input type="text" id="newAttachName" class="input-text" style="flex:1;" placeholder="نام فایل">
-                    <input type="text" id="newAttachUrl" class="input-text" style="flex:2;" placeholder="لینک (Google Drive یا ...)">
-                    <button class="btn-primary" onclick="submitAttachment(${id})">افزودن لینک</button>
+                <div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <input type="text" id="newAttachName" class="input-text form-control" style="flex:1; min-width:100px;" placeholder="نام فایل" aria-label="نام فایل">
+                    <input type="text" id="newAttachUrl" class="input-text form-control" style="flex:2; min-width:140px;" placeholder="لینک (Google Drive یا ...)" aria-label="لینک فایل">
+                    <button class="btn-primary" type="button" onclick="submitAttachment(${id})">افزودن لینک</button>
+                    <button class="btn-outline" type="button" onclick="uploadAttachment(${id})">⬆️ آپلود فایل</button>
                 </div>
                 <div id="attachmentsList">
                     ${attachments.map(a => `
@@ -238,21 +232,110 @@
         document.getElementById('collab-pane-' + tabName).classList.add('active');
     };
 
+    let replyParent = null;
+    function highlightMentions(text) {
+        return escapeHtml(text).replace(/(^|\s)@([^\s@]+(?:_[^\s@]+)*)/g, '$1<span class="wf-mention">@$2</span>');
+    }
+    window.renderCommentThreads = function(comments, id) {
+        const roots = comments.filter(c => !c.parent_id || !comments.some(p => p.id == c.parent_id));
+        const one = (c, isReply) => `
+            <div class="comment-item" style="display:flex; gap:12px; align-items:flex-start; ${isReply ? 'padding-right:0; border-bottom:none;' : ''}">
+                <img src="${escapeHtml(safeUrl(c.avatar) || initialsAvatar(c.full_name || c.user))}" style="width:${isReply ? 28 : 36}px; height:${isReply ? 28 : 36}px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${escapeHtml(c.user)}">
+                <div style="flex:1;">
+                    <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${escapeHtml(c.full_name || c.user)}</span><span style="font-size:0.75rem;">${new Date(c.timestamp).toLocaleString('fa-IR')}</span></div>
+                    <div class="comment-text" style="margin-top:4px; white-space:pre-wrap;">${highlightMentions(c.text)}</div>
+                    ${isReply ? '' : `<button type="button" class="wf-btn sm" style="margin-top:4px" onclick="startReply(${jsAttr(c.id)}, ${jsAttr(c.full_name || c.user)})">↩️ پاسخ</button>`}
+                </div>
+            </div>`;
+        return roots.map(root => {
+            const replies = comments.filter(c => c.parent_id == root.id);
+            return one(root, false) + (replies.length ? `<div class="wf-thread" style="margin:0 48px 10px 0;">${replies.map(r => one(r, true)).join('')}</div>` : '');
+        }).join('');
+    };
+    window.startReply = function(commentId, name) {
+        replyParent = commentId;
+        const box = document.getElementById('replyingTo');
+        if (box) {
+            box.style.display = 'block';
+            box.innerHTML = 'در پاسخ به <b>' + escapeHtml(name) + '</b> <button type="button" class="wf-btn sm" onclick="cancelReply()">انصراف</button>';
+        }
+        const input = document.getElementById('newCommentInput');
+        if (input) input.focus();
+    };
+    window.cancelReply = function() {
+        replyParent = null;
+        const box = document.getElementById('replyingTo');
+        if (box) box.style.display = 'none';
+    };
+
+    // @mention autocomplete: names with spaces are written with "_" so they stay one token.
+    const mentionToken = (c) => '@' + String(c.full_name || c.username || '').trim().replace(/\s+/g, '_');
+    document.addEventListener('input', (ev) => {
+        const input = ev.target;
+        if (!input || input.id !== 'newCommentInput') return;
+        const before = input.value.slice(0, input.selectionStart);
+        const m = /(?:^|\s)@([^\s@]*)$/.exec(before);
+        let box = document.getElementById('mentionSuggest');
+        if (!m) { if (box) box.remove(); return; }
+        const q = m[1].replace(/_/g, ' ').toLowerCase();
+        const list = (window.allColleagues || []).filter(c => (c.full_name || c.username || '').toLowerCase().includes(q)).slice(0, 8);
+        if (!list.length) { if (box) box.remove(); return; }
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'mentionSuggest';
+            box.className = 'wf-suggest';
+            box.setAttribute('role', 'listbox');
+            input.parentNode.appendChild(box);
+        }
+        box.style.top = (input.offsetTop + input.offsetHeight + 4) + 'px';
+        box.style.right = '0';
+        box.innerHTML = list.map(c => `<button type="button" role="option" data-token="${escapeHtml(mentionToken(c))}">${escapeHtml(c.full_name || c.username)}</button>`).join('');
+        box.querySelectorAll('button').forEach(b => b.onmousedown = (e) => {
+            e.preventDefault();
+            const start = before.length - m[1].length - 1;
+            input.value = input.value.slice(0, start) + b.getAttribute('data-token') + ' ' + input.value.slice(input.selectionStart);
+            box.remove();
+            input.focus();
+        });
+    });
+    document.addEventListener('keydown', (ev) => {
+        if (ev.target && ev.target.id === 'newCommentInput' && ev.key === 'Enter' && !document.getElementById('mentionSuggest')) {
+            ev.preventDefault();
+            if (window.currentEditingContentId) window.submitComment(window.currentEditingContentId);
+        }
+        if (ev.key === 'Escape') { const b = document.getElementById('mentionSuggest'); if (b) b.remove(); }
+    });
+
     window.submitComment = function(id) {
         const input = document.getElementById('newCommentInput');
         const text = input.value.trim();
         if (!text) return;
-        
+        const tokens = (text.match(/@([^\s@]+)/g) || []).map(t => t.slice(1).replace(/_/g, ' '));
+        const mentions = (window.allColleagues || [])
+            .filter(c => tokens.includes(String(c.full_name || '').trim()) || tokens.includes(String(c.username || '')))
+            .map(c => c.id);
+
         fetch('/api/contents/' + id + '/comments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+            body: JSON.stringify({ text, mentions, parent_id: replyParent })
         }).then(res => res.json()).then(res => {
             if (res.status === 'success') {
                 input.value = '';
-                // Wait for socket to trigger refresh or refresh manually
-            }
+                cancelReply();
+            } else if (window.showToast) window.showToast(res.message || 'خطا', 'error');
         });
+    };
+
+    window.uploadAttachment = async function(id) {
+        const files = await window.asvaPickAndUpload();
+        for (const f of files) {
+            await fetch('/api/contents/' + id + '/attachments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: f.name, url: f.url })
+            });
+        }
     };
 
     window.submitAttachment = function(id) {

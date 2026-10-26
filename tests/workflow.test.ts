@@ -359,6 +359,19 @@ describe("external notifications, calendars and reports", () => {
     assert.equal((await request(app).get("/ics/not-a-real-token-at-all-xx.ics")).status, 404);
   });
 
+  it("keeps calendar tokens and labour cost out of lists", async () => {
+    const admin = await login("admin");
+    await admin.get("/api/ics_link");
+    const orgs = await admin.get("/api/get_orgs");
+    assert.ok(orgs.body.data.every((o: any) => !("ics_token" in o)));
+    const ali = await login("ali");
+    await ali.get("/api/ics_link");
+    const list = await ali.get("/api/get_colleagues");
+    assert.ok(list.body.users.every((c: any) => !("hourly_cost" in c) && !("ics_token" in c) && !("saved_views" in c)));
+    const full = await admin.get("/api/get_colleagues");
+    assert.equal(full.body.users.find((c: any) => c.id === 2).hourly_cost, 200);
+  });
+
   it("builds the monthly report for the brand", async () => {
     card(50).platform_metrics = { "اینستاگرام": { views: 1200, likes: 30 } };
     const client = await login("brand2");

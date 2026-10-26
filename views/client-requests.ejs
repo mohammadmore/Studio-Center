@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'درخواست محتوا' }) %>
+</head>
+<body style="background: var(--bg-color);">
+<div class="wf-client-shell">
+    <%- include('partials/client-shell') %>
+    <div class="wf-row between" style="margin-bottom:14px">
+        <div>
+            <h1 style="margin:0;font-size:1.4rem">درخواست‌ها و بریف‌ها</h1>
+            <p class="muted" style="margin:4px 0 0">نیاز محتوایی خود را ثبت کنید؛ استودیو بررسی می‌کند و وارد تولید می‌شود.</p>
+        </div>
+        <button type="button" class="btn-primary" onclick="openForm()">➕ درخواست جدید</button>
+    </div>
+    <div id="list"><div class="wf-empty">در حال بارگذاری…</div></div>
+</div>
+<%- include('ux-script') %>
+<script>
+    const TONE = { new: 'blue', needs_info: 'amber', accepted: 'purple', converted: 'green', rejected: 'red', cancelled: '' };
+    let items = [], settingsData = {};
+
+    async function init() {
+        const s = await api('/api/manage_settings', undefined, { quiet: true });
+        settingsData = (s && s.data) || {};
+        load();
+    }
+    async function load() {
+        const res = await api('/api/requests');
+        items = (res && res.data) || [];
+        const box = document.getElementById('list');
+        if (!items.length) {
+            box.innerHTML = '<div class="wf-card wf-empty">هنوز درخواستی ثبت نکرده‌اید. با «درخواست جدید» هدف، مخاطب و پیام اصلی را برای استودیو بفرستید.</div>';
+            return;
+        }
+        box.innerHTML = items.map(r => `
+            <div class="wf-card">
+                <div class="wf-row between"><b>${escapeHtml(r.title)}</b>${statusChip(r.status_fa, TONE[r.status])}</div>
+                <div class="muted" style="font-size:.82rem;margin:4px 0 8px">ثبت: ${escapeHtml(faDateTime(r.created_at))}${r.deadline ? ' — مهلت: ' + fa(r.deadline) : ''}</div>
+                ${r.status === 'needs_info' ? '<div class="wf-msg" style="background:rgba(245,158,11,.12)">استودیو برای شروع کار به اطلاعات بیشتری نیاز دارد؛ پیام‌ها را ببینید و درخواست را تکمیل کنید.</div>' : ''}
+                ${(r.messages || []).map(m => `<div class="wf-msg ${m.author_type === 'client' ? 'client' : ''}"><div class="meta"><b>${m.author_type === 'client' ? 'شما' : 'استودیو'}</b><span>${escapeHtml(faDateTime(m.at))}</span></div>${escapeHtml(m.text)}</div>`).join('')}
+                <div class="wf-row">
+                    <input class="form-control" style="flex:1" placeholder="پیام به استودیو…" id="msg${r.id}" aria-label="پیام به استودیو">
+                    <button type="button" class="wf-btn" onclick="sendMsg(${r.id})">ارسال</button>
+                    ${['new', 'needs_info'].includes(r.status) ? `<button type="button" class="wf-btn" onclick="openForm(${r.id})">ویرایش</button><button type="button" class="wf-btn danger" onclick="cancelReq(${r.id})">لغو</button>` : ''}
+                    ${r.status === 'converted' ? '<a class="wf-btn" href="client-review">پیگیری در بخش تایید محتوا</a>' : ''}
+                </div>
+            </div>`).join('');
+    }
+    async function sendMsg(id) {
+        const input = document.getElementById('msg' + id);
+        if (!input.value.trim()) return;
+        if (await api('/api/requests', { action: 'message', id, text: input.value.trim() }, { success: 'ارسال شد' })) load();
+    }
+    async function cancelReq(id) {
+        const ok = window.customConfirm ? await window.customConfirm('این درخواست لغو شود؟') : confirm('این درخواست لغو شود؟');
+        if (ok && await api('/api/requests', { action: 'cancel', id }, { success: 'لغو شد' })) load();
+    }
+    function openForm(id) {
+        const r = items.find(x => x.id == id) || {};
+        const files = (r.attachments || []).slice();
+        const types = (settingsData.content_type || []).map(t => t.setting_key);
+        const platforms = (settingsData.platform || []).map(p => p.setting_key);
+        const v = (k) => escapeHtml(r[k] || '');
+        const m = wfModal(id ? 'ویرایش درخواست' : 'درخواست محتوای جدید', `
+            <label class="wf-label">عنوان درخواست *<input class="form-control" id="nfTitle" value="${v('title')}" placeholder="مثلاً ویدیوی معرفی محصول جدید"></label>
+            <div class="wf-grid-2">
+                <label class="wf-label">نوع محتوا<select class="form-control" id="nfType"><option value="">نمی‌دانم / پیشنهاد استودیو</option>${types.map(t => `<option ${r.content_type === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select></label>
+                <label class="wf-label">تا چه تاریخی لازم دارید؟<input class="form-control" id="nfDeadline" data-jdp value="${escapeHtml(fa(r.deadline || ''))}" placeholder="مثلاً ۱۴۰۵/۰۲/۲۰"></label>
+            </div>
+            <div class="wf-label">کجا منتشر شود؟ ${platforms.map(p => `<label style="margin-left:10px;white-space:nowrap"><input type="checkbox" class="nfPlat" value="${escapeHtml(p)}" ${(r.platforms || []).includes(p) ? 'checked' : ''}> ${escapeHtml(p)}</label>`).join('') || '—'}</div>
+            <label class="wf-label">هدف این محتوا چیست؟<textarea class="form-control" id="nfGoal" placeholder="معرفی، فروش، آگاهی از برند، اطلاع‌رسانی…">${v('goal')}</textarea></label>
+            <label class="wf-label">مخاطب شما چه کسانی هستند؟<textarea class="form-control" id="nfAudience">${v('audience')}</textarea></label>
+            <label class="wf-label">پیام اصلی که مخاطب باید بگیرد<textarea class="form-control" id="nfMessage">${v('key_message')}</textarea></label>
+            <label class="wf-label">نمونه‌هایی که دوست دارید (لینک یا توضیح)<textarea class="form-control" id="nfRefs">${v('references')}</textarea></label>
+            <label class="wf-label">توضیحات دیگر<textarea class="form-control" id="nfNotes">${v('notes')}</textarea></label>
+            <div class="wf-label">فایل‌ها (لوگو، عکس محصول، متن…)</div>
+            <div id="nfFiles"></div>
+            <div class="wf-actions"><button type="button" class="btn-primary" id="nfSave">${id ? 'ذخیره تغییرات' : 'ارسال برای استودیو'}</button></div>`, { wide: true });
+        wfFilePicker(m.q('#nfFiles'), files);
+        m.q('#nfSave').onclick = async () => {
+            const body = {
+                action: id ? 'update' : 'create', id,
+                title: m.q('#nfTitle').value, content_type: m.q('#nfType').value, deadline: latin(m.q('#nfDeadline').value),
+                platforms: [...m.el.querySelectorAll('.nfPlat:checked')].map(x => x.value),
+                goal: m.q('#nfGoal').value, audience: m.q('#nfAudience').value, key_message: m.q('#nfMessage').value,
+                references: m.q('#nfRefs').value, notes: m.q('#nfNotes').value, attachments: files,
+            };
+            if (await api('/api/requests', body, { success: id ? 'ذخیره شد' : 'درخواست برای استودیو ارسال شد' })) { m.close(); load(); }
+        };
+    }
+    window.addEventListener('asva:notification', load);
+    init();
+</script>
+</body>
+</html>

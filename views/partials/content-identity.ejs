@@ -179,7 +179,7 @@ function openContentDetails(id, editMode = false) {
             else if (pmStatus === 'scheduled') { bgColor = '#fef3c7'; color = '#d97706'; badge = `<span style="font-size:0.7rem; margin-left:4px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg></span>`; }
             const style = `cursor:pointer; background: ${bgColor}; color: ${color}; padding: 2px 8px; border-radius: 4px; font-size: 1rem; display:inline-flex; align-items:center; border: 1px solid transparent; transition: 0.2s;`;
             
-            return `<span style="${style}" title="${escapeHtml(p)}" onclick="event.stopPropagation(); togglePlatformPublished(${item.id}, ${jsAttr(p)}, ${jsAttr(pmStatus)})">
+            return `<span style="${style}" title="${escapeHtml(p)}" onclick="event.stopPropagation(); (window.openPlatformMetrics || window.togglePlatformPublished)(${item.id}, ${jsAttr(p)}, ${jsAttr(pmStatus)})">
                 ${badge}${logoHtml || (platformSetting && platformSetting.icon ? platformSetting.icon : '')} <span style="margin-right: 4px; font-size: 0.85rem;">${escapeHtml(p)}</span>
             </span>`;
         }).join(' ');
@@ -548,6 +548,7 @@ const colRadios = (window.allCollections || []).map(c => `
     `;
 
     document.getElementById('detailsContent').innerHTML = html;
+    if (window.renderWorkflowPanel) window.renderWorkflowPanel(id);
     document.getElementById('detailsContent').onchange = () => { window.hasUnsavedChanges = true; };
     document.getElementById('detailsContent').oninput = () => { window.hasUnsavedChanges = true; };
 
@@ -601,6 +602,7 @@ async function saveAllEditFields(id, closeAfterSave = false) {
         });
         const result = await res.json();
         if (result.status === 'success') {
+            (result.warnings || []).forEach(w => window.showToast && window.showToast('⚠️ ' + w, 'info'));
             window.hasUnsavedChanges = false;
             await loadDepot();
             showToast('تغییرات با موفقیت ذخیره شد', 'success');

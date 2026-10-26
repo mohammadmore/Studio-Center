@@ -44,7 +44,7 @@
         return !!((document.getElementById('searchInput')?.value || '').trim() ||
             document.getElementById('orgFilter')?.value || document.getElementById('statusFilter')?.value ||
             document.getElementById('platformFilter')?.value || document.getElementById('typeFilter')?.value ||
-            window.showMyTasks);
+            document.getElementById('periodFilter')?.value || window.showMyTasks);
     }
     function shouldOpenColumn(statusKey, count) {
         if (isFilterActive()) return count > 0;
@@ -758,11 +758,20 @@ async function submitBatchEdit() {
         <select id="typeFilter" onchange="filterCards()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
             <option value="">همه انواع محتوا</option>
         </select>
+        <select id="periodFilter" onchange="filterCards()" aria-label="بازه زمانی انتشار" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
+            <option value="">همه تاریخ‌ها</option>
+            <option value="this_week">انتشار این هفته</option>
+            <option value="next_week">انتشار هفته بعد</option>
+            <option value="this_month">انتشار این ماه</option>
+            <option value="overdue">تاریخ گذشته و منتشرنشده</option>
+            <option value="no_date">بدون تاریخ انتشار</option>
+        </select>
 
         <button id="myTasksBtn" onclick="toggleMyTasks()" style="background: var(--card-bg); color: var(--primary-color); border: 1px solid var(--primary-color); padding: 14px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
             <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             کار‌های من
         </button>
+        <span id="savedViewsBox" style="display:inline-flex;"></span>
         
             </div>
 
@@ -1203,6 +1212,8 @@ function renderKanban(allItems) {
     const statusFilter = (document.getElementById('statusFilter')?.value || '');
     const platformFilter = (document.getElementById('platformFilter')?.value || '');
     const typeFilter = (document.getElementById('typeFilter')?.value || '');
+    const periodFilter = document.getElementById('periodFilter')?.value || '';
+    const period = window.periodRange ? window.periodRange(periodFilter) : null;
     
     let items = (allItems || []).filter(item => {
         const text = (item.title + ' ' + (item.org_name || '') + ' ' + (item.project_manager || '') + ' ' + (item.assigned_colleagues ? (Array.isArray(item.assigned_colleagues) ? item.assigned_colleagues.join(' ') : item.assigned_colleagues) : '')).toLowerCase();
@@ -1220,7 +1231,16 @@ function renderKanban(allItems) {
             matchesMyTasks = isPM || isAssigned;
         }
         
-        return matchesTerm && matchesOrg && matchesStatus && matchesPlatform && matchesType && matchesMyTasks;
+        let matchesPeriod = true;
+        if (periodFilter) {
+            const d = window.latin ? window.latin(item.publish_date || '') : (item.publish_date || '');
+            const finished = ['published', 'archived', 'done'].includes(item.status);
+            if (periodFilter === 'no_date') matchesPeriod = !d;
+            else if (periodFilter === 'overdue') matchesPeriod = !!d && d < period.today && !finished;
+            else matchesPeriod = !!d && d >= period.from && d <= period.to;
+        }
+        
+        return matchesTerm && matchesOrg && matchesStatus && matchesPlatform && matchesType && matchesMyTasks && matchesPeriod;
     });
 
     const board = document.getElementById('kanbanBoard');
@@ -1581,6 +1601,22 @@ window.toggleMyTasks = function() {
 };
 
 document.filterCards = filterCards;
+
+// Saved views: a named set of the filters above, kept per user on the server.
+document.addEventListener('DOMContentLoaded', () => {
+    if (!window.wfSavedViews) return;
+    window.wfSavedViews({
+        page: 'depot',
+        container: document.getElementById('savedViewsBox'),
+        fields: ['searchInput', 'orgFilter', 'statusFilter', 'platformFilter', 'typeFilter', 'periodFilter'],
+        getExtra: () => ({ myTasks: !!window.showMyTasks, grouped: !!window.isGroupedByOrg }),
+        setExtra: (x) => {
+            if (!!x.myTasks !== !!window.showMyTasks) window.toggleMyTasks();
+            if (!!x.grouped !== !!window.isGroupedByOrg && window.toggleGroupByOrg && document.getElementById('groupByOrgBtn')) window.toggleGroupByOrg();
+        },
+        apply: () => filterCards(),
+    });
+});
 
 
 async function confirmStageTransition(id, newStatusId, newStatusName) {

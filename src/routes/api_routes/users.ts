@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { colleagues, organizations, roles } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
-import { getRoleInfoForUser, isAdmin, stripSecrets } from "../../utils/authUtils.js";
+import { getRoleInfoForUser, hasPermission, isAdmin, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
 import { moveToRecycleBin } from "../../utils/contentUtils.js";
 
@@ -36,7 +36,8 @@ function roleGrantsAdmin(roleId: any) {
 
 function withRoleName(c: any) {
   const role = roles.find((r) => r.id == c?.role_id);
-  return { ...stripSecrets(c), role_name: role ? role.name : "کارشناس" };
+  const { saved_views, running_timer, hourly_cost, ...safe } = stripSecrets(c) as any;
+  return { ...safe, role_name: role ? role.name : "کارشناس" };
 }
 
 function profileFields(body: any) {
@@ -266,7 +267,8 @@ subRouter.get("/get_colleagues", (req, res) => {
   const mapped = colleagues.filter((c) => c.is_active !== 0).map((c) => {
     // Bank and contact details are only needed by user managers.
     const { shaba, ...rest } = withRoleName(c) as any;
-    return rest;
+    // Labour cost is salary information.
+    return hasPermission((req as any).user, "timesheet_report") ? { ...rest, hourly_cost: c.hourly_cost } : rest;
   });
   res.json({ status: "success", users: mapped, data: mapped });
 });

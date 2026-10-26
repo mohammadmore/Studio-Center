@@ -59,6 +59,7 @@
         </div>
     
             <p style="color: var(--text-gray);">نظارت زنده بر اتصال شبکه‌های اجتماعی کارفرماها جهت جلوگیری از قطعیِ انتشار خودکار.</p>
+            <p style="color: var(--text-gray); font-size: 0.85rem;">آمار پست‌ها با این توکن‌ها خودکار دریافت می‌شود: اینستاگرام (توکن Meta Graph با دسترسی instagram_basic و instagram_manage_insights) و یوتیوب (کلید API). آمار آپارات و کانال‌های عمومی تلگرام بدون توکن خوانده می‌شود. آمار پست‌های ۶۰ روز اخیر هر شب به‌روز می‌شود.</p>
         </div>
 
         
@@ -75,11 +76,12 @@
                         <option value="اینستاگرام">اینستاگرام (Meta Graph)</option>
                         <option value="تلگرام">تلگرام (Bot API)</option>
                         <option value="بله">بله (Bot API)</option>
+                        <option value="یوتیوب">یوتیوب (YouTube Data API Key)</option>
                     </select>
                 </div>
                 <div style="flex: 1; min-width: 150px;">
                     <label style="font-size: 0.85rem; color: var(--text-gray);">نام اکانت / آیدی</label>
-                    <input type="text" id="newTokenAccount" class="form-control" placeholder="username" style="width: 100%; direction: ltr; text-align: left;">
+                    <input type="text" id="newTokenAccount" class="form-control" placeholder="username یا شناسه عددی حساب" title="برای اینستاگرام بهتر است شناسه عددی حساب کسب‌وکار (Instagram Business Account ID) را وارد کنید" style="width: 100%; direction: ltr; text-align: left;">
                 </div>
                 <div style="flex: 2; min-width: 250px;">
                     <label style="font-size: 0.85rem; color: var(--text-gray);">توکن دسترسی (Access Token)</label>

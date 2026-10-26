@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'درخواست‌ها و بریف‌ها' }) %>
+</head>
+<body>
+    <%- include('sidebar') %>
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title">📨 <span>درخواست‌ها و بریف‌های کارفرما</span></h1>
+                <p class="page-subtitle">درخواست‌های رسیده از برندها را بررسی کنید، اطلاعات تکمیلی بخواهید و با یک کلیک به کارت تولید تبدیل کنید.</p>
+            </div>
+            <button type="button" class="btn-primary" onclick="openRequestForm()">➕ ثبت درخواست از طرف برند</button>
+        </div>
+
+        <div class="wf-page">
+            <div class="wf-toolbar">
+                <label class="wf-label" style="margin:0">وضعیت
+                    <select id="fStatus" class="form-control" onchange="load()">
+                        <option value="">همه</option>
+                        <option value="new" selected>جدید</option>
+                        <option value="needs_info">نیاز به اطلاعات بیشتر</option>
+                        <option value="accepted">پذیرفته شده</option>
+                        <option value="converted">در حال تولید</option>
+                        <option value="rejected">رد شده</option>
+                        <option value="cancelled">لغو شده</option>
+                    </select>
+                </label>
+                <label class="wf-label" style="margin:0">برند
+                    <select id="fOrg" class="form-control" onchange="load()"><option value="">همه برندها</option></select>
+                </label>
+            </div>
+            <div id="list" class="wf-grid"><div class="wf-empty">در حال بارگذاری…</div></div>
+        </div>
+    </main>
+
+    <script src="assets/js/app.js"></script>
+    <script>
+        const TONE = { new: 'blue', needs_info: 'amber', accepted: 'purple', converted: 'green', rejected: 'red', cancelled: '' };
+        let orgs = [], items = [], settingsData = {};
+
+        async function init() {
+            const [o, s, c] = await Promise.all([api('/api/get_orgs'), api('/api/manage_settings'), api('/api/get_colleagues')]);
+            orgs = (o && o.data) || [];
+            settingsData = (s && s.data) || {};
+            window.allColleagues = (c && c.users) || [];
+            document.getElementById('fOrg').insertAdjacentHTML('beforeend', optionList(orgs, 'id', 'org_name'));
+            await load();
+            const id = new URLSearchParams(location.search).get('id');
+            if (id) openDetail(id);
+        }
+
+        async function load() {
+            const q = new URLSearchParams({ status: document.getElementById('fStatus').value, org_id: document.getElementById('fOrg').value });
+            const res = await api('/api/requests?' + q);
+            items = (res && res.data) || [];
+            const box = document.getElementById('list');
+            if (!items.length) { box.innerHTML = '<div class="wf-empty" style="grid-column:1/-1">درخواستی با این فیلتر وجود ندارد.</div>'; return; }
+            box.innerHTML = items.map(r => `
+                <div class="wf-card" style="cursor:pointer" onclick="openDetail(${r.id})" tabindex="0" onkeydown="if(event.key==='Enter')openDetail(${r.id})">
+                    <div class="wf-row between"><b>${escapeHtml(r.title)}</b>${statusChip(r.status_fa, TONE[r.status])}</div>
+                    <div class="muted" style="font-size:.85rem;margin:6px 0">${escapeHtml(r.org_name)} — ${escapeHtml(faDateTime(r.created_at))}</div>
+                    ${r.goal ? `<div style="font-size:.88rem">🎯 ${escapeHtml(r.goal.slice(0, 120))}</div>` : ''}
+                    <div class="wf-row" style="margin-top:8px">
+                        ${r.deadline ? statusChip('مهلت ' + fa(r.deadline), 'amber') : ''}
+                        ${r.content_type ? statusChip(r.content_type, '') : ''}
+                        ${(r.attachments || []).length ? statusChip('📎 ' + fa(r.attachments.length), '') : ''}
+                        ${(r.messages || []).length ? statusChip('💬 ' + fa(r.messages.length), '') : ''}
+                    </div>
+                </div>`).join('');
+        }
+
+        function briefHtml(r) {
+            const row = (l, v) => v ? `<dt>${l}</dt><dd>${escapeHtml(v)}</dd>` : '';
+            return `<dl class="wf-kv">${row('برند', r.org_name)}${row('نوع محتوا', r.content_type)}${row('پلتفرم‌ها', (r.platforms || []).join('، '))}
+                ${row('مهلت', r.deadline && fa(r.deadline))}${row('هدف', r.goal)}${row('مخاطب', r.audience)}${row('پیام اصلی', r.key_message)}
+                ${row('نمونه‌های مرجع', r.references)}${row('توضیحات', r.notes)}${row('ثبت توسط', r.created_by)}</dl>`;
+        }
+
+        function openDetail(id) {
+            const r = items.find(x => x.id == id);
+            if (!r) return;
+            const msgs = (r.messages || []).map(m => `<div class="wf-msg ${m.author_type === 'client' ? 'client' : ''}"><div class="meta"><b>${escapeHtml(m.author)}</b><span>${escapeHtml(faDateTime(m.at))}</span></div>${escapeHtml(m.text)}</div>`).join('');
+            const open = !['converted', 'rejected', 'cancelled'].includes(r.status);
+            const m = wfModal('درخواست: ' + r.title, `
+                ${briefHtml(r)}
+                <h4 style="margin:14px 0 6px">فایل‌های پیوست</h4>${fileListHtml(r.attachments, { download: true })}
+                <h4 style="margin:14px 0 6px">گفت‌وگو با کارفرما</h4>
+                ${msgs || '<div class="wf-empty-sm">پیامی رد و بدل نشده است.</div>'}
+                <div class="wf-row"><input class="form-control" id="rqMsg" placeholder="سؤال یا پاسخ برای کارفرما…" style="flex:1" aria-label="پیام"><button type="button" class="wf-btn" id="rqSend">ارسال پیام</button></div>
+                ${r.content_id ? `<div class="wf-actions"><a class="wf-btn" href="depot">کارت تولید ساخته شد (وضعیت: ${escapeHtml(r.content_status || '')})</a></div>` : ''}
+                ${open ? `<div class="wf-card" style="margin-top:14px">
+                    <h3>تبدیل به کارت تولید</h3>
+                    <label class="wf-label">مدیر پروژه<select class="form-control" id="rqPm">${optionList(window.allColleagues, 'id', 'full_name', '', '— انتخاب —')}</select></label>
+                    <label class="wf-label">مراحل تولید (با کاما جدا کنید)<input class="form-control" id="rqStages" placeholder="ایده و سناریو، تصویربرداری، تدوین"></label>
+                    <div class="wf-actions">
+                        <button type="button" class="wf-btn" id="rqInfo">❓ درخواست اطلاعات بیشتر</button>
+                        <button type="button" class="wf-btn danger" id="rqReject">رد درخواست</button>
+                        <button type="button" class="btn-primary" id="rqConvert">✅ پذیرش و ساخت کارت</button>
+                    </div></div>` : ''}
+            `, { wide: true });
+            m.q('#rqSend').onclick = async () => {
+                const text = m.q('#rqMsg').value.trim();
+                if (!text) return;
+                const res = await api('/api/requests', { action: 'message', id: r.id, text }, { success: 'ارسال شد' });
+                if (res) { m.close(); await load(); openDetail(r.id); }
+            };
+            if (!open) return;
+            const setStatus = async (status, ask) => {
+                const note = window.prompt(ask) ;
+                if (note === null) return;
+                const res = await api('/api/requests', { action: 'set_status', id: r.id, status, note }, { success: 'ثبت شد و کارفرما خبردار شد' });
+                if (res) { m.close(); load(); }
+            };
+            m.q('#rqInfo').onclick = () => setStatus('needs_info', 'چه اطلاعاتی لازم است؟');
+            m.q('#rqReject').onclick = () => setStatus('rejected', 'دلیل رد (برای کارفرما نمایش داده می‌شود):');
+            m.q('#rqConvert').onclick = async () => {
+                const stages = m.q('#rqStages').value.split(/[,،]/).map(s => s.trim()).filter(Boolean);
+                const res = await api('/api/requests', { action: 'convert', id: r.id, project_manager_id: m.q('#rqPm').value, stages }, { success: 'کارت تولید ساخته شد' });
+                if (res) { m.close(); load(); }
+            };
+        }
+
+        function openRequestForm() {
+            const types = (settingsData.content_type || []).map(t => t.setting_key);
+            const platforms = (settingsData.platform || []).map(p => p.setting_key);
+            const files = [];
+            const m = wfModal('ثبت درخواست', `
+                <label class="wf-label">برند *<select class="form-control" id="nfOrg">${optionList(orgs, 'id', 'org_name', '', '— انتخاب —')}</select></label>
+                ${requestFields(types, platforms)}
+                <div id="nfFiles"></div>
+                <div class="wf-actions"><button type="button" class="btn-primary" id="nfSave">ثبت</button></div>`, { wide: true });
+            wfFilePicker(m.q('#nfFiles'), files);
+            m.q('#nfSave').onclick = async () => {
+                const body = { action: 'create', org_id: m.q('#nfOrg').value, ...readRequestFields(m), attachments: files };
+                const res = await api('/api/requests', body, { success: 'ثبت شد' });
+                if (res) { m.close(); load(); }
+            };
+        }
+
+        function requestFields(types, platforms) {
+            return `
+                <label class="wf-label">عنوان درخواست *<input class="form-control" id="nfTitle"></label>
+                <div class="wf-grid-2">
+                    <label class="wf-label">نوع محتوا<select class="form-control" id="nfType"><option value="">—</option>${types.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select></label>
+                    <label class="wf-label">مهلت مورد نظر<input class="form-control" id="nfDeadline" data-jdp placeholder="مثلاً ۱۴۰۵/۰۲/۲۰"></label>
+                </div>
+                <div class="wf-label">پلتفرم‌ها: ${platforms.map(p => `<label style="margin-left:10px;white-space:nowrap"><input type="checkbox" class="nfPlat" value="${escapeHtml(p)}"> ${escapeHtml(p)}</label>`).join('') || '—'}</div>
+                <label class="wf-label">هدف این محتوا چیست؟<textarea class="form-control" id="nfGoal" placeholder="مثلاً معرفی محصول جدید و افزایش فروش"></textarea></label>
+                <label class="wf-label">مخاطب هدف<textarea class="form-control" id="nfAudience"></textarea></label>
+                <label class="wf-label">پیام اصلی که باید منتقل شود<textarea class="form-control" id="nfMessage"></textarea></label>
+                <label class="wf-label">نمونه‌های مرجع (لینک یا توضیح)<textarea class="form-control" id="nfRefs"></textarea></label>
+                <label class="wf-label">توضیحات دیگر<textarea class="form-control" id="nfNotes"></textarea></label>`;
+        }
+        function readRequestFields(m) {
+            return {
+                title: m.q('#nfTitle').value, content_type: m.q('#nfType').value, deadline: latin(m.q('#nfDeadline').value),
+                platforms: [...m.el.querySelectorAll('.nfPlat:checked')].map(x => x.value),
+                goal: m.q('#nfGoal').value, audience: m.q('#nfAudience').value, key_message: m.q('#nfMessage').value,
+                references: m.q('#nfRefs').value, notes: m.q('#nfNotes').value,
+            };
+        }
+        window.addEventListener('asva:notification', (ev) => { if (ev.detail && /request/.test(ev.detail.type || '')) load(); });
+        init();
+    </script>
+</body>
+</html>

@@ -267,7 +267,14 @@
                 <input type="text" id="invDueDate" class="form-control" placeholder="1405/01/10" onchange="updateInvoiceUI()">
             </div>
             <div style="flex: 1; min-width: 150px;">
-                <label>وضعیت فاکتور:</label>
+                <label for="invDocType">نوع سند:</label>
+                <select id="invDocType" class="form-control" onchange="onDocTypeChange()">
+                    <option value="invoice">فاکتور</option>
+                    <option value="quote">پیش‌فاکتور (نیاز به تایید کارفرما)</option>
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+                <label>وضعیت سند:</label>
                 <select id="invStatus" class="form-control" onchange="updateInvoiceUI()">
                     <option value="draft">پیشنویس</option>
                     <option value="issued">صادر شده</option>
@@ -325,8 +332,8 @@
                 </div>
                 
                 <div class="invoice-details" id="invoiceMeta" style="text-align: left;">
-                    <h2 style="color: var(--text-dark); margin-bottom: 10px;">فاکتور فروش</h2>
-                    <p>شماره فاکتور: <strong id="invNumber">---</strong></p>
+                    <h2 style="color: var(--text-dark); margin-bottom: 10px;" id="docTitle">فاکتور فروش</h2>
+                    <p><span id="docNumberLabel">شماره فاکتور</span>: <strong id="invNumber">---</strong></p>
                     <p>تاریخ صدور: <strong id="lblIssueDate">---</strong></p>
                     <p>تاریخ سررسید: <strong id="lblDueDate">---</strong></p>
                     <p>وضعیت: <strong id="lblStatus">---</strong></p>
@@ -678,7 +685,8 @@
                     document.getElementById('invNumber').innerText = toPersianDigits(data.invoice_number);
                     document.getElementById('invIssueDate').value = toPersianDigits(data.date || '');
                     document.getElementById('invDueDate').value = toPersianDigits(data.due_date || '');
-                    document.getElementById('invStatus').value = data.status_name || 'draft';
+                    document.getElementById('invDocType').value = data.doc_type || 'invoice';
+                    onDocTypeChange(data.status_name || 'draft');
                     document.getElementById('invNotes').value = data.notes || '';
                     document.getElementById('invTaxPercent').value = currentInvoiceData.tax_percent;
                     document.getElementById('invDiscount').value = currentInvoiceData.discount;
@@ -780,6 +788,7 @@
                     document.getElementById('invIssueDate').value = toPersianDigits(data.date || '');
                     document.getElementById('invDueDate').value = '';
                     document.getElementById('invStatus').value = 'draft';
+                    if (new URLSearchParams(location.search).get('type') === 'quote') { document.getElementById('invDocType').value = 'quote'; onDocTypeChange('draft'); }
                     document.getElementById('invNotes').value = '';
                     document.getElementById('invTaxPercent').value = 0;
                     document.getElementById('invDiscount').value = 0;
@@ -933,8 +942,26 @@
             'draft': 'پیشنویس',
             'issued': 'صادر شده',
             'paid': 'پرداخت شده',
-            'cancelled': 'لغو شده'
+            'cancelled': 'لغو شده',
+            'sent': 'ارسال شده برای کارفرما',
+            'accepted': 'تایید کارفرما',
+            'rejected': 'رد کارفرما',
+            'converted': 'تبدیل به فاکتور'
         };
+        const STATUS_BY_DOC = {
+            invoice: ['draft', 'issued', 'paid', 'cancelled'],
+            quote: ['draft', 'sent', 'accepted', 'rejected', 'converted']
+        };
+        function onDocTypeChange(keepStatus) {
+            const type = document.getElementById('invDocType').value;
+            const sel = document.getElementById('invStatus');
+            const current = keepStatus || sel.value;
+            sel.innerHTML = STATUS_BY_DOC[type].map(k => `<option value="${k}">${statusMap[k]}</option>`).join('');
+            sel.value = STATUS_BY_DOC[type].includes(current) ? current : 'draft';
+            document.getElementById('docTitle').innerText = type === 'quote' ? 'پیش‌فاکتور' : 'فاکتور فروش';
+            document.getElementById('docNumberLabel').innerText = type === 'quote' ? 'شماره پیش‌فاکتور' : 'شماره فاکتور';
+            updateInvoiceUI();
+        }
 
         function updateInvoiceUI() {
             if(!currentOrganization) return;
@@ -970,6 +997,7 @@
                 issue_date: document.getElementById('invIssueDate').value,
                 due_date: document.getElementById('invDueDate').value,
                 status: document.getElementById('invStatus').value,
+                doc_type: document.getElementById('invDocType').value,
                 items: currentInvoiceData.items,
                 subtotal: subtotal,
                 tax: taxAmt,

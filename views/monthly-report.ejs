@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'گزارش ماهانه' }) %>
+<style>
+    .rep-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .rep-head img { width: 64px; height: 64px; object-fit: contain; border-radius: 12px; background: #fff; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    @media print { .wf-client-top, .wf-client-nav, .page-header-container { display: none !important; } .wf-client-shell { padding: 0; } }
+</style>
+</head>
+<% const clientMode = typeof isClient !== 'undefined' && isClient; %>
+<body style="background: var(--bg-color);">
+<% if (clientMode) { %>
+<div class="wf-client-shell">
+    <%- include('partials/client-shell') %>
+<% } else { %>
+    <%- include('sidebar') %>
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title">📊 <span>گزارش ماهانه کارفرما</span></h1>
+                <p class="page-subtitle">آنچه تحویل شد، نتایج و برنامه ماه بعد؛ برای کارفرما بفرستید یا PDF بگیرید.</p>
+            </div>
+        </div>
+<% } %>
+        <div class="wf-toolbar no-print">
+            <% if (!clientMode) { %><label class="wf-label" style="margin:0">برند<select class="form-control" id="fOrg" onchange="load()"></select></label><% } %>
+            <label class="wf-label" style="margin:0">سال<input class="form-control" id="fYear" type="number" style="width:100px" onchange="load()"></label>
+            <label class="wf-label" style="margin:0">ماه<select class="form-control" id="fMonth" onchange="load()"></select></label>
+            <button type="button" class="wf-btn primary" onclick="window.print()">🖨️ دریافت PDF / چاپ</button>
+        </div>
+        <div id="report" class="wf-page"><div class="wf-empty">در حال بارگذاری…</div></div>
+<% if (clientMode) { %>
+</div>
+<%- include('ux-script') %>
+<% } else { %>
+    </main>
+    <script src="assets/js/app.js"></script>
+<% } %>
+<script>
+    const CLIENT = <%= clientMode ? 'true' : 'false' %>;
+    const STUDIO = <%- JSON.stringify(STUDIO_NAME).replace(/</g, '\\u003c') %>;
+    const STATUS_FA = { raw: 'ورودی خام', todo: 'در صف', in_progress: 'در حال انجام', doing: 'در حال انجام', review: 'ارزیابی استودیو', client_review: 'منتظر تایید شما', needs_revision: 'در حال اصلاح', approved_by_client: 'تایید شده', ready_to_publish: 'آماده انتشار', scheduled: 'زمان‌بندی شده', published: 'منتشر شده', done: 'تکمیل شده' };
+    const params = new URLSearchParams(location.search);
+    const ym = jalaliYearMonth();
+    document.getElementById('fYear').value = params.get('year') || ym.year;
+    document.getElementById('fMonth').innerHTML = JALALI_MONTHS.map((n, i) => `<option value="${i + 1}" ${String(i + 1) === String(params.get('month') || ym.month) ? 'selected' : ''}>${n}</option>`).join('');
+    let report = null;
+
+    async function init() {
+        if (!CLIENT) {
+            const o = await api('/api/get_orgs');
+            const sel = document.getElementById('fOrg');
+            sel.innerHTML = optionList((o && o.data) || [], 'id', 'org_name');
+            if (params.get('org_id')) sel.value = params.get('org_id');
+        }
+        load();
+    }
+    async function load() {
+        const q = new URLSearchParams({ year: document.getElementById('fYear').value, month: document.getElementById('fMonth').value });
+        if (!CLIENT) q.set('org_id', document.getElementById('fOrg').value);
+        const res = await api('/api/monthly_report_data?' + q);
+        if (!res) return;
+        report = res.data;
+        render();
+    }
+    const n = (v) => fa(Number(v || 0).toLocaleString('en-US'));
+    function itemRows(list, showMetrics) {
+        if (!list.length) return '<div class="wf-empty-sm">موردی نیست.</div>';
+        return `<div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>عنوان</th><th>نوع</th><th>تاریخ</th><th>پلتفرم</th>${showMetrics ? '<th>بازدید</th><th>لایک</th><th>کامنت</th>' : '<th>وضعیت</th>'}</tr></thead><tbody>
+            ${list.map(c => {
+                const m = Object.values(c.metrics || {});
+                const sum = (k) => m.reduce((s, x) => s + (Number(x && x[k]) || 0), 0);
+                return `<tr><td>${escapeHtml(c.title)}</td><td>${escapeHtml(c.content_type || '')}</td><td>${fa(c.publish_date || '')}</td><td>${escapeHtml((c.publish_platforms || []).join('، '))}</td>
+                    ${showMetrics ? `<td>${n(sum('views'))}</td><td>${n(sum('likes'))}</td><td>${n(sum('comments'))}</td>` : `<td>${escapeHtml(STATUS_FA[c.status] || c.status)}</td>`}</tr>`;
+            }).join('')}</tbody></table></div>`;
+    }
+    function render() {
+        const r = report;
+        const u = r.usage;
+        document.getElementById('report').innerHTML = `
+            <div class="wf-card rep-head">
+                <div class="wf-row">${r.org.logo_url ? `<img src="${escapeHtml(safeUrl(r.org.logo_url))}" alt="">` : ''}<div><h2 style="margin:0">گزارش عملکرد ${escapeHtml(r.org.org_name)}</h2><div class="muted">${JALALI_MONTHS[r.month - 1]} ${fa(r.year)}</div></div></div>
+                <div class="muted" style="font-size:.85rem">${escapeHtml(STUDIO)}${r.sent_at ? ' — ارسال: ' + escapeHtml(faDateTime(r.sent_at)) : ''}</div>
+            </div>
+            <div class="kpis" style="margin-bottom:16px">
+                ${[['محتوای تحویل‌شده', fa(r.delivered.length)], ['تعهد پکیج', u.contract ? fa(u.totals.quota) : '—'], ['بازدید', n(r.totals.views)], ['لایک', n(r.totals.likes)], ['کامنت', n(r.totals.comments)], ['اشتراک‌گذاری', n(r.totals.shares)], ['ذخیره', n(r.totals.saves)], ['دسترسی (Reach)', n(r.totals.reach)]]
+                    .map(([l, v]) => `<div class="wf-card wf-stat" style="margin:0"><b>${v}</b><span>${l}</span></div>`).join('')}
+            </div>
+            ${u.contract ? `<div class="wf-card"><h3>پکیج «${escapeHtml(u.contract.title || '')}»: تعهد در برابر تحویل</h3><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>نوع</th><th>تعهد</th><th>تحویل</th><th>پیشرفت</th></tr></thead><tbody>
+                ${u.rows.filter(x => x.quota || x.delivered).map(x => `<tr><td>${escapeHtml(x.content_type)}</td><td>${fa(x.quota)}</td><td>${fa(x.delivered)}</td><td><div class="wf-progress ${x.delivered >= x.quota ? 'done' : ''}"><span style="width:${x.quota ? Math.min(100, Math.round(x.delivered / x.quota * 100)) : 100}%"></span></div></td></tr>`).join('')}
+            </tbody></table></div></div>` : ''}
+            <div class="wf-card"><h3>✅ تحویل‌شده در این ماه</h3>${itemRows(r.delivered, true)}</div>
+            ${r.metrics.length ? `<div class="wf-card"><h3>📈 نتایج به تفکیک پلتفرم</h3><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>پلتفرم</th><th>پست</th><th>بازدید</th><th>لایک</th><th>کامنت</th><th>اشتراک</th><th>ذخیره</th></tr></thead><tbody>
+                ${r.metrics.map(m => `<tr><td>${escapeHtml(m.platform)}</td><td>${fa(m.posts)}</td><td>${n(m.views)}</td><td>${n(m.likes)}</td><td>${n(m.comments)}</td><td>${n(m.shares)}</td><td>${n(m.saves)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+            ${r.not_delivered.length ? `<div class="wf-card"><h3>⏳ در دست تولید (برنامه این ماه)</h3>${itemRows(r.not_delivered, false)}</div>` : ''}
+            <div class="wf-card"><h3>📝 جمع‌بندی ماه</h3>
+                ${CLIENT ? `<div style="white-space:pre-wrap;line-height:1.9">${escapeHtml(r.summary || '—')}</div>` : `<textarea class="form-control no-print" id="rSummary" rows="5" placeholder="نکات مهم، دستاوردها و پیشنهادها…">${escapeHtml(r.summary)}</textarea><div class="print-only" style="white-space:pre-wrap">${escapeHtml(r.summary)}</div>`}
+            </div>
+            <div class="wf-card"><h3>🗓️ برنامه ماه آینده</h3>
+                ${itemRows(r.next_month, false)}
+                ${CLIENT ? (r.next_plan ? `<div style="white-space:pre-wrap;margin-top:8px">${escapeHtml(r.next_plan)}</div>` : '') : `<textarea class="form-control no-print" id="rNext" rows="4" style="margin-top:8px" placeholder="ایده‌ها و برنامه ماه بعد…">${escapeHtml(r.next_plan)}</textarea>`}
+            </div>
+            ${r.invoices.length ? `<div class="wf-card"><h3>💳 فاکتورهای این ماه</h3>${r.invoices.map(i => `<div>فاکتور ${fa(i.invoice_number)}: ${money(i.total)} — ${i.status === 'paid' ? 'پرداخت شده' : 'منتظر پرداخت'}</div>`).join('')}</div>` : ''}
+            ${CLIENT ? '' : `<div class="wf-actions no-print"><button type="button" class="wf-btn" onclick="save()">ذخیره یادداشت‌ها</button><button type="button" class="wf-btn primary" onclick="save('send')">📤 ذخیره و ارسال برای کارفرما</button></div>`}`;
+    }
+    async function save(action) {
+        const body = { org_id: report.org.id, year: report.year, month: report.month, summary: document.getElementById('rSummary').value, next_plan: document.getElementById('rNext').value, action };
+        if (await api('/api/monthly_report', body, { success: action ? 'برای کارفرما ارسال شد' : 'ذخیره شد' })) load();
+    }
+    init();
+</script>
+<style>.print-only { display: none; } @media print { .print-only { display: block; } }</style>
+</body>
+</html>

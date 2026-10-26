@@ -237,7 +237,44 @@
                 <div id="awaitingInfo" class="awaiting-info" style="display:none;"></div>
                 <span class="btn-primary card-cta">بررسی محتواها</span>
             </a>
+            <a href="client-requests" class="action-card">
+                <div style="margin-bottom: 15px; font-size: 44px; line-height: 1;" aria-hidden="true">📨</div>
+                <h3>درخواست محتوای جدید</h3>
+                <p style="color: var(--text-gray); font-size: 0.9rem;">نیاز محتوایی، هدف و مخاطب را برای استودیو بفرستید و پیگیری کنید.</p>
+                <span class="btn-outline card-cta">ثبت درخواست</span>
+            </a>
+            <a href="client-files" class="action-card">
+                <div style="margin-bottom: 15px; font-size: 44px; line-height: 1;" aria-hidden="true">📦</div>
+                <h3>فایل‌های تحویلی</h3>
+                <p style="color: var(--text-gray); font-size: 0.9rem;">فایل‌های نهایی و باکیفیت محتواهای تاییدشده را دانلود کنید.</p>
+                <span class="btn-outline card-cta">دریافت فایل‌ها</span>
+            </a>
+            <a href="client-quotes" class="action-card">
+                <div style="margin-bottom: 15px; font-size: 44px; line-height: 1;" aria-hidden="true">💳</div>
+                <h3>پیش‌فاکتور و فاکتور</h3>
+                <p style="color: var(--text-gray); font-size: 0.9rem;">پیش‌فاکتورها را تایید کنید و وضعیت پرداخت فاکتورها را ببینید.</p>
+                <span class="btn-outline card-cta">مشاهده</span>
+            </a>
+            <a href="monthly-report" class="action-card">
+                <div style="margin-bottom: 15px; font-size: 44px; line-height: 1;" aria-hidden="true">📊</div>
+                <h3>گزارش ماهانه</h3>
+                <p style="color: var(--text-gray); font-size: 0.9rem;">تحویل‌ها، نتایج و برنامه ماه بعد؛ قابل دریافت به صورت PDF.</p>
+                <span class="btn-outline card-cta">مشاهده گزارش</span>
+            </a>
+            <a href="client-brand-kit" class="action-card">
+                <div style="margin-bottom: 15px; font-size: 44px; line-height: 1;" aria-hidden="true">🎨</div>
+                <h3>کیت برند</h3>
+                <p style="color: var(--text-gray); font-size: 0.9rem;">لوگوها، رنگ‌ها، فونت‌ها و راهنمای برند شما نزد استودیو.</p>
+                <span class="btn-outline card-cta">مشاهده</span>
+            </a>
+            <div class="action-card" style="cursor: default;">
+                <div style="margin-bottom: 15px; font-size: 44px; line-height: 1;" aria-hidden="true">🗓️</div>
+                <h3>تقویم انتشار در گوشی شما</h3>
+                <p style="color: var(--text-gray); font-size: 0.9rem;">برنامه انتشار و تصویربرداری‌ها را در Google Calendar یا تقویم گوشی ببینید.</p>
+                <button type="button" class="btn-outline card-cta" onclick="showIcsLink()">دریافت لینک تقویم</button>
+            </div>
         </div>
+        <div id="packageUsage" style="display:none; margin-top: 20px;"></div>
     </div>
 
     <script>
@@ -341,6 +378,22 @@
 });
     </script>
 
+
+    <link rel="stylesheet" href="assets/css/workflow.css">
+    <script src="assets/js/wf.js"></script>
+    <script>
+    // This month's package: promised vs. delivered.
+    document.addEventListener('DOMContentLoaded', async () => {
+        const res = await api('/api/contract_usage', undefined, { quiet: true });
+        const u = res && res.data;
+        if (!u || !u.contract || !u.rows.length) return;
+        const box = document.getElementById('packageUsage');
+        box.innerHTML = `<div class="wf-card"><h3>پکیج این ماه: ${escapeHtml(u.contract.title || '')}</h3>
+            ${u.rows.filter(r => r.quota).map(r => `<div style="margin-bottom:10px"><div class="wf-row between" style="font-size:.9rem"><span>${escapeHtml(r.content_type)}</span><span>${fa(r.delivered)} از ${fa(r.quota)} تحویل شده${r.planned ? ' — ' + fa(r.planned) + ' در دست تولید' : ''}</span></div>
+            <div class="wf-progress ${r.delivered >= r.quota ? 'done' : ''}"><span style="width:${Math.min(100, Math.round(r.delivered / r.quota * 100))}%"></span></div></div>`).join('')}</div>`;
+        box.style.display = 'block';
+    });
+    </script>
 <%- include('ux-script') %>
 
 

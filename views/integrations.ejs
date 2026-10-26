@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'اعلان‌های خارجی و گردش کار' }) %>
+</head>
+<body>
+    <%- include('sidebar') %>
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title">📣 <span>اعلان‌های خارجی و گردش کار</span></h1>
+                <p class="page-subtitle">ارسال اعلان‌ها با پیامک، ایمیل، تلگرام و بله، تا کارفرما و تیم بدون ورود به سیستم هم باخبر شوند.</p>
+            </div>
+        </div>
+        <div class="wf-page">
+            <div class="wf-tabs" role="tablist">
+                <button type="button" class="wf-tab active" data-tab="channels">کانال‌ها</button>
+                <button type="button" class="wf-tab" data-tab="contacts">مخاطبین</button>
+                <button type="button" class="wf-tab" data-tab="log">گزارش ارسال</button>
+                <button type="button" class="wf-tab" data-tab="workflow">گردش کار</button>
+            </div>
+            <div id="pane"><div class="wf-empty">در حال بارگذاری…</div></div>
+        </div>
+    </main>
+    <script src="assets/js/app.js"></script>
+    <script>
+        let tab = 'channels', cfg = null, events = [], contacts = { colleagues: [], organizations: [] };
+        document.querySelectorAll('.wf-tab').forEach(b => b.onclick = () => {
+            document.querySelectorAll('.wf-tab').forEach(x => x.classList.toggle('active', x === b));
+            tab = b.getAttribute('data-tab');
+            render();
+        });
+        async function load() {
+            const res = await api('/api/integrations');
+            if (!res) return;
+            cfg = res.data; events = res.events; contacts = res.contacts;
+            render();
+        }
+        const val = (v) => escapeHtml(v === undefined || v === null ? '' : v);
+        const toggle = (ch, label) => `<label class="wf-row" style="gap:6px"><input type="checkbox" data-ch="${ch}" data-k="enabled" ${cfg[ch].enabled ? 'checked' : ''}> <b>${label}</b></label>`;
+        const field = (ch, k, label, opts = {}) => `<label class="wf-label">${label}<input class="form-control ${opts.ltr === false ? '' : 'ltr'}" data-ch="${ch}" data-k="${k}" type="${opts.type || 'text'}" value="${val(cfg[ch][k])}" placeholder="${val(opts.ph || '')}" autocomplete="off"></label>`;
+        const testRow = (ch, ph) => `<div class="wf-row"><input class="form-control ltr" id="test_${ch}" placeholder="${ph}" style="flex:1" aria-label="گیرنده آزمایشی"><button type="button" class="wf-btn" onclick="testChannel('${ch}')">ارسال آزمایشی</button></div>`;
+        async function render() {
+            const pane = document.getElementById('pane');
+            if (!cfg) return;
+            if (tab === 'channels') {
+                pane.innerHTML = `
+                    <div class="wf-card"><label class="wf-label">آدرس اینترنتی سامانه (برای ساخت لینک داخل پیام‌ها)<input class="form-control ltr" id="baseUrl" value="${val(cfg.base_url)}" placeholder="https://panel.example.com"></label></div>
+                    <div class="wf-grid-2">
+                        <div class="wf-card">${toggle('sms', '📱 پیامک')}
+                            <label class="wf-label">سرویس‌دهنده<select class="form-control" data-ch="sms" data-k="provider"><option value="kavenegar" ${cfg.sms.provider === 'kavenegar' ? 'selected' : ''}>کاوه‌نگار</option><option value="webhook" ${cfg.sms.provider === 'webhook' ? 'selected' : ''}>وب‌هوک (هر سرویس دیگر)</option></select></label>
+                            ${field('sms', 'api_key', 'کلید API', { ph: 'API Key' })}${field('sms', 'sender', 'شماره فرستنده', { ph: '10004346' })}
+                            ${field('sms', 'webhook_url', 'آدرس وب‌هوک (فقط حالت وب‌هوک؛ بدنه: to، message)', { ph: 'https://' })}
+                            ${testRow('sms', '09121234567')}</div>
+                        <div class="wf-card">${toggle('email', '✉️ ایمیل (SMTP)')}
+                            ${field('email', 'host', 'سرور SMTP', { ph: 'mail.example.com' })}
+                            <div class="wf-grid-2">${field('email', 'port', 'پورت', { type: 'number' })}<label class="wf-label" style="padding-top:26px"><input type="checkbox" data-ch="email" data-k="secure" ${cfg.email.secure ? 'checked' : ''}> اتصال امن (SSL)</label></div>
+                            ${field('email', 'user', 'نام کاربری')}${field('email', 'pass', 'رمز عبور', { type: 'password' })}${field('email', 'from', 'فرستنده', { ph: 'Studio <no-reply@example.com>' })}
+                            ${testRow('email', 'name@example.com')}</div>
+                        <div class="wf-card">${toggle('telegram', '✈️ ربات تلگرام')}
+                            ${field('telegram', 'bot_token', 'توکن ربات (از BotFather)', { ph: '123456:ABC...' })}
+                            <p class="muted" style="font-size:.8rem">هر گیرنده باید یک‌بار ربات را استارت کند؛ شناسه گفت‌وگو (chat id) او را در تب مخاطبین وارد کنید.</p>
+                            ${testRow('telegram', 'chat id')}</div>
+                        <div class="wf-card">${toggle('bale', '💬 ربات بله')}
+                            ${field('bale', 'bot_token', 'توکن ربات (از BotFather بله)', { ph: '123456:ABC...' })}
+                            ${testRow('bale', 'chat id')}</div>
+                    </div>
+                    <div class="wf-card"><h3>چه رویدادهایی بیرون از سامانه ارسال شود؟</h3>
+                        <div class="wf-grid">${events.map(ev => `<label><input type="checkbox" class="evt" value="${ev.id}" ${(cfg.events || []).includes(ev.id) ? 'checked' : ''}> ${escapeHtml(ev.label)}</label>`).join('')}</div></div>
+                    <div class="wf-actions"><button type="button" class="btn-primary" onclick="saveConfig()">ذخیره تنظیمات</button></div>`;
+            } else if (tab === 'contacts') {
+                const table = (type, list) => `<div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>نام</th><th>موبایل</th><th>ایمیل</th><th>chat id تلگرام</th><th>chat id بله</th><th></th></tr></thead><tbody>
+                    ${list.map(c => `<tr data-type="${type}" data-id="${c.id}"><td>${escapeHtml(c.name)}</td>
+                        <td><input class="form-control ltr" data-f="phone" value="${val(c.phone)}" style="min-width:120px" aria-label="موبایل"></td>
+                        <td><input class="form-control ltr" data-f="email" value="${val(c.email)}" style="min-width:160px" aria-label="ایمیل"></td>
+                        <td><input class="form-control ltr" data-f="telegram_chat_id" value="${val(c.telegram_chat_id)}" style="min-width:110px" aria-label="تلگرام"></td>
+                        <td><input class="form-control ltr" data-f="bale_chat_id" value="${val(c.bale_chat_id)}" style="min-width:110px" aria-label="بله"></td>
+                        <td><button type="button" class="wf-btn sm" onclick="saveContact(this)">ذخیره</button></td></tr>`).join('')}</tbody></table></div>`;
+                pane.innerHTML = `<div class="wf-card"><h3>کارفرماها</h3>${table('organization', contacts.organizations)}</div><div class="wf-card"><h3>همکاران</h3>${table('colleague', contacts.colleagues)}</div>`;
+            } else if (tab === 'log') {
+                const res = await api('/api/outbox');
+                const list = (res && res.data) || [];
+                const CH = { sms: 'پیامک', email: 'ایمیل', telegram: 'تلگرام', bale: 'بله' };
+                pane.innerHTML = `<div class="wf-card"><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>زمان</th><th>کانال</th><th>گیرنده</th><th>عنوان</th><th>نتیجه</th></tr></thead><tbody>
+                    ${list.map(o => `<tr><td>${escapeHtml(faDateTime(o.at))}</td><td>${CH[o.channel] || o.channel}</td><td class="ltr">${escapeHtml(o.to)}</td><td>${escapeHtml(o.title)}</td><td>${o.status === 'sent' ? statusChip('ارسال شد', 'green') : statusChip('ناموفق', 'red') + `<br><small class="muted">${escapeHtml(o.error || '')}</small>`}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">هنوز پیامی ارسال نشده است.</td></tr>'}
+                </tbody></table></div></div>`;
+            } else if (tab === 'workflow') {
+                const res = await api('/api/workflow_settings');
+                const on = res && res.data && res.data.internal_approval_required;
+                pane.innerHTML = `<div class="wf-card"><h3>تایید داخلی قبل از ارسال برای کارفرما</h3>
+                    <label class="wf-row" style="gap:8px"><input type="checkbox" id="wfInternal" ${on ? 'checked' : ''}> <b>هر نسخه پیش از رسیدن به کارفرما باید در استودیو تایید شود</b></label>
+                    <p class="muted" style="font-size:.85rem">با فعال‌بودن این گزینه، فقط کسانی که نقش‌شان مجوز «تایید داخلی محتوا» دارد (یا مدیر کل) می‌توانند نسخه را تایید و برای کارفرما بفرستند؛ بقیه نمی‌توانند کارت را مستقیم به «ارزیابی کارفرما» ببرند. مجوز را در تنظیمات ← نقش‌ها بدهید.</p>
+                    <div class="wf-actions"><button type="button" class="btn-primary" onclick="saveWorkflow()">ذخیره</button></div></div>`;
+            }
+        }
+        async function saveConfig() {
+            const out = { base_url: document.getElementById('baseUrl').value, events: [...document.querySelectorAll('.evt:checked')].map(x => x.value) };
+            document.querySelectorAll('[data-ch]').forEach(el => {
+                const ch = el.getAttribute('data-ch'), k = el.getAttribute('data-k');
+                out[ch] = out[ch] || {};
+                out[ch][k] = el.type === 'checkbox' ? el.checked : el.value;
+            });
+            const res = await api('/api/integrations', { config: out }, { success: 'ذخیره شد' });
+            if (res) { cfg = res.data; render(); }
+        }
+        async function testChannel(ch) {
+            const to = document.getElementById('test_' + ch).value.trim();
+            if (!to) return showToast('گیرنده را وارد کنید', 'error');
+            await saveConfig();
+            await api('/api/integration_test', { channel: ch, to: latin(to) }, { success: 'ارسال شد' });
+        }
+        async function saveContact(btn) {
+            const row = btn.closest('tr');
+            const body = { type: row.getAttribute('data-type'), id: row.getAttribute('data-id') };
+            row.querySelectorAll('[data-f]').forEach(i => body[i.getAttribute('data-f')] = latin(i.value));
+            await api('/api/integration_contacts', body, { success: 'ذخیره شد' });
+        }
+        async function saveWorkflow() {
+            await api('/api/workflow_settings', { internal_approval_required: document.getElementById('wfInternal').checked }, { success: 'ذخیره شد' });
+        }
+        load();
+    </script>
+</body>
+</html>

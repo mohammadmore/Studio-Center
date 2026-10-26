@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'کیت برند' }) %>
+</head>
+<% const clientMode = typeof isClient !== 'undefined' && isClient; %>
+<body style="background: var(--bg-color);">
+<% if (clientMode) { %>
+<div class="wf-client-shell">
+    <%- include('partials/client-shell') %>
+<% } else { %>
+    <%- include('sidebar') %>
+    <main class="main-content">
+<% } %>
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title">🎨 <span>کیت برند</span></h1>
+                <p class="page-subtitle">لوگوها، فونت‌ها، پالت رنگ، راهنمای برند و بایدها و نبایدها؛ همیشه در دسترس تیم.</p>
+            </div>
+            <% if (!clientMode) { %>
+            <label class="wf-label" style="margin:0">برند<select class="form-control" id="fOrg" onchange="load()"></select></label>
+            <% } %>
+        </div>
+        <div class="wf-page" id="kit"><div class="wf-empty">در حال بارگذاری…</div></div>
+<% if (clientMode) { %>
+</div>
+<%- include('ux-script') %>
+<% } else { %>
+    </main>
+    <script src="assets/js/app.js"></script>
+<% } %>
+<script>
+    const CLIENT = <%= clientMode ? 'true' : 'false' %>;
+    let kit = null, canEdit = false;
+    async function init() {
+        if (!CLIENT) {
+            const o = await api('/api/get_orgs');
+            const orgs = (o && o.data) || [];
+            const sel = document.getElementById('fOrg');
+            sel.innerHTML = optionList(orgs, 'id', 'org_name');
+            const want = new URLSearchParams(location.search).get('org_id');
+            if (want) sel.value = want;
+            if (!orgs.length) { document.getElementById('kit').innerHTML = '<div class="wf-card wf-empty">ابتدا یک برند ثبت کنید.</div>'; return; }
+        }
+        load();
+    }
+    async function load() {
+        const orgId = CLIENT ? '' : document.getElementById('fOrg').value;
+        const res = await api('/api/brand_kit?org_id=' + encodeURIComponent(orgId));
+        if (!res) return;
+        kit = res.data;
+        canEdit = !!res.can_edit;
+        render();
+    }
+    const list = (items, empty) => items && items.length ? '<ul style="margin:0;padding-right:18px">' + items.map(x => `<li>${escapeHtml(x)}</li>`).join('') + '</ul>' : `<div class="wf-empty-sm">${empty}</div>`;
+    function render() {
+        const k = kit;
+        const imgs = (k.logos || []).map(l => `<a href="${escapeHtml(safeUrl(l.url))}" target="_blank" rel="noopener" style="display:inline-block;margin:4px;text-align:center;text-decoration:none;color:inherit">
+            ${fileKind(l) === 'image' ? `<img src="${escapeHtml(safeUrl(l.url))}" alt="${escapeHtml(l.name)}" style="width:110px;height:110px;object-fit:contain;background:#fff;border:1px solid var(--border-color);border-radius:12px" loading="lazy">` : `<div class="wf-swatch" style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;font-size:2rem">${fileIcon(l)}</div>`}
+            <div style="font-size:.75rem;max-width:110px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.name)}</div></a>`).join('');
+        document.getElementById('kit').innerHTML = `
+            ${canEdit ? '<div class="wf-actions" style="margin-top:0;margin-bottom:12px"><button type="button" class="btn-primary" onclick="edit()">✏️ ویرایش کیت برند</button></div>' : ''}
+            <div class="wf-grid-2">
+                <div class="wf-card"><h3>لوگوها</h3>${imgs || '<div class="wf-empty-sm">لوگویی ثبت نشده است.</div>'}</div>
+                <div class="wf-card"><h3>پالت رنگ</h3><div class="wf-row">${(k.colors || []).map(c => `<button type="button" class="wf-btn" onclick="copyText(${jsAttr(c.hex)})" title="کپی کد رنگ" style="flex-direction:column;gap:4px"><span class="wf-swatch" style="background:${escapeHtml(safeColor(c.hex))}"></span><small>${escapeHtml(c.name || '')}</small><small class="ltr">${escapeHtml(c.hex)}</small></button>`).join('') || '<div class="wf-empty-sm">رنگی ثبت نشده است.</div>'}</div></div>
+                <div class="wf-card"><h3>فونت‌ها</h3>${fileListHtml(k.fonts, { download: true, empty: 'فونتی ثبت نشده است.' })}</div>
+                <div class="wf-card"><h3>فایل‌ها و راهنمای برند (PDF، قالب‌ها…)</h3>${fileListHtml(k.files, { download: true, empty: 'فایلی ثبت نشده است.' })}</div>
+                <div class="wf-card"><h3>✅ بایدها</h3>${list(k.dos, 'ثبت نشده')}</div>
+                <div class="wf-card"><h3>⛔ نبایدها</h3>${list(k.donts, 'ثبت نشده')}</div>
+                <div class="wf-card"><h3>لحن و صدای برند</h3><div style="white-space:pre-wrap">${escapeHtml(k.tone || '—')}</div></div>
+                <div class="wf-card"><h3>مخاطب</h3><div style="white-space:pre-wrap">${escapeHtml(k.audience || '—')}</div></div>
+            </div>
+            <div class="wf-card"><h3>راهنمای برند</h3><div style="white-space:pre-wrap;line-height:1.9">${escapeHtml(k.guidelines || '—')}</div></div>
+            <div class="wf-card"><h3>حساب‌های رسمی</h3>${(k.accounts || []).map(a => `<div>${escapeHtml(a.platform)}: ${a.url ? `<a href="${escapeHtml(safeUrl(a.url))}" target="_blank" rel="noopener" class="ltr">${escapeHtml(a.handle || a.url)}</a>` : `<span class="ltr">${escapeHtml(a.handle)}</span>`}</div>`).join('') || '<div class="wf-empty-sm">ثبت نشده</div>'}</div>
+            ${k.updated_at ? `<p class="muted" style="font-size:.78rem">آخرین به‌روزرسانی: ${escapeHtml(faDateTime(k.updated_at))}</p>` : ''}`;
+    }
+    function edit() {
+        const k = JSON.parse(JSON.stringify(kit));
+        const colorRow = (c) => `<div class="wf-row colrow" style="margin-bottom:6px"><input type="color" class="cpick" value="${escapeHtml(/^#[0-9a-f]{6}$/i.test(c.hex || '') ? c.hex : '#4f46e5')}" aria-label="رنگ"><input class="form-control chex ltr" value="${escapeHtml(c.hex || '')}" placeholder="#000000" style="max-width:120px" aria-label="کد رنگ"><input class="form-control cname" value="${escapeHtml(c.name || '')}" placeholder="نام (اصلی، ثانویه…)" aria-label="نام رنگ"><button type="button" class="wf-btn sm danger" onclick="this.parentNode.remove()">حذف</button></div>`;
+        const accRow = (a) => `<div class="wf-row accrow" style="margin-bottom:6px"><input class="form-control aplat" value="${escapeHtml(a.platform || '')}" placeholder="پلتفرم" aria-label="پلتفرم"><input class="form-control ahandle ltr" value="${escapeHtml(a.handle || '')}" placeholder="@handle" aria-label="شناسه"><input class="form-control aurl ltr" value="${escapeHtml(a.url || '')}" placeholder="https://" aria-label="لینک"><button type="button" class="wf-btn sm danger" onclick="this.parentNode.remove()">حذف</button></div>`;
+        window.__colorRow = colorRow; window.__accRow = accRow;
+        const m = wfModal('ویرایش کیت برند ' + k.org_name, `
+            <div class="wf-label">لوگوها</div><div id="bkLogos"></div>
+            <div class="wf-label" style="margin-top:10px">فونت‌ها</div><div id="bkFonts"></div>
+            <div class="wf-label" style="margin-top:10px">فایل‌ها و راهنمای برند</div><div id="bkFiles"></div>
+            <div class="wf-label" style="margin-top:10px">پالت رنگ</div><div id="bkColors">${(k.colors.length ? k.colors : [{}]).map(colorRow).join('')}</div>
+            <button type="button" class="wf-btn sm" onclick="document.getElementById('bkColors').insertAdjacentHTML('beforeend', __colorRow({}))">➕ رنگ</button>
+            <label class="wf-label" style="margin-top:10px">بایدها (هر خط یک مورد)<textarea class="form-control" id="bkDos">${escapeHtml((k.dos || []).join('\n'))}</textarea></label>
+            <label class="wf-label">نبایدها (هر خط یک مورد)<textarea class="form-control" id="bkDonts">${escapeHtml((k.donts || []).join('\n'))}</textarea></label>
+            <label class="wf-label">لحن و صدای برند<textarea class="form-control" id="bkTone">${escapeHtml(k.tone || '')}</textarea></label>
+            <label class="wf-label">مخاطب<textarea class="form-control" id="bkAudience">${escapeHtml(k.audience || '')}</textarea></label>
+            <label class="wf-label">راهنمای برند<textarea class="form-control" id="bkGuide" rows="8">${escapeHtml(k.guidelines || '')}</textarea></label>
+            <div class="wf-label">حساب‌های رسمی</div><div id="bkAcc">${(k.accounts.length ? k.accounts : [{}]).map(accRow).join('')}</div>
+            <button type="button" class="wf-btn sm" onclick="document.getElementById('bkAcc').insertAdjacentHTML('beforeend', __accRow({}))">➕ حساب</button>
+            <div class="wf-actions"><button type="button" class="btn-primary" id="bkSave">ذخیره</button></div>`, { wide: true });
+        wfFilePicker(m.q('#bkLogos'), k.logos);
+        wfFilePicker(m.q('#bkFonts'), k.fonts);
+        wfFilePicker(m.q('#bkFiles'), k.files);
+        m.el.addEventListener('input', (ev) => {
+            if (ev.target.classList.contains('cpick')) ev.target.parentNode.querySelector('.chex').value = ev.target.value;
+        });
+        m.q('#bkSave').onclick = async () => {
+            const lines = (id) => m.q(id).value.split('\n').map(x => x.trim()).filter(Boolean);
+            const body = {
+                org_id: k.org_id,
+                kit: {
+                    logos: k.logos, fonts: k.fonts, files: k.files,
+                    colors: [...m.el.querySelectorAll('.colrow')].map(r => ({ hex: r.querySelector('.chex').value.trim(), name: r.querySelector('.cname').value })).filter(c => c.hex),
+                    dos: lines('#bkDos'), donts: lines('#bkDonts'), tone: m.q('#bkTone').value, audience: m.q('#bkAudience').value, guidelines: m.q('#bkGuide').value,
+                    accounts: [...m.el.querySelectorAll('.accrow')].map(r => ({ platform: r.querySelector('.aplat').value, handle: r.querySelector('.ahandle').value, url: r.querySelector('.aurl').value })),
+                },
+            };
+            const res = await api('/api/brand_kit', body, { success: 'ذخیره شد' });
+            if (res) { kit = res.data; m.close(); render(); }
+        };
+    }
+    init();
+</script>
+</body>
+</html>

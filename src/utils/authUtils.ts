@@ -223,6 +223,7 @@ export function passwordFingerprint(hash: unknown) {
 
 export function stripSecrets<T extends Record<string, any>>(record: T) {
   if (!record) return record;
-  const { passwordHash, password, ...safe } = record as any;
-  return safe as Omit<T, "passwordHash" | "password">;
+  // ics_token is the only credential of a private calendar feed.
+  const { passwordHash, password, ics_token, ...safe } = record as any;
+  return safe as Omit<T, "passwordHash" | "password" | "ics_token">;
 }

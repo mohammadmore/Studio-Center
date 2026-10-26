@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'تایم‌شیت و سودآوری' }) %>
+</head>
+<body>
+    <%- include('sidebar') %>
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title">⏱️ <span>تایم‌شیت و سودآوری</span></h1>
+                <p class="page-subtitle">زمان کار روی هر کارت را ثبت کنید تا معلوم شود کدام کارفرما واقعاً سودده است.</p>
+            </div>
+        </div>
+        <div class="wf-page">
+            <div class="wf-tabs" role="tablist">
+                <button type="button" class="wf-tab active" data-tab="mine">زمان‌های من</button>
+                <% if (userPermissions.includes('timesheet_report')) { %>
+                <button type="button" class="wf-tab" data-tab="all">همه همکاران</button>
+                <button type="button" class="wf-tab" data-tab="profit">سودآوری برندها</button>
+                <button type="button" class="wf-tab" data-tab="rates">نرخ ساعتی همکاران</button>
+                <% } %>
+            </div>
+            <div class="wf-toolbar">
+                <label class="wf-label" style="margin:0">از<input class="form-control" id="fFrom" data-jdp style="width:130px" onchange="load()"></label>
+                <label class="wf-label" style="margin:0">تا<input class="form-control" id="fTo" data-jdp style="width:130px" onchange="load()"></label>
+            </div>
+            <div id="pane"></div>
+        </div>
+    </main>
+    <script src="assets/js/app.js"></script>
+    <script>
+        let tab = 'mine', cards = [];
+        const fromEl = document.getElementById('fFrom'), toEl = document.getElementById('fTo');
+        const ym = jalaliYearMonth();
+        fromEl.value = fa(`${ym.year}/${String(ym.month).padStart(2, '0')}/01`);
+        toEl.value = fa(todayJalali());
+        document.querySelectorAll('.wf-tab').forEach(b => b.onclick = () => {
+            document.querySelectorAll('.wf-tab').forEach(x => x.classList.toggle('active', x === b));
+            tab = b.getAttribute('data-tab');
+            load();
+        });
+        const hours = (m) => fa(Math.round((m || 0) / 6) / 10);
+        async function load() {
+            const range = `from=${latin(fromEl.value)}&to=${latin(toEl.value)}`;
+            const pane = document.getElementById('pane');
+            if (tab === 'mine' || tab === 'all') {
+                const res = await api('/api/time_entries?' + range + (tab === 'mine' ? '&colleague_id=' + (ASVA_ME.id || '') : ''));
+                const list = (res && res.data) || [];
+                if (!cards.length) {
+                    const c = await api('/api/get_my_projects', undefined, { quiet: true });
+                    cards = (c && c.data) || [];
+                }
+                const byOrg = {};
+                list.forEach(t => { byOrg[t.org_name || 'بدون برند'] = (byOrg[t.org_name || 'بدون برند'] || 0) + t.minutes; });
+                pane.innerHTML = `
+                    ${tab === 'mine' ? `<div class="wf-card"><h3>ثبت زمان</h3><div class="wf-row">
+                        <select class="form-control" id="nCard" style="flex:2;min-width:180px" aria-label="کارت"><option value="">کار عمومی (بدون کارت)</option>${cards.map(c => `<option value="${c.id}">${escapeHtml(c.title)} — ${escapeHtml(c.org_name || '')}</option>`).join('')}</select>
+                        <input class="form-control" id="nHours" type="number" min="0.25" step="0.25" placeholder="ساعت" style="max-width:100px" aria-label="ساعت">
+                        <input class="form-control" id="nDay" data-jdp placeholder="تاریخ (امروز)" style="max-width:140px" aria-label="تاریخ">
+                        <input class="form-control" id="nNote" placeholder="توضیح" style="flex:2" aria-label="توضیح">
+                        <button type="button" class="wf-btn primary" onclick="addEntry()">ثبت</button>
+                        <button type="button" class="wf-btn" onclick="startTimer()">▶️ شروع تایمر</button></div></div>` : ''}
+                    <div class="wf-grid" style="margin-bottom:14px">
+                        <div class="wf-card wf-stat"><b>${hours(res && res.total_minutes)}</b><span>مجموع ساعت</span></div>
+                        ${Object.entries(byOrg).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([o, m]) => `<div class="wf-card wf-stat"><b>${hours(m)}</b><span>${escapeHtml(o)}</span></div>`).join('')}
+                    </div>
+                    <div class="wf-card"><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>تاریخ</th>${tab === 'all' ? '<th>همکار</th>' : ''}<th>کار</th><th>برند</th><th>مدت</th><th>توضیح</th><th></th></tr></thead><tbody>
+                        ${list.map(t => `<tr><td>${fa(t.date)}</td>${tab === 'all' ? `<td>${escapeHtml(t.colleague_name)}</td>` : ''}<td>${escapeHtml(t.content_title || 'عمومی')}</td><td>${escapeHtml(t.org_name)}</td><td>${hours(t.minutes)} ساعت${t.source === 'timer' ? ' ⏱️' : ''}</td><td>${escapeHtml([t.stage, t.note].filter(Boolean).join(' — '))}</td>
+                            <td><button type="button" class="wf-btn sm danger" onclick="delEntry(${t.id})">حذف</button></td></tr>`).join('') || `<tr><td colspan="7" class="muted">زمانی در این بازه ثبت نشده است.</td></tr>`}
+                    </tbody></table></div></div>`;
+            } else if (tab === 'profit') {
+                const res = await api('/api/profitability?' + range);
+                const list = (res && res.data) || [];
+                pane.innerHTML = `
+                    ${res && res.missing_rates && res.missing_rates.length ? `<div class="wf-card" style="border-color:#f59e0b">⚠️ نرخ ساعتی این همکاران ثبت نشده و هزینه نیروی انسانی‌شان صفر حساب می‌شود: ${escapeHtml(res.missing_rates.join('، '))}</div>` : ''}
+                    <div class="wf-card"><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>برند</th><th>ساعت کار</th><th>هزینه نیرو</th><th>سایر هزینه‌ها</th><th>درآمد</th><th>سود</th><th>حاشیه سود</th></tr></thead><tbody>
+                    ${list.map(r => `<tr><td><b>${escapeHtml(r.org_name)}</b><br><small class="muted">${fa(r.delivered)} محتوای تحویلی</small></td><td>${fa(r.hours)}</td><td>${money(r.labor_cost)}</td><td>${money(r.expenses)}</td>
+                        <td>${money(r.revenue)}<br><small class="muted">${r.revenue_source === 'invoices' ? 'از فاکتورها' : 'تخمین از قیمت محتواها'}</small></td>
+                        <td>${r.profit < 0 ? `<span class="wf-chip red">${money(r.profit)}</span>` : `<span class="wf-chip green">${money(r.profit)}</span>`}</td>
+                        <td>${r.margin === null ? '—' : fa(r.margin) + '٪'}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">داده‌ای در این بازه نیست.</td></tr>'}
+                    </tbody></table></div></div>
+                    <p class="muted" style="font-size:.8rem">ضررده‌ترین برندها بالای جدول هستند. درآمد از فاکتورهای صادرشده در بازه محاسبه می‌شود و اگر فاکتوری نباشد از قیمت محتواهای تحویلی تخمین زده می‌شود.</p>`;
+            } else if (tab === 'rates') {
+                const res = await api('/api/get_colleagues');
+                const list = (res && res.users) || [];
+                pane.innerHTML = `<div class="wf-card"><p class="muted" style="margin-top:0">هزینه هر ساعت کار هر همکار (حقوق + بیمه + سربار تقسیم بر ساعات کاری ماه).</p>
+                    <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>همکار</th><th>نرخ ساعتی (تومان)</th><th></th></tr></thead><tbody>
+                    ${list.map(c => `<tr><td>${escapeHtml(c.full_name || c.username)}</td><td><input class="form-control" type="number" min="0" id="rate${c.id}" value="${escapeHtml(c.hourly_cost || '')}" style="max-width:180px" aria-label="نرخ ساعتی ${escapeHtml(c.full_name || '')}"></td>
+                        <td><button type="button" class="wf-btn sm" onclick="saveRate(${c.id})">ذخیره</button></td></tr>`).join('')}
+                    </tbody></table></div></div>`;
+            }
+        }
+        async function addEntry() {
+            const h = Number(latin(document.getElementById('nHours').value));
+            if (!(h > 0)) return showToast('مدت را وارد کنید', 'error');
+            if (await api('/api/time_entries', { action: 'add', content_id: document.getElementById('nCard').value, minutes: Math.round(h * 60), date: latin(document.getElementById('nDay').value), note: document.getElementById('nNote').value }, { success: 'ثبت شد' })) load();
+        }
+        async function startTimer() {
+            if (await api('/api/timer', { action: 'start', content_id: document.getElementById('nCard').value, note: document.getElementById('nNote').value }, { success: 'تایمر شروع شد' })) window.asvaTimerRefresh();
+        }
+        async function delEntry(id) {
+            if (await api('/api/time_entries', { action: 'delete', id }, { success: 'حذف شد' })) load();
+        }
+        async function saveRate(id) {
+            await api('/api/hourly_cost', { colleague_id: id, hourly_cost: latin(document.getElementById('rate' + id).value) }, { success: 'ذخیره شد' });
+        }
+        load();
+    </script>
+</body>
+</html>

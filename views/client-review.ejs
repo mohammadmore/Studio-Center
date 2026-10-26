@@ -214,6 +214,10 @@ var notifLoaded = false;
 
     document.addEventListener('DOMContentLoaded', updateThemeIcon);
 </script>
+<link rel="stylesheet" href="assets/css/workflow.css">
+<script src="assets/js/jalaali.min.js"></script>
+<script src="assets/js/wf.js"></script>
+<script src="assets/js/review-viewer.js"></script>
 </head>
 <body>
     <div class="container">
@@ -385,11 +389,11 @@ var notifLoaded = false;
                                 <span style="color: var(--text-gray); display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px;">
                                     ${item.publish_platforms ? (Array.isArray(item.publish_platforms) ? item.publish_platforms : [item.publish_platforms]).map(p => {
                                         let logoHtml = '';
-                                        let icon = p;
+                                        let icon = escapeHtml(p);
                                         if (allSettings.platform) {
                                             const pSet = allSettings.platform.find(s => s.setting_key === p);
                                             if (pSet) {
-                                                icon = pSet.icon || p;
+                                                icon = pSet.icon || escapeHtml(p);
                                                 if (pSet.logo_url) {
                                                     const isSvg = pSet.logo_url.toLowerCase().includes('.svg') || pSet.logo_url.toLowerCase().includes('data:image/svg');
                                                     if (isSvg) {
@@ -432,7 +436,8 @@ var notifLoaded = false;
                 
                 if (group === 'awaiting' || group === 'reviewed') {
                     cardHtml += `
-                        <div class="action-buttons">
+                        <div class="action-buttons" style="flex-wrap: wrap;">
+                            <button class="btn-approve" style="background: var(--primary-color);" onclick="openReviewViewer(${item.id}, loadContent)">🔍 ${item.has_versions ? 'مشاهده نسخه' + (item.versions_count > 1 ? '‌ها' : '') + ' و نظر دقیق' : 'بازبینی دقیق و کپشن'}</button>
                             <button class="btn-approve" onclick="reviewContent(${item.id}, 'approve')" ${item.status === 'approved_by_client' ? 'style="opacity: 0.5; cursor: not-allowed;" disabled' : ''}><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg> تایید نهایی</button>
                             <button class="btn-reject" onclick="reviewContent(${item.id}, 'reject')" ${item.status === 'needs_revision' ? 'style="opacity: 0.5; cursor: not-allowed;" disabled' : ''}><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> نیاز به اصلاح</button>
                         </div>
@@ -526,6 +531,7 @@ var notifLoaded = false;
                     const result = await res.json();
                     
                     if (result.status === 'success') {
+                        if (result.over_limit) showToast('توجه: تعداد دورهای اصلاح از سقف قرارداد بیشتر شد؛ ممکن است هزینه جداگانه داشته باشد.', 'info');
                         loadContent();
                     } else {
                         showToast(result.message || 'خطا در ثبت درخواست');

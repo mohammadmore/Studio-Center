@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<%- include('partials/wf-head', { title: 'قراردادها و پکیج‌ها' }) %>
+</head>
+<body>
+    <%- include('sidebar') %>
+    <main class="main-content">
+        <div class="page-header-container flex-responsive">
+            <div>
+                <h1 class="page-title">📑 <span>قراردادها و پکیج‌های ماهانه</span></h1>
+                <p class="page-subtitle">تعهد هر برند در ماه (مثلاً ۱۲ پست، ۸ استوری، ۴ ریلز) در برابر آنچه تحویل شده؛ مازاد و کسری مستقیم به فاکتور می‌رود.</p>
+            </div>
+        </div>
+        <div class="wf-page">
+            <div class="wf-toolbar">
+                <label class="wf-label" style="margin:0">سال<input class="form-control" id="fYear" type="number" style="width:100px" onchange="load()"></label>
+                <label class="wf-label" style="margin:0">ماه<select class="form-control" id="fMonth" onchange="load()"></select></label>
+                <label class="wf-label" style="margin:0"><input type="checkbox" id="fOnly" onchange="render()" checked> فقط برندهای دارای قرارداد</label>
+            </div>
+            <div id="list"><div class="wf-empty">در حال بارگذاری…</div></div>
+        </div>
+    </main>
+    <script src="assets/js/app.js"></script>
+    <script>
+        let data = [], types = [];
+        const ym = jalaliYearMonth();
+        document.getElementById('fYear').value = ym.year;
+        document.getElementById('fMonth').innerHTML = JALALI_MONTHS.map((n, i) => `<option value="${i + 1}" ${i + 1 === ym.month ? 'selected' : ''}>${n}</option>`).join('');
+
+        async function load() {
+            const y = document.getElementById('fYear').value, m = document.getElementById('fMonth').value;
+            const [res, s] = await Promise.all([api(`/api/contracts?year=${y}&month=${m}`), api('/api/manage_settings', undefined, { quiet: true })]);
+            data = (res && res.data) || [];
+            types = ((s && s.data && s.data.content_type) || []).map(t => ({ key: t.setting_key, price: t.price }));
+            render();
+        }
+        function bar(r) {
+            if (!r.quota) return `<span class="muted">بدون سهمیه</span>`;
+            const pct = Math.min(100, Math.round((r.delivered / r.quota) * 100));
+            const cls = r.delivered > r.quota ? 'over' : r.delivered === r.quota ? 'done' : '';
+            return `<div class="wf-progress ${cls}" title="${fa(pct)}٪"><span style="width:${pct}%"></span></div>`;
+        }
+        function render() {
+            const only = document.getElementById('fOnly').checked;
+            const list = data.filter(d => !only || d.contract);
+            const box = document.getElementById('list');
+            if (!list.length) {
+                box.innerHTML = `<div class="wf-card wf-empty">هنوز قراردادی ثبت نشده است. تیک «فقط برندهای دارای قرارداد» را بردارید و برای یک برند قرارداد تعریف کنید.</div>`;
+                return;
+            }
+            box.innerHTML = list.map(d => {
+                const c = d.contract;
+                return `<div class="wf-card">
+                    <div class="wf-row between">
+                        <div><b style="font-size:1.05rem">${escapeHtml(d.org_name)}</b>
+                            ${c ? `<span class="muted" style="font-size:.85rem"> — ${escapeHtml(c.title)}${c.monthly_fee ? ' | ' + money(c.monthly_fee) + ' در ماه' : ''}${c.revision_limit ? ' | سقف اصلاح: ' + fa(c.revision_limit) + ' دور' : ''}</span>` : '<span class="muted"> — بدون قرارداد</span>'}
+                            ${c && !d.active ? statusChip('خارج از بازه قرارداد', 'amber') : ''}
+                        </div>
+                        <div class="wf-row">
+                            <button type="button" class="wf-btn" onclick="editContract(${d.org_id})">${c ? 'ویرایش قرارداد' : '➕ تعریف قرارداد'}</button>
+                            ${c ? `<button type="button" class="wf-btn" onclick="bill(${d.org_id}, 'quote')">پیش‌فاکتور این ماه</button><button type="button" class="wf-btn primary" onclick="bill(${d.org_id}, 'invoice')">فاکتور این ماه</button>` : ''}
+                            <a class="wf-btn" href="monthly-report?org_id=${d.org_id}&year=${d.year}&month=${d.month}">گزارش ماهانه</a>
+                        </div>
+                    </div>
+                    ${d.rows.length ? `<div class="wf-table-wrap" style="margin-top:10px"><table class="wf-table"><thead><tr><th>نوع محتوا</th><th>تعهد</th><th>تحویل‌شده</th><th>در دست تولید</th><th>پیشرفت</th><th>مازاد</th><th>کسری</th></tr></thead><tbody>
+                        ${d.rows.map(r => `<tr><td>${escapeHtml(r.content_type)}</td><td>${fa(r.quota)}</td><td><b>${fa(r.delivered)}</b></td><td>${fa(r.planned)}</td><td>${bar(r)}</td>
+                            <td>${r.overage ? `<span class="wf-chip red">${fa(r.overage)}</span>` : '—'}</td><td>${r.shortfall ? `<span class="wf-chip amber">${fa(r.shortfall)}</span>` : '—'}</td></tr>`).join('')}
+                    </tbody></table></div>` : '<div class="wf-empty-sm">در این ماه محتوایی ثبت نشده است.</div>'}
+                    ${c ? `<div class="muted" style="font-size:.82rem;margin-top:6px">مبلغ مازاد: ${money(d.totals.overage_amount)}${c.credit_shortfall ? ' | کسر کسری: ' + money(d.totals.shortfall_amount) : ''}</div>` : ''}
+                </div>`;
+            }).join('');
+        }
+        function quotaRow(q) {
+            return `<div class="wf-row qrow" style="margin-bottom:6px">
+                <select class="form-control qtype" style="flex:2" aria-label="نوع محتوا"><option value="">نوع محتوا</option>${types.map(t => `<option ${q.content_type === t.key ? 'selected' : ''}>${escapeHtml(t.key)}</option>`).join('')}</select>
+                <input class="form-control qcount" type="number" min="1" placeholder="تعداد در ماه" value="${escapeHtml(q.count || '')}" style="flex:1" aria-label="تعداد">
+                <input class="form-control qprice" type="number" min="0" placeholder="فی مازاد (تومان)" value="${escapeHtml(q.unit_price || '')}" style="flex:1" aria-label="قیمت واحد مازاد">
+                <button type="button" class="wf-btn sm danger" onclick="this.parentNode.remove()">حذف</button></div>`;
+        }
+        function editContract(orgId) {
+            const d = data.find(x => x.org_id == orgId);
+            const c = d.contract || { quotas: [], charge_overage: true };
+            const m = wfModal('قرارداد ' + d.org_name, `
+                <label class="wf-label">عنوان پکیج<input class="form-control" id="cTitle" value="${escapeHtml(c.title || 'پکیج ماهانه')}"></label>
+                <div class="wf-grid-2">
+                    <label class="wf-label">شروع قرارداد<input class="form-control" id="cStart" data-jdp value="${escapeHtml(fa(c.start_date || ''))}"></label>
+                    <label class="wf-label">پایان قرارداد<input class="form-control" id="cEnd" data-jdp value="${escapeHtml(fa(c.end_date || ''))}"></label>
+                    <label class="wf-label">مبلغ ماهانه پکیج (تومان)<input class="form-control" id="cFee" type="number" min="0" value="${escapeHtml(c.monthly_fee || '')}"></label>
+                    <label class="wf-label">سقف دور اصلاح برای هر محتوا<input class="form-control" id="cRev" type="number" min="0" value="${escapeHtml(c.revision_limit || '')}" placeholder="۰ = نامحدود"></label>
+                </div>
+                <div class="wf-label">سهمیه ماهانه هر نوع محتوا</div>
+                <div id="cQuotas">${(c.quotas.length ? c.quotas : [{}]).map(quotaRow).join('')}</div>
+                <button type="button" class="wf-btn sm" onclick="document.getElementById('cQuotas').insertAdjacentHTML('beforeend', quotaRow({}))">➕ نوع دیگر</button>
+                <div class="wf-label" style="margin-top:10px"><label><input type="checkbox" id="cOver" ${c.charge_overage !== false ? 'checked' : ''}> مازاد بر سهمیه در فاکتور محاسبه شود</label></div>
+                <div class="wf-label"><label><input type="checkbox" id="cShort" ${c.credit_shortfall ? 'checked' : ''}> کسری تحویل از مبلغ فاکتور کم شود</label></div>
+                <label class="wf-label">یادداشت داخلی<textarea class="form-control" id="cNotes">${escapeHtml(c.notes || '')}</textarea></label>
+                <div class="wf-actions">${d.contract ? '<button type="button" class="wf-btn danger" id="cDel">حذف قرارداد</button>' : ''}<button type="button" class="btn-primary" id="cSave">ذخیره</button></div>`, { wide: true });
+            m.q('#cSave').onclick = async () => {
+                const quotas = [...m.el.querySelectorAll('.qrow')].map(r => ({ content_type: r.querySelector('.qtype').value, count: r.querySelector('.qcount').value, unit_price: r.querySelector('.qprice').value })).filter(q => q.content_type && q.count);
+                const contract = { title: m.q('#cTitle').value, start_date: latin(m.q('#cStart').value), end_date: latin(m.q('#cEnd').value), monthly_fee: m.q('#cFee').value, revision_limit: m.q('#cRev').value, quotas, charge_overage: m.q('#cOver').checked, credit_shortfall: m.q('#cShort').checked, notes: m.q('#cNotes').value };
+                if (await api('/api/manage_contract', { org_id: orgId, contract }, { success: 'ذخیره شد' })) { m.close(); load(); }
+            };
+            const del = m.q('#cDel');
+            if (del) del.onclick = async () => {
+                if (!(await window.customConfirm('قرارداد این برند حذف شود؟'))) return;
+                if (await api('/api/manage_contract', { org_id: orgId, action: 'delete' }, { success: 'حذف شد' })) { m.close(); load(); }
+            };
+        }
+        async function bill(orgId, docType) {
+            const y = document.getElementById('fYear').value, m = document.getElementById('fMonth').value;
+            const res = await api('/api/contract_invoice', { org_id: orgId, year: y, month: m, doc_type: docType }, { success: 'ساخته شد' });
+            if (res && res.data) location.href = 'invoice?id=' + res.data.id;
+        }
+        load();
+    </script>
+</body>
+</html>
