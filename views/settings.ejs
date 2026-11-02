@@ -109,6 +109,25 @@
             }
         }
         .modal-box { box-sizing: border-box; }
+        /* Role editor: bounded width, one card per permission group, fixed buttons. */
+        #roleModal .role-modal-box { max-width: min(980px, 95vw) !important; }
+        .perm-admin { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.06); border-radius: 12px; cursor: pointer; margin-bottom: 14px; }
+        .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-items: start; transition: opacity .2s; }
+        .perm-grid.perm-disabled { opacity: .45; pointer-events: none; }
+        .perm-card { border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 12px; background: rgba(128, 128, 128, 0.04); }
+        .perm-card header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border-color); }
+        .perm-card header strong { color: var(--primary-color); font-size: .95rem; flex: 1; }
+        .perm-count { font-size: .75rem; color: var(--text-gray); background: rgba(128, 128, 128, .12); border-radius: 10px; padding: 1px 8px; }
+        .perm-count.full { background: rgba(16, 185, 129, .15); color: #059669; }
+        .perm-all { background: none; border: 1px solid var(--border-color); border-radius: 8px; padding: 2px 8px; font-size: .75rem; cursor: pointer; color: var(--text-dark); font-family: inherit; }
+        .perm-all:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .perm-row { display: flex; gap: 10px; align-items: flex-start; padding: 7px 6px; border-radius: 8px; cursor: pointer; }
+        .perm-row:hover { background: rgba(99, 102, 241, .07); }
+        .perm-row b, .perm-admin b { display: block; font-size: .9rem; font-weight: 600; color: var(--text-dark); }
+        .perm-row small, .perm-admin small { display: block; font-size: .75rem; color: var(--text-gray); line-height: 1.5; margin-top: 2px; }
+        .perm-row input, .perm-admin input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: var(--primary-color); cursor: pointer; }
+        .role-modal-footer { position: sticky; bottom: 0; display: flex; gap: 10px; margin: 20px -20px 0; padding: 14px 20px; background: var(--card-bg); border-top: 1px solid var(--border-color); z-index: 2; }
+        .role-modal-footer > * { flex: 1; }
     
     @media (max-width: 768px) {
         .role-form-row {
@@ -338,7 +357,7 @@
 
     <!-- Role Modal -->
     <div class="modal-overlay" id="roleModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px); justify-content: center; align-items: center; z-index: 1000;">
-        <div class="modal-box" style="background: var(--card-bg); width: 95%; width: 100%; max-width: 600px; box-sizing: border-box; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; overflow-x: hidden; margin: 0 auto;">
+        <div class="modal-box role-modal-box" style="background: var(--card-bg); width: 100%; box-sizing: border-box; padding: 20px 20px 0; border-radius: 15px; max-height: 90vh; overflow-y: auto; overflow-x: hidden; margin: 0 auto;">
             <h3 id="roleModalTitle" style="margin-bottom: 20px;">+ افزودن نقش جدید</h3>
             <form id="roleForm" onsubmit="saveRole(event)">
                 <input type="hidden" id="roleId">
@@ -379,25 +398,39 @@
                 
                 <div style="margin-top: 15px;">
                     <label style="margin-bottom: 10px; display: block; font-weight: bold; color: var(--text-dark);">منو‌های مجاز (سطح دسترسی): <span class="tooltip-icon" tabindex="0" data-tooltip="کاربرانی که این نقش را دارند فقط منو‌های انتخاب شده را میبینند">?</span></label>
-                    <div style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box; width: 100%; overflow-x: hidden;" id="permissionsChecklist">
+                    <div id="permissionsChecklist">
                         <% if (typeof permissionCategories !== 'undefined' && permissionCategories.length > 0) { %>
-                            <% permissionCategories.forEach(cat => { %>
-                                <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                                    <strong style="display: block; margin-bottom: 8px; color: var(--primary-color);"><%= cat.name || cat.title %></strong>
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; padding-right: 10px;">
+                            <% const adminCat = permissionCategories.find(c => c.id === 'admin'); %>
+                            <% if (adminCat) { (adminCat.permissions || []).forEach(perm => { %>
+                                <label class="perm-admin">
+                                    <input type="checkbox" name="perms" value="<%= perm.id %>" id="permAdminBox">
+                                    <span><b>⚠️ <%= perm.name %></b><small><%= perm.hint || '' %></small></span>
+                                </label>
+                            <% }); } %>
+                            <div class="perm-grid" id="permGrid">
+                                <% permissionCategories.filter(c => c.id !== 'admin').forEach(cat => { %>
+                                    <section class="perm-card">
+                                        <header>
+                                            <strong><%= cat.name || cat.title %></strong>
+                                            <span class="perm-count"></span>
+                                            <button type="button" class="perm-all">همه</button>
+                                        </header>
                                         <% (cat.permissions || cat.perms || []).forEach(perm => { %>
-                                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" name="perms" value="<%= perm.id %>"> <%= perm.name || perm.label %></label>
+                                            <label class="perm-row">
+                                                <input type="checkbox" name="perms" value="<%= perm.id %>">
+                                                <span><b><%= perm.name || perm.label %></b><% if (perm.hint) { %><small><%= perm.hint %></small><% } %></span>
+                                            </label>
                                         <% }); %>
-                                    </div>
-                                </div>
-                            <% }); %>
+                                    </section>
+                                <% }); %>
+                            </div>
                         <% } else { %>
                             <p style="color: gray;">دسترسی‌ها یافت نشد.</p>
                         <% } %>
                     </div>
                 </div>
                 
-                <div style="display: flex; gap: 10px; margin-top: 25px;">
+                <div class="role-modal-footer">
                     <button type="submit" id="saveRoleBtn" class="btn-primary" style="flex: 1;">ذخیره نقش</button>
                     <button type="button" class="btn-outline"  onclick="document.getElementById('roleModal').style.display='none'" style="flex: 1;">انصراف</button>
                 </div>
@@ -1240,6 +1273,39 @@
             document.getElementById('saveRoleBtn').innerText = 'ذخیره تغییرات';
         }
         
+        // Counters, "select all" per group, and the admin box dimming the rest.
+        function refreshPermUI() {
+            const admin = document.getElementById('permAdminBox');
+            const grid = document.getElementById('permGrid');
+            if (grid) grid.classList.toggle('perm-disabled', !!(admin && admin.checked));
+            document.querySelectorAll('#permissionsChecklist .perm-card').forEach(card => {
+                const boxes = card.querySelectorAll('input[name="perms"]');
+                const on = [...boxes].filter(b => b.checked).length;
+                const count = card.querySelector('.perm-count');
+                count.textContent = (window.toPersianDigits ? toPersianDigits(on + ' از ' + boxes.length) : on + ' از ' + boxes.length);
+                count.classList.toggle('full', on === boxes.length);
+                card.querySelector('.perm-all').textContent = on === boxes.length ? 'برداشتن همه' : 'انتخاب همه';
+            });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const list = document.getElementById('permissionsChecklist');
+            if (!list) return;
+            list.addEventListener('change', refreshPermUI);
+            list.addEventListener('click', (e) => {
+                const btn = e.target.closest('.perm-all');
+                if (!btn) return;
+                const boxes = btn.closest('.perm-card').querySelectorAll('input[name="perms"]');
+                const all = [...boxes].every(b => b.checked);
+                boxes.forEach(b => b.checked = !all);
+                refreshPermUI();
+            });
+            refreshPermUI();
+        });
+        const _openRoleModal = openRoleModal;
+        openRoleModal = function () { _openRoleModal.apply(this, arguments); refreshPermUI(); };
+        const _editRole = editRole;
+        editRole = function () { _editRole.apply(this, arguments); refreshPermUI(); };
+
         async function saveRole(e) {
             e.preventDefault();
             const id = document.getElementById('roleId').value;
