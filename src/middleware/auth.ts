@@ -8,6 +8,7 @@ import {
   landingPageFor,
   passwordFingerprint,
 } from "../utils/authUtils.js";
+import { organizations } from "../store/state.js";
 
 /**
  * Re-validates the session against the stored account on every request, so a
@@ -29,8 +30,23 @@ export function loadSessionUser(req: any, res: any, next: any) {
   }
   req.user = user;
   req.account = account;
+  // Staff previewing a brand's panel act as that brand (read only, see apiAuthGuard).
+  const preview = req.session.preview;
+  if (preview && user.role_id !== "client") {
+    const org = organizations.find((o) => o.id == preview.org_id && o.is_active !== 0);
+    if (org && hasPermission(user, PREVIEW_PERMS)) {
+      req.previewBy = { user, account };
+      req.user = { id: org.id, org_id: org.id, username: org.username || "", role_id: "client", preview: true };
+      req.account = org;
+    } else {
+      delete req.session.preview;
+    }
+  }
   next();
 }
+
+/** Who may open a brand's panel in preview mode. */
+export const PREVIEW_PERMS = ["client-portal", "organizations"];
 
 /** Clients only get the lists used to label content, not studio-internal settings. */
 export function limitSettingsForClient(res: any) {
@@ -72,6 +88,8 @@ export function authGuard(perm?: string | string[]) {
     const roleInfo = getRoleInfoForUser(user);
     const colleague = req.account;
     res.locals.userPermissions = effectivePermissions(user);
+    // Where "back" buttons should go: the first page this user may open.
+    res.locals.landingPage = landingPageFor(user);
     res.locals.user = {
       ...user,
       full_name: colleague?.full_name || user.full_name,
@@ -122,6 +140,10 @@ const CLIENT_API_ROUTES = [
 
 export function apiAuthGuard(req: any, res: any, next: any) {
   if (PUBLIC_API_ROUTES.includes(req.path)) return next();
+  // Previewing a brand's panel never changes anything on the brand's behalf.
+  if (req.previewBy && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    return res.status(403).json({ status: "error", message: "در حالت پیش‌نمایش پنل کارفرما امکان ثبت تغییر نیست." });
+  }
   const user = req.user;
   if (!user) {
     return res.status(401).json({ status: "error", message: "نشست شما منقضی شده است" });

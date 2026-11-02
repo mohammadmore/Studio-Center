@@ -78,6 +78,11 @@ subRouter.get("/logout", (req, res) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
+  // "Logout" inside a brand-panel preview just ends the preview.
+  if ((req as any).previewBy && req.session) {
+    delete req.session.preview;
+    return res.redirect("/client-portal");
+  }
   req.session = null;
   res.redirect("/");
 });

@@ -407,6 +407,31 @@ describe("settings page", () => {
   });
 });
 
+describe("brand panel preview", () => {
+  it("lets studio managers see a brand's panel read-only and come back", async () => {
+    const admin = await login("admin");
+    const start = await admin.get("/client-preview/1");
+    assert.equal(start.headers.location, "/client-dashboard");
+    const dash = await admin.get("/client-dashboard");
+    assert.equal(dash.status, 200);
+    assert.match(dash.text, /در حال مشاهده‌ی پنل «برند یک»/);
+    const data = await admin.get("/api/get_client_data");
+    assert.ok(data.body.pending.every((c: any) => c.org_id == 1));
+    const write = await admin.post("/api/client_review").send({ content_id: 1, action: "approve" });
+    assert.equal(write.status, 403);
+    const exit = await admin.get("/client-preview/exit");
+    assert.equal(exit.headers.location, "/client-portal");
+    assert.equal((await admin.get("/depot")).status, 200);
+  });
+
+  it("is refused to staff without client permissions", async () => {
+    const ali = await login("ali");
+    assert.equal((await ali.get("/client-preview/1")).status, 403);
+    const dash = await ali.get("/client-dashboard");
+    assert.notEqual(dash.status, 200);
+  });
+});
+
 describe("bulk imports", () => {
   it("skip items that already exist and can be undone from the history", async () => {
     const admin = await login("admin");

@@ -30,7 +30,7 @@ subRouter.get("/global_search", (req: any, res) => {
       (m.asset_name && m.asset_name.toString().toLowerCase().includes(q)) ||
       (Array.isArray(m.tags) && m.tags.includes(q)),
   );
-  const matchedOrgs = organizations
+  const matchedOrgs = !can(["organizations", "client-portal", "invoice", "contracts"]) ? [] : organizations
     .filter(
       (o) =>
         (o.org_name && o.org_name.toString().toLowerCase().includes(q)) ||

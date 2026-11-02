@@ -130,7 +130,7 @@
                 const baseUrl = window.location.origin;
 
                 (orgs || []).forEach(org => {
-                    const eventsLink = `${escapeHtml(baseUrl)}/client-events?org_id=${org.id}&year=${year}&month=${month}`;
+                    const eventsLink = `${baseUrl}${window.asvaUrl('/client-events')}?org_id=${org.id}&year=${year}&month=${month}`;
                     
                     list.insertAdjacentHTML('beforeend', `
                         <div class="org-card">
@@ -150,7 +150,7 @@
                                         <button class="copy-btn" onclick="copyToClipboard(${jsAttr(eventsLink)})">کپی</button>
                                     </div>
                                     <div style="margin-top: 10px;">
-                                        <a href="client-dashboard?org_id=${org.id}" style=" color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg> <span>مشاهده داشبورد کارفرما</span></a>
+                                        <a href="client-preview/${org.id}" style=" color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg> <span>مشاهده داشبورد کارفرما</span></a>
                                     </div>
                                 </div>
                                 <div style="font-size: 0.85rem; color: var(--success-color);">

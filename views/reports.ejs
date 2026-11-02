@@ -968,13 +968,14 @@ var notifLoaded = false;
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const platforms = Object.keys(stats.by_platform || {});
-                            if (platforms[index]) {
+                            // Clients have no depot; staff jump to the depot filtered by this platform.
+                            if (platforms[index] && !isClient) {
                                 window.location.href = 'depot?platform=' + encodeURIComponent(platforms[index]);
                             }
                         }
                     },
                     onHover: (e, elements) => {
-                        e.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+                        e.native.target.style.cursor = elements.length > 0 && !isClient ? 'pointer' : 'default';
                     },
                     responsive: true, animation: false,
                     plugins: { legend: { display: false } },

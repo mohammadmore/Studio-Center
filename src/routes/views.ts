@@ -1,7 +1,8 @@
 import express from "express";
 import * as jalaali from "jalaali-js";
-import { authGuard, clientAuthGuard, limitSettingsForClient, loginRedirect } from "../middleware/auth.js";
-import { getPermissionCategories, landingPageFor, stripSecrets } from "../utils/authUtils.js";
+import { authGuard, clientAuthGuard, limitSettingsForClient, loginRedirect, PREVIEW_PERMS } from "../middleware/auth.js";
+import { getPermissionCategories, hasPermission, landingPageFor, stripSecrets } from "../utils/authUtils.js";
+import { organizations } from "../store/state.js";
 
 const viewsRouter = express.Router();
 
@@ -11,6 +12,21 @@ function loginPage(req: any, res: any) {
   res.render("index", { current: "index" });
 }
 viewsRouter.get("/", loginPage);
+
+// Staff open a brand's panel exactly as the brand sees it (read only).
+viewsRouter.get("/client-preview/exit", (req: any, res) => {
+  if (req.session) delete req.session.preview;
+  res.redirect("/client-portal");
+});
+viewsRouter.get("/client-preview/:orgId", (req: any, res) => {
+  const staff = req.previewBy?.user || req.user;
+  if (!staff) return loginRedirect(req, res);
+  if (staff.role_id === "client" || !hasPermission(staff, PREVIEW_PERMS)) return res.status(403).send("عدم دسترسی");
+  const org = organizations.find((o) => o.id == req.params.orgId && o.is_active !== 0);
+  if (!org) return res.redirect("/client-portal");
+  req.session.preview = { org_id: org.id, at: Date.now() };
+  res.redirect("/client-dashboard");
+});
 viewsRouter.get("/index", loginPage);
 viewsRouter.get("/login", loginPage);
 

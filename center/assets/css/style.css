@@ -1,7 +1,23 @@
+/* Vazirmatn v33 (SIL Open Font License, see fonts/vazirmatn/OFL.txt). The previous
+   files were corrupted, so browsers fell back to Tahoma unless the font was installed. */
 @font-face {
     font-family: 'Vazirmatn';
     src: url('../fonts/vazirmatn/Vazirmatn-Regular.woff2') format('woff2');
     font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/vazirmatn/Vazirmatn-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/vazirmatn/Vazirmatn-SemiBold.woff2') format('woff2');
+    font-weight: 600;
     font-style: normal;
     font-display: swap;
 }
@@ -14,14 +30,7 @@
 }
 @font-face {
     font-family: 'Vazirmatn';
-    src: url('../fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
-    font-weight: 800 900;
-    font-style: normal;
-    font-display: swap;
-}
-@font-face {
-    font-family: 'VazirmatnLocal';
-    src: url('../fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
+    src: url('../fonts/vazirmatn/Vazirmatn-ExtraBold.woff2') format('woff2');
     font-weight: 800 900;
     font-style: normal;
     font-display: swap;
@@ -35,8 +44,29 @@
 }
 @font-face {
     font-family: 'VazirmatnLocal';
+    src: url('../fonts/vazirmatn/Vazirmatn-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'VazirmatnLocal';
+    src: url('../fonts/vazirmatn/Vazirmatn-SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'VazirmatnLocal';
     src: url('../fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
     font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'VazirmatnLocal';
+    src: url('../fonts/vazirmatn/Vazirmatn-ExtraBold.woff2') format('woff2');
+    font-weight: 800 900;
     font-style: normal;
     font-display: swap;
 }

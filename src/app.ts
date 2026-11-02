@@ -59,7 +59,7 @@ function appSegments() {
   const views = fs.existsSync(path.join(config.appRoot, "views"))
     ? fs.readdirSync(path.join(config.appRoot, "views")).filter((f) => f.endsWith(".ejs")).map((f) => f.slice(0, -4))
     : [];
-  const fixed = ["api", "assets", "uploads", "fonts", "socket\\.io", "ics", "healthz", "index", "login", "client-brand-kit"];
+  const fixed = ["api", "assets", "uploads", "fonts", "socket\\.io", "ics", "healthz", "index", "login", "client-brand-kit", "client-preview"];
   return [...new Set([...fixed, ...views.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))])].sort((a, b) => b.length - a.length);
 }
 const APP_LINK = new RegExp(`(["'\`(=])\\/(?=(?:${appSegments().join("|")})(?:[/?#"'\`)\\s]|$))`, "g");
@@ -108,6 +108,16 @@ ${families} { font-family: 'AppCustomFont', Tahoma, sans-serif !important; }
 <style>
 ${families} { font-family: 'Vazirmatn', Tahoma, sans-serif !important; }
 </style>`;
+}
+
+/** Top bar shown while a staff member previews a brand's panel. */
+function addPreviewBanner(html: string, org: any) {
+  const name = String(org?.org_name || "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  const bar =
+    `<div role="status" style="position:sticky;top:0;z-index:2147483646;background:#1e293b;color:#fff;padding:8px 14px;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:.9rem;font-family:inherit">` +
+    `<span>👁️ در حال مشاهده‌ی پنل «${name}» از نگاه کارفرما — فقط مشاهده، تغییری ثبت نمی‌شود</span>` +
+    `<a href="/client-preview/exit" style="background:#fff;color:#1e293b;border-radius:8px;padding:4px 12px;text-decoration:none;font-weight:bold">بازگشت به پنل استودیو</a></div>`;
+  return /<body[^>]*>/i.test(html) ? html.replace(/<body[^>]*>/i, (m) => m + bar) : bar + html;
 }
 
 /** Rejects cross-site state-changing requests (CSRF) based on Origin / Referer. */
@@ -272,6 +282,7 @@ export function createApp() {
       originalRender(view, options, (err: any, html: string) => {
         if (err) return callback ? callback(err, "") : next(err);
         if (typeof html === "string") {
+          if ((req as any).previewBy) html = addPreviewBanner(html, (req as any).account);
           const injection = fontInjection();
           html = prepareHtml(
             html.includes("</head>") ? html.replace("</head>", injection + "</head>") : injection + html,

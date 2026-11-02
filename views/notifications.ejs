@@ -56,7 +56,7 @@ body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; p
             </div>
         </div>
             <div style="display: flex; gap: 10px;">
-                <a href="dashboard" class="btn-read-all" style="background-color: #95a5a6;">بازگشت به داشبورد</a>
+                <a href="<%= typeof landingPage !== 'undefined' ? landingPage : 'dashboard' %>" class="btn-read-all" style="background-color: #95a5a6;">بازگشت به صفحه اصلی</a>
                 <a href="#" onclick="markAllRead()" class="btn-read-all">✓ همه را خواندم</a>
             </div>
         </div>
