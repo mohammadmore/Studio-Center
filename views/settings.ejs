@@ -383,10 +383,10 @@
                         <% if (typeof permissionCategories !== 'undefined' && permissionCategories.length > 0) { %>
                             <% permissionCategories.forEach(cat => { %>
                                 <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                                    <strong style="display: block; margin-bottom: 8px; color: var(--primary-color);"><%= cat.title %></strong>
+                                    <strong style="display: block; margin-bottom: 8px; color: var(--primary-color);"><%= cat.name || cat.title %></strong>
                                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; padding-right: 10px;">
-                                        <% (cat.perms || []).forEach(perm => { %>
-                                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" name="perms" value="<%= perm.id %>"> <%= perm.label %></label>
+                                        <% (cat.permissions || cat.perms || []).forEach(perm => { %>
+                                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" name="perms" value="<%= perm.id %>"> <%= perm.name || perm.label %></label>
                                         <% }); %>
                                     </div>
                                 </div>
@@ -1142,8 +1142,8 @@
             const permNames = {};
 <% if (typeof permissionCategories !== 'undefined') { %>
 <% permissionCategories.forEach(cat => { %>
-<% (cat.perms || []).forEach(perm => { %>
-            permNames['<%= perm.id %>'] = '<%= perm.label.replace(/['\\]/g, "\\$&") %>';
+<% (cat.permissions || cat.perms || []).forEach(perm => { %>
+            permNames[<%- JSON.stringify(String(perm.id)).replace(/</g, '\\u003c') %>] = <%- JSON.stringify(String(perm.name || perm.label || perm.id)).replace(/</g, '\\u003c') %>;
 <% }); %>
 <% }); %>
 <% } %>

@@ -383,6 +383,18 @@ describe("external notifications, calendars and reports", () => {
   });
 });
 
+describe("settings page", () => {
+  it("lists every permission as a checkbox in the role editor", async () => {
+    const admin = await login("admin");
+    const res = await admin.get("/settings");
+    assert.equal(res.status, 200);
+    for (const perm of ["depot", "approve_content", "requests", "integrations"]) {
+      assert.match(res.text, new RegExp(`name="perms" value="${perm}"`), perm);
+    }
+    assert.match(res.text, /گردش کار تولید/);
+  });
+});
+
 describe("comment threads", () => {
   it("notifies the author of the comment that was answered", async () => {
     const ali = await login("ali");
