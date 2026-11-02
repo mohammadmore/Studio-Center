@@ -810,7 +810,10 @@ input:focus, select:focus, textarea:focus, button:focus {
     border-bottom: 1px dashed rgba(244, 63, 94, 0.2);
 }
 /* Responsive Fixes */
-.modal-box, .modal-content { max-width: 95% !important; box-sizing: border-box !important; overflow-x: hidden !important; }
+/* Dialogs: a readable default width that a dialog's own max-width can change;
+   never wider than the screen. (A forced 95% used to stretch every dialog
+   across the whole desktop.) */
+.modal-box, .modal-content { max-width: min(760px, 95vw); box-sizing: border-box !important; overflow-x: hidden !important; }
 jdp-container {
     z-index: 99999999 !important;
 }

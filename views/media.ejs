@@ -78,7 +78,7 @@
             <form onsubmit="saveMedia(event)">
                 <div class="form-group">
                     <label>سازمان/برند مرتبط:</label>
-                    <select id="orgSelector" class="form-control" required>
+                    <select id="orgSelector" class="form-control">
                         <option value="">در حال لود...</option>
                     </select>
                 </div>
@@ -97,8 +97,12 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>لینک مستقیم / فضای ابری (درایو):</label>
-                    <input type="text" id="fileUrl" class="form-control" placeholder="https://drive.google.com/... یا آدرس فایل" required>
+                    <label for="fileUrl">فایل یا لینک (درایو، دراپ‌باکس…):</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="fileUrl" class="form-control" placeholder="https://drive.google.com/... یا فایل را آپلود کنید" required style="flex: 1;">
+                        <button type="button" class="btn-outline" style="white-space: nowrap;" onclick="uploadMediaFile()">⬆️ آپلود فایل</button>
+                    </div>
+                    <small id="fileUploadInfo" style="display: block; margin-top: 6px; color: var(--text-gray);"></small>
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button type="submit" id="saveBtn" class="btn-primary" style="flex: 1;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره در کتابخانه</button>
@@ -123,7 +127,7 @@
                 const orgData = await res.json();
                 const orgs = orgData.data || [];
                 const select = document.getElementById('orgSelector');
-                select.innerHTML = '<option value="">-- انتخاب کنید --</option>';
+                select.innerHTML = '<option value="">عمومی (همه برندها)</option>';
                 (orgs || []).forEach(org => {
                     select.insertAdjacentHTML('beforeend', `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`);
                 });
@@ -392,6 +396,18 @@
             if (window.hideLoading) window.hideLoading();
             showToast('خطا در ارتباط با سرور', 'error');
         }
+    }
+</script>
+<script>
+    // Files (also big videos and layered sources) go through the resumable uploader.
+    async function uploadMediaFile() {
+        const files = await window.asvaPickAndUpload({ multiple: false });
+        if (!files.length) return;
+        const f = files[0];
+        document.getElementById('fileUrl').value = f.url;
+        const nameInput = document.getElementById('assetName');
+        if (nameInput && !nameInput.value.trim()) nameInput.value = f.name.replace(/\.[^.]+$/, '');
+        document.getElementById('fileUploadInfo').textContent = 'آپلود شد: ' + f.name + ' (' + window.formatFileSize(f.size) + ')';
     }
 </script>
 </body>

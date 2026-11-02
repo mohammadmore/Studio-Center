@@ -122,9 +122,43 @@
         }
     }
 
-function openAddContentModal() {
+// The "new content" form: its lists were never filled, so organisation, type,
+// manager, team and stages could not be chosen.
+async function openAddContentModal() {
+    const opt = (v, label) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`;
+    let orgs = [];
+    try { orgs = (await (await fetch('/api/get_orgs')).json()).data || []; } catch (e) {}
+    const settings = window.allSettings || {};
+    const colleagues = window.allColleagues || [];
+    document.getElementById('newTitle').value = '';
+    document.getElementById('newOrg').innerHTML = opt('', '-- انتخاب سازمان --') + orgs.map(o => opt(o.id, o.org_name)).join('');
+    const types = (settings.content_type || []).filter(t => t.is_active !== 0);
+    document.getElementById('newType').innerHTML = types.length
+        ? types.map(t => opt(t.setting_key, t.setting_key)).join('')
+        : opt('پوستر گرافیکی', 'پوستر گرافیکی');
+    document.getElementById('newManager').innerHTML = opt('', '-- انتخاب مدیر پروژه --') + colleagues.map(c => opt(c.full_name || c.username, c.full_name || c.username)).join('');
+    window.updateTeamCheckboxes();
+    const stages = (settings.stages || []).filter(s => s.is_active !== 0);
+    document.getElementById('newStages').innerHTML = stages.length
+        ? stages.map(s => `<label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" value="${escapeHtml(s.setting_key)}"> ${escapeHtml(s.setting_key)}</label>`).join('')
+        : '<span style="color: var(--text-gray); font-size: 0.85rem;">مرحله‌ای در تنظیمات ← مراحل تولید تعریف نشده است.</span>';
+    document.querySelectorAll('#newComponentsCount .comp-count').forEach(i => i.value = '');
     document.getElementById('addModal').style.display = 'flex';
 }
+// Team checkboxes; the chosen project manager is left out (already on the card).
+window.updateTeamCheckboxes = function () {
+    const box = document.getElementById('newTeamCheckboxes');
+    const manager = document.getElementById('newManager').value;
+    const checked = new Set([...box.querySelectorAll('input[name="new_team_cb"]:checked')].map(c => c.value));
+    const colleagues = (window.allColleagues || []).filter(c => (c.full_name || c.username) !== manager);
+    box.innerHTML = colleagues.length
+        ? colleagues.map(c => {
+            const name = c.full_name || c.username;
+            const leave = c.status === 'on_leave' ? ' <small style="color: var(--error-color);">(مرخصی)</small>' : '';
+            return `<label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="new_team_cb" value="${escapeHtml(name)}" ${checked.has(name) ? 'checked' : ''}> ${escapeHtml(name)}${leave}</label>`;
+        }).join('')
+        : '<span style="color: var(--text-gray); font-size: 0.85rem;">همکاری ثبت نشده است.</span>';
+};
 function openFormModal() {
     openAddContentModal();
 }
@@ -134,6 +168,7 @@ function closeModal() {
 
 async function saveNewContent() {
     const title = document.getElementById('newTitle').value;
+    if (!title.trim()) { showToast('عنوان محتوا را بنویسید', 'error'); return; }
     const org_id = document.getElementById('newOrg').value;
     const type = document.getElementById('newType').value;
     const project_manager = document.getElementById('newManager').value;
@@ -891,7 +926,7 @@ async function submitBatchEdit() {
 
 <!-- پاپ‌آپ ورود گروهی با اکسل -->
 <div class="modal" id="excelModal">
-    <div class="modal-content" style="max-height: 90vh; overflow-y: auto; width: 100%; max-width: 780px; box-sizing: border-box; max-width: 95%;">
+    <div class="modal-content" style="max-height: 90vh; overflow-y: auto; width: 100%; max-width: min(780px, 95vw); box-sizing: border-box; ">
         <div class="flex-responsive" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px;">
             <h3 style="margin: 0; color: var(--text-gray); display: flex; align-items: center; gap: 8px;">
                 <span><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg></span> تزریق و ورود گروهی محتوا از اکسل

@@ -195,12 +195,22 @@
                 const result = await res.json();
                 const select = document.getElementById('orgIndustry');
                 select.innerHTML = '<option value="">-- انتخاب کنید --</option>';
-                if(result.status === 'success' && result.data['industry']) {
-                    (result.data && result.data['industry'] || []).forEach(item => {
-                        select.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(item.setting_key)}">${escapeHtml(item.setting_key)}</option>`);
-                    });
-                }
+                const items = (result.status === 'success' && result.data && result.data['industry']) || [];
+                items.forEach(item => {
+                    select.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(item.setting_key)}">${escapeHtml(item.setting_key)}</option>`);
+                });
+                // Without any industry in the settings the field could never be filled.
+                if (!items.some(i => i.setting_key === 'سایر')) select.insertAdjacentHTML('beforeend', '<option value="سایر">سایر</option>');
             } catch(e) { console.log(e); }
+        }
+
+        // A brand's industry may no longer be in the list (renamed, imported): keep it selectable.
+        function setIndustry(value) {
+            const select = document.getElementById('orgIndustry');
+            if (value && ![...select.options].some(o => o.value === value)) {
+                select.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`);
+            }
+            select.value = value || '';
         }
 
         // واکشی لیست کارفرماها از دیتابیس
@@ -298,7 +308,7 @@
 
             if (id) {
                 document.getElementById('orgName').value = name;
-                document.getElementById('orgIndustry').value = industry;
+                setIndustry(industry);
                 document.getElementById('saveBtn').disabled = false;
                 document.getElementById('saveBtn').innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ویرایش برند`;
                 if(modalTitle) modalTitle.innerText = 'ویرایش کارفرما';
@@ -411,7 +421,7 @@
             
             document.getElementById('orgId').value = org.id;
             document.getElementById('orgName').value = org.org_name;
-            document.getElementById('orgIndustry').value = org.industry;
+            setIndustry(org.industry);
             document.getElementById('contactName').value = org.contact_name || '';
             document.getElementById('phoneNumber').value = org.phone_number || '';
             document.getElementById('hasTelegram').checked = org.has_telegram || false;
@@ -609,7 +619,7 @@
 </script>
 
 <div class="modal-overlay" id="unlockConfirmModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index: 2147483647 !important; justify-content:center; align-items:center;">
-    <div style="background: var(--card-bg); padding:20px; border-radius:12px; width: 100%; max-width: 400px; box-sizing: border-box; max-width:90%;">
+    <div style="background: var(--card-bg); padding:20px; border-radius:12px; width: 100%; max-width: min(400px, 95vw); box-sizing: border-box; ">
         <h3 style="margin-bottom:15px; color:var(--error-color);">🔓 بازگرداندن اضطراری مناسبت‌ها</h3>
         <p style="margin-bottom:15px; font-size: 0.95rem;">آیا مطمئن هستید که می‌خواهید قفل مناسبت‌های این ماه را باز کنید؟</p>
         <div class="form-group" style="margin-bottom: 20px;">
