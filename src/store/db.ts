@@ -32,6 +32,27 @@ export function getBlobStore(): BlobStore {
   return driver.blobs;
 }
 
+// Ids are JavaScript weekday numbers (Sunday = 0), which the calendars compare against.
+const WEEK_DAYS: [number, string][] = [
+  [6, "شنبه"],
+  [0, "یک‌شنبه"],
+  [1, "دوشنبه"],
+  [2, "سه‌شنبه"],
+  [3, "چهارشنبه"],
+  [4, "پنج‌شنبه"],
+  [5, "جمعه"],
+];
+
+/** The weekly days off list; a fresh install had none, so no day could be chosen. */
+function ensureWeekDays() {
+  const list = Array.isArray(settings.routine_holidays) ? settings.routine_holidays : [];
+  for (const [id, name] of WEEK_DAYS) {
+    if (!list.some((d: any) => d && d.id === id)) list.push({ id, setting_key: name, is_active: id === 5 ? 1 : 0 });
+  }
+  list.sort((a: any, b: any) => WEEK_DAYS.findIndex(([id]) => id === a.id) - WEEK_DAYS.findIndex(([id]) => id === b.id));
+  settings.routine_holidays = list;
+}
+
 function seedInitialData() {
   if (!roles.some((r) => r.id == 1)) {
     roles.unshift({ id: 1, name: "مدیر کل", permissions: ["admin"] });
@@ -56,6 +77,7 @@ function seedInitialData() {
 
 /** Repairs records written by older versions so the rest of the code can rely on them. */
 function normalizeLoadedData() {
+  ensureWeekDays();
   for (const org of organizations) {
     if (org.color !== undefined) org.color = safeColor(org.color);
     if (org.is_active === undefined) org.is_active = 1;
@@ -101,6 +123,7 @@ export async function initDatabase(customDriver?: StorageDriver) {
   } else {
     applySnapshot({});
     seedInitialData();
+    ensureWeekDays();
     console.log(`Initialised an empty database (${driver.name})`);
     ready = true;
     await flushDatabase(true);

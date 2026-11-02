@@ -393,6 +393,18 @@ describe("settings page", () => {
     }
     assert.match(res.text, /گردش کار تولید/);
   });
+
+  it("always offers the seven week days as days off, Friday by default", async () => {
+    const admin = await login("admin");
+    const res = await admin.get("/api/manage_settings");
+    const days = res.body.data.routine_holidays;
+    assert.equal(days.length, 7);
+    assert.equal(days[0].setting_key, "شنبه");
+    assert.deepEqual(days.filter((d: any) => d.is_active === 1).map((d: any) => d.id), [5]);
+    await admin.post("/api/manage_settings").send({ action: "edit", group: "routine_holidays", id: 6, key: "شنبه", is_active: 1 });
+    const after = await admin.get("/api/manage_settings");
+    assert.equal(after.body.data.routine_holidays.find((d: any) => d.id === 6).is_active, 1);
+  });
 });
 
 describe("comment threads", () => {

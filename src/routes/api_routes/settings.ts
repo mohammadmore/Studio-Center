@@ -239,7 +239,7 @@ subRouter.get("/get_fonts", (req, res) => {
         };
         fontsList = fontsList.sort((a, b) => pos(a.filename) - pos(b.filename));
       }
-      res.json({ status: "success", fonts: fontsList });
+      res.json({ status: "success", fonts: fontsList, active: settings.active_font || DEFAULT_FONT });
     });
 });
 

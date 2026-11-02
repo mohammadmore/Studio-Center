@@ -296,7 +296,7 @@
                             <strong style="color: var(--primary-color); display: block;">انتخاب فایل فونت</strong>
                             <div id="fileNameDisplay" style="margin-top: 5px; font-size: 0.8rem; color: var(--text-dark);">فقط فرمت‌های TTF و WOFF مجاز است</div>
                         </div>
-                        <input type="file" id="fontInput" accept=".ttf,.woff,.woff2" style="display: none;" onchange="document.getElementById('fileNameDisplay').innerText = 'فایل: ` + this.files[0].name">
+                        <input type="file" id="fontInput" accept=".ttf,.woff,.woff2" style="display: none;" onchange="onFontChosen(this)">
                         <button type="submit" id="fontBtn" class="btn-primary" style="width: 100%; margin-top: 10px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg> آپلود فونت</button>
                     </form>
                 </div>
@@ -986,6 +986,7 @@
 
         // مدیریت کتابخانه فونت‌ها
         let currentFonts = [];
+        let activeFont = 'vazirmatn';
         async function loadFonts() {
             try {
                 const res = await fetch('/api/get_fonts');
@@ -993,6 +994,7 @@
                 const container = document.getElementById('fontLibraryList');
                 if(result.status === 'success') {
                     currentFonts = result.fonts;
+                    activeFont = result.active || 'vazirmatn';
                     if (currentFonts.length === 0) {
                         container.innerHTML = '<div style="text-align: center; color: gray; padding: 10px;">هیچ فونتی در کتابخانه وجود ندارد.</div>';
                         return;
@@ -1022,7 +1024,7 @@
                                     <div style="font-family: '${escapeHtml(fontId)}'; font-size: 1.2rem; font-weight: bold;">
                                         ${escapeHtml(font.fa_name)} - ${escapeHtml(font.en_name)}
                                     </div>
-                                    <div style="font-size: 0.75rem; color: var(--text-gray);">${escapeHtml(font.filename)}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-gray);">${escapeHtml(font.filename)} ${font.filename === activeFont ? '<span style="background: rgba(16,185,129,.15); color: #059669; border-radius: 10px; padding: 1px 8px; font-weight: bold; margin-right: 6px;">✓ فونت فعال</span>' : ''}</div>
                                 </div>
                                 <div id="edit-font-form-${idx}" style="display: none; flex-direction: column; gap: 10px; background: rgba(128, 128, 128, 0.1); padding: 10px; border-radius: 8px;">
                                     <input type="text" id="edit-fa-name-${idx}" class="form-control" placeholder="نام فارسی" value="${escapeHtml(font.fa_name)}">
@@ -1120,8 +1122,16 @@
             } catch(err) { showToast('خطا در ارتباط با سرور', 'error'); }
         }
 
+        // Choosing a file uploads it right away (the old handler had a syntax error,
+        // so nothing visible happened after picking a font).
+        function onFontChosen(input) {
+            const file = input.files && input.files[0];
+            document.getElementById('fileNameDisplay').innerText = file ? 'فایل: ' + file.name + ' — در حال آپلود…' : 'فقط فرمت‌های TTF و WOFF مجاز است';
+            if (file) uploadCustomFont();
+        }
+
         async function uploadCustomFont(e) {
-            e.preventDefault();
+            if (e) e.preventDefault();
             const fileInput = document.getElementById('fontInput');
             if(fileInput.files.length === 0) { showToast("لطفا یک فایل فونت انتخاب کنید!"); return; }
             
@@ -1140,11 +1150,17 @@
                     });
                     const result = await res.json();
                     if(result.status === 'success') { 
-                        showToast(`<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5.8 11.3 2 22l10.7-3.79'/><path d='M4 3h.01'/><path d='M22 8h.01'/><path d='M15 2h.01'/><path d='M22 20h.01'/><path d='m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10'/><path d='m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17'/><path d='m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7'/><path d='M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z'/></svg> ` + result.message); 
-                        loadFonts(); 
-                    } else { showToast(`<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> ` + result.message); }
-                } catch(err) { showToast("خطا در ارتباط با سرور", 'error'); } 
-                finally { btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z\"/><path d=\"m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07\"/><path d=\"m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07\"/></svg> آپلود فونت`; btn.disabled = false; }
+                        showToast((result.message || 'فونت آپلود شد') + ' — صفحه برای نمایش فونت جدید تازه می‌شود…', 'success');
+                        document.getElementById('fileNameDisplay').innerText = '✓ آپلود شد: ' + fileInput.files[0].name;
+                        await loadFonts();
+                        setTimeout(() => window.location.reload(), 1500);
+
+                    } else {
+                        showToast(result.message || 'آپلود فونت ممکن نشد', 'error');
+                        document.getElementById('fileNameDisplay').innerText = '✗ آپلود نشد: ' + (result.message || '');
+                    }
+                } catch(err) { showToast("خطا در ارتباط با سرور", 'error'); document.getElementById('fileNameDisplay').innerText = '✗ خطا در ارتباط با سرور'; } 
+                finally { fileInput.value = ''; btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z\"/><path d=\"m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07\"/><path d=\"m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07\"/></svg> آپلود فونت`; btn.disabled = false; }
             };
             reader.readAsDataURL(fileInput.files[0]);
         }
