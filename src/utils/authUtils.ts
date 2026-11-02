@@ -174,6 +174,15 @@ export function hasPermission(user: any, perm: string | string[]) {
   );
 }
 
+/** A colleague's own picture, else the default avatar of their role for their gender. */
+export function effectiveAvatar(c: any) {
+  if (c?.avatar_url) return c.avatar_url;
+  const role = roles.find((r) => r.id == c?.role_id);
+  if (!role) return "";
+  if (c?.gender === "female") return role.default_female_avatar || role.default_male_avatar || "";
+  return role.default_male_avatar || role.default_female_avatar || "";
+}
+
 /** Every permission the user effectively holds, including the implied ones (for menus). */
 export function effectivePermissions(user: any) {
   if (!user || user.role_id === "client") return [] as string[];

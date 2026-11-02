@@ -243,8 +243,64 @@
     }, 1500);
   }
 
+  // ---------- smaller images before upload ----------
+  // Profile pictures, logos and icons are resized to the largest size the app
+  // shows them at and re-encoded (WebP keeps transparency), so big photos never
+  // reach the host. The server does the same as a safety net.
+  var IMAGE_MAX_EDGE = { avatar: 256, logo: 512, icon: 128, image: 1600 };
+  function shrinkDataUrl(dataUrl, purpose) {
+    return new Promise(function (resolve) {
+      if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(dataUrl)) return resolve(dataUrl);
+      var max = IMAGE_MAX_EDGE[purpose] || IMAGE_MAX_EDGE.image;
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+          var w = Math.max(1, Math.round(img.naturalWidth * scale));
+          var h = Math.max(1, Math.round(img.naturalHeight * scale));
+          var canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext("2d");
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(img, 0, 0, w, h);
+          var out = canvas.toDataURL("image/webp", 0.85);
+          // Browsers without WebP encoding return PNG: use JPEG for photos without transparency.
+          if (out.indexOf("data:image/webp") !== 0) {
+            var alpha = false;
+            var px = ctx.getImageData(0, 0, w, h).data;
+            for (var i = 3; i < px.length; i += 4) if (px[i] < 255) { alpha = true; break; }
+            out = alpha ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.85);
+          }
+          resolve(out.length < dataUrl.length ? out : dataUrl);
+        } catch (e) {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+  window.asvaShrinkImage = shrinkDataUrl;
+
   window.fetch = function (input, init) {
     if (typeof input === "string") input = asvaUrl(input);
+    if (typeof input === "string" && init && typeof init.body === "string" && !init.__shrunk &&
+        appPath(new URL(input, location.href).pathname) === "/api/upload_image") {
+      var payload = null;
+      try { payload = JSON.parse(init.body); } catch (e) {}
+      if (payload && typeof payload.image === "string" && payload.image.indexOf("data:image/") === 0) {
+        var target = input;
+        return shrinkDataUrl(payload.image, payload.purpose).then(function (small) {
+          payload.image = small;
+          var next = {};
+          for (var k in init) next[k] = init[k];
+          next.body = JSON.stringify(payload);
+          next.__shrunk = true;
+          return window.fetch(target, next);
+        });
+      }
+    }
     var url = typeof input === "string" ? input : (input && input.url) || "";
     var path;
     try { path = new URL(url, location.href); } catch (e) { return originalFetch(input, init); }

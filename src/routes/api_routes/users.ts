@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { colleagues, organizations, roles } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
-import { getRoleInfoForUser, hasPermission, isAdmin, stripSecrets } from "../../utils/authUtils.js";
+import { effectiveAvatar, getRoleInfoForUser, hasPermission, isAdmin, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
 import { moveToRecycleBin } from "../../utils/contentUtils.js";
 
@@ -37,7 +37,7 @@ function roleGrantsAdmin(roleId: any) {
 function withRoleName(c: any) {
   const role = roles.find((r) => r.id == c?.role_id);
   const { saved_views, running_timer, hourly_cost, ...safe } = stripSecrets(c) as any;
-  return { ...safe, role_name: role ? role.name : "کارشناس" };
+  return { ...safe, avatar_url: effectiveAvatar(c), role_name: role ? role.name : "کارشناس" };
 }
 
 function profileFields(body: any) {
@@ -113,6 +113,8 @@ subRouter.post("/manage_roles", checkPermission("manage_roles"), (req: any, res)
       name: name.trim(),
       permissions: perms || [],
       icon: sanitizeIcon(req.body.icon),
+      default_male_avatar: safeUrl(req.body.default_male_avatar),
+      default_female_avatar: safeUrl(req.body.default_female_avatar),
     });
     saveDatabase();
     return res.json({ status: "success", message: "نقش جدید اضافه شد" });
@@ -127,6 +129,8 @@ subRouter.post("/manage_roles", checkPermission("manage_roles"), (req: any, res)
     if (name) role.name = String(name).trim();
     if (perms) role.permissions = perms;
     if (req.body.icon !== undefined) role.icon = sanitizeIcon(req.body.icon);
+    if (req.body.default_male_avatar !== undefined) role.default_male_avatar = safeUrl(req.body.default_male_avatar);
+    if (req.body.default_female_avatar !== undefined) role.default_female_avatar = safeUrl(req.body.default_female_avatar);
     saveDatabase();
     return res.json({ status: "success", message: "نقش به‌روزرسانی شد" });
   }

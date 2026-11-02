@@ -557,7 +557,7 @@
                 try {
                     const uploadRes = await fetch('/api/upload_image', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ image: base64Image })
+                        body: JSON.stringify({ image: base64Image, purpose: 'avatar' })
                     });
                     const uploadData = await uploadRes.json();
                     if (uploadData.status === 'success') {

@@ -6,6 +6,31 @@ import { checkStageDeadlines } from "./utils/workflowUtils.js";
 import { refreshRecentStats } from "./utils/stats.js";
 import { cleanupStaleUploads } from "./routes/api_routes/uploads.js";
 import { autoSendMonthlyReports } from "./routes/api_routes/integrations.js";
+import { organizations, roles, settings } from "./store/state.js";
+import { getBlobStore } from "./store/db.js";
+import { shrinkExistingImages, type ImagePurpose } from "./utils/images.js";
+import { mimeForFile } from "./utils/files.js";
+
+const IMAGE_PASS = "v1";
+
+/** Shrinks avatars, logos and icons uploaded before images were optimised (runs once). */
+export async function shrinkOldImages() {
+  if (settings.images_optimized === IMAGE_PASS) return false;
+  const refs: { url: unknown; purpose: ImagePurpose }[] = [];
+  for (const c of colleagues) refs.push({ url: c.avatar_url, purpose: "avatar" });
+  for (const r of roles) {
+    refs.push({ url: r.default_male_avatar, purpose: "avatar" }, { url: r.default_female_avatar, purpose: "avatar" });
+  }
+  for (const o of organizations) refs.push({ url: o.logo_url, purpose: "logo" });
+  const info = settings.studio_info || {};
+  for (const key of Object.keys(info)) if (/^logo/.test(key)) refs.push({ url: info[key], purpose: "logo" });
+  for (const p of Array.isArray(settings.platform) ? settings.platform : []) refs.push({ url: p?.logo_url, purpose: "icon" });
+  const saved = await shrinkExistingImages(refs, getBlobStore() as any, mimeForFile);
+  if (saved < 0) return false; // sharp is not available; try again after it is installed
+  settings.images_optimized = IMAGE_PASS;
+  if (saved > 0) console.log(`Shrunk existing pictures, saved ${Math.round(saved / 1024)} KB`);
+  return true;
+}
 
 /** Reminds admins and the client once a day about unpaid invoices past their due date. */
 export function notifyOverdueInvoices(today = todayJalali()) {
@@ -91,7 +116,14 @@ export function startJobs() {
         .catch((e) => console.error("Stats refresh failed:", e));
     }
   };
-  const first = setTimeout(run, 10_000);
+  const first = setTimeout(() => {
+    shrinkOldImages()
+      .then((changed) => {
+        if (changed) saveDatabase();
+      })
+      .catch((e) => console.error("Image pass failed:", e));
+    run();
+  }, 10_000);
   const timer = setInterval(run, 60 * 60 * 1000);
   first.unref();
   timer.unref();

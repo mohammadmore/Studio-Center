@@ -4,6 +4,7 @@ import { mediaAssets, organizations } from "../../store/state.js";
 import { getBlobStore, saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { nextId, toInt } from "../../utils/helpers.js";
+import { imagePurpose, optimizeImage } from "../../utils/images.js";
 import {
   extensionOf,
   IMAGE_EXTENSIONS,
@@ -55,9 +56,11 @@ subRouter.post("/upload_image", checkPermission(IMAGE_UPLOAD_PERMS), async (req,
   if (buffer.length > MAX_IMAGE_BYTES) {
     return res.status(400).json({ status: "error", message: "حجم تصویر بیش از حد مجاز است" });
   }
-  const filename = randomFileName("upload", ext);
-  await getBlobStore().put("uploads", filename, buffer, mimeForFile(filename));
-  return res.json({ status: "success", url: "/uploads/" + filename });
+  // Profile pictures, logos and icons are stored at the size they are shown.
+  const optimized = await optimizeImage(buffer, ext, imagePurpose(req.body.purpose));
+  const filename = randomFileName("upload", optimized.ext);
+  await getBlobStore().put("uploads", filename, optimized.buffer, mimeForFile(filename));
+  return res.json({ status: "success", url: "/uploads/" + filename, size: optimized.buffer.length });
 });
 
 subRouter.post(

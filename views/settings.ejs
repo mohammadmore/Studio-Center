@@ -876,8 +876,8 @@
             if (!input.files || input.files.length === 0) return;
             const file = input.files[0];
             
-            if (file.size > 5 * 1024 * 1024) {
-                 if (window.showToast) window.showToast('حجم فایل نباید بیشتر از ۵ مگابایت باشد', 'error');
+            if (file.size > 25 * 1024 * 1024) {
+                 if (window.showToast) window.showToast('حجم فایل نباید بیشتر از ۲۵ مگابایت باشد', 'error');
                  input.value = '';
                  return;
             }
@@ -896,7 +896,7 @@
                     const res = await fetch('/api/upload_image', { 
                         method: 'POST', 
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ image: base64 }) 
+                        body: JSON.stringify({ image: base64, purpose: 'logo' }) 
                     });
                     
                     if (res.status === 413) {
@@ -965,7 +965,7 @@
                     const res = await fetch('/api/upload_image', { 
                         method: 'POST', 
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ image: base64 }) 
+                        body: JSON.stringify({ image: base64, purpose: 'icon' }) 
                     });
                     const result = await res.json();
                     if (result.status === 'success') {
@@ -1267,8 +1267,41 @@
             
             document.getElementById('roleModalTitle').innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle;'><path d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'/><path d='m15 5 4 4'/></svg> ویرایش نقش`;
             document.getElementById('saveRoleBtn').innerText = 'ذخیره تغییرات';
+            setRoleAvatar('male', r.default_male_avatar || '');
+            setRoleAvatar('female', r.default_female_avatar || '');
         }
         
+        // Default avatars of a role: shown for its members without their own picture.
+        function setRoleAvatar(gender, url) {
+            const key = gender === 'male' ? 'Male' : 'Female';
+            document.getElementById('roleDefault' + key + 'Avatar').value = url || '';
+            const img = document.getElementById('role' + key + 'AvatarPreview');
+            img.src = url || '';
+            img.style.display = url ? 'inline-block' : 'none';
+        }
+        async function uploadRoleAvatar(event, gender) {
+            const file = event.target.files && event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            if (file.size > 25 * 1024 * 1024) return showToast('حجم فایل نباید بیشتر از ۲۵ مگابایت باشد', 'error');
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            }).catch(() => '');
+            if (!dataUrl) return showToast('خواندن فایل ممکن نشد', 'error');
+            const res = await fetch('/api/upload_image', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: dataUrl, purpose: 'avatar' })
+            });
+            const result = await res.json().catch(() => ({}));
+            if (result.status === 'success') {
+                setRoleAvatar(gender, result.url);
+                showToast('آواتار آپلود شد؛ برای ثبت، نقش را ذخیره کنید', 'success');
+            } else showToast('خطا در آپلود: ' + (result.message || ''), 'error');
+        }
+
         // Counters, "select all" per group, and the admin box dimming the rest.
         function refreshPermUI() {
             const admin = document.getElementById('permAdminBox');
@@ -1314,7 +1347,9 @@
                 id: id,
                 name: name,
                 permissions: perms,
-                icon: icon
+                icon: icon,
+                default_male_avatar: document.getElementById('roleDefaultMaleAvatar').value,
+                default_female_avatar: document.getElementById('roleDefaultFemaleAvatar').value
             };
             
             const btn = document.getElementById('saveRoleBtn');

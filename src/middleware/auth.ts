@@ -1,4 +1,5 @@
 import {
+  effectiveAvatar,
   effectivePermissions,
   findClientOrg,
   findColleague,
@@ -74,7 +75,7 @@ export function authGuard(perm?: string | string[]) {
     res.locals.user = {
       ...user,
       full_name: colleague?.full_name || user.full_name,
-      avatar_url: colleague?.avatar_url || user.avatar_url,
+      avatar_url: (colleague && effectiveAvatar(colleague)) || user.avatar_url,
       role_id: roleInfo.role_id,
       role_name: roleInfo.role_name,
     };
