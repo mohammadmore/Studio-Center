@@ -11,7 +11,7 @@ import { saveDatabase } from "../../store/db.js";
 import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
 import { hasPermission, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeColor, safeUrl, toInt } from "../../utils/helpers.js";
-import { moveToRecycleBin } from "../../utils/contentUtils.js";
+import { moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
 import { isUsernameTaken } from "./users.js";
 
 const subRouter = express.Router();
@@ -44,6 +44,8 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
       return res.status(400).json({ status: "error", message: "اطلاعات نامعتبر" });
     }
     let currentId = nextId(collections);
+    const added: any[] = [];
+    let duplicates = 0;
     for (const col of cols) {
       if (!col || !col.title) continue;
       let numericOrgId = null;
@@ -53,16 +55,24 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
       } else if (col.org_id) {
         numericOrgId = toInt(col.org_id);
       }
-      collections.push({
-        id: currentId++,
-        title: String(col.title),
-        org_id: numericOrgId,
-        created_at: persianDate(),
-        is_active: 1,
-      });
+      const title = String(col.title).trim();
+      // Importing the same file twice must not create every collection again.
+      if (collections.some((c) => String(c.title).trim() === title && (c.org_id ?? null) == numericOrgId)) {
+        duplicates++;
+        continue;
+      }
+      const item = { id: currentId++, title, org_id: numericOrgId, created_at: persianDate(), is_active: 1 };
+      collections.push(item);
+      added.push(item);
     }
+    recordBulkAdd(req.user, "collections", added, "ورود گروهی مجموعه‌ها (اکسل)", (c) => c.title);
     saveDatabase();
-    return res.json({ status: "success", message: "مجموعه‌ها با موفقیت اضافه شدند" });
+    return res.json({
+      status: "success",
+      added: added.length,
+      duplicates,
+      message: `${added.length.toLocaleString("fa-IR")} مجموعه اضافه شد` + (duplicates ? `؛ ${duplicates.toLocaleString("fa-IR")} مورد تکراری بود و دوباره اضافه نشد` : ""),
+    });
   }
   if (action === "add") {
     if (!title || typeof title !== "string") {
@@ -228,19 +238,24 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
     }
     let currentId = nextId(organizations);
     let skipped = 0;
+    const added: any[] = [];
     for (const org of orgs) {
       const orgPw = typeof org?.password === "string" ? org.password.trim() : "";
-      if (!org || (org.username && isUsernameTaken(String(org.username))) || (orgPw && orgPw.length < 6)) {
+      const sameName = org?.org_name && organizations.some((o) => String(o.org_name).trim() === String(org.org_name).trim());
+      if (!org || sameName || (org.username && isUsernameTaken(String(org.username))) || (orgPw && orgPw.length < 6)) {
         skipped++;
         continue;
       }
-      organizations.unshift(buildOrg(org, currentId++));
+      const item = buildOrg(org, currentId++);
+      organizations.unshift(item);
+      added.push(item);
     }
+    recordBulkAdd(req.user, "organizations", added, "ورود گروهی سازمان‌ها (اکسل)", (o) => o.org_name);
     saveDatabase();
     return res.json({
       status: "success",
       message: skipped
-        ? `سازمان‌ها اضافه شدند (${skipped} ردیف به دلیل نام کاربری تکراری یا رمز نامعتبر رد شد)`
+        ? `سازمان‌ها اضافه شدند (${skipped} ردیف به دلیل نام یا نام کاربری تکراری یا رمز نامعتبر رد شد)`
         : "سازمان‌ها با موفقیت اضافه شدند",
     });
   }

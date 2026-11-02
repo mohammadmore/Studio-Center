@@ -4,6 +4,7 @@ import { mediaAssets, organizations } from "../../store/state.js";
 import { getBlobStore, saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { nextId, toInt } from "../../utils/helpers.js";
+import { recordBulkAdd } from "../../utils/contentUtils.js";
 import { imagePurpose, optimizeImage } from "../../utils/images.js";
 import {
   extensionOf,
@@ -106,8 +107,13 @@ subRouter.post("/save_media", checkPermission("media"), (req, res) => {
     }
     let currentId = nextId(mediaAssets);
     let skipped = 0;
+    const added: any[] = [];
     for (const m of media) {
       if (!m || !m.asset_name || !isAllowedUrl(m.file_url)) {
+        skipped++;
+        continue;
+      }
+      if (mediaAssets.some((a) => a.asset_name === String(m.asset_name) && a.file_url === String(m.file_url).trim())) {
         skipped++;
         continue;
       }
@@ -118,20 +124,23 @@ subRouter.post("/save_media", checkPermission("media"), (req, res) => {
       } else if (m.org_id) {
         numericOrgId = toInt(m.org_id);
       }
-      mediaAssets.push({
+      const item = {
         id: currentId++,
         org_id: numericOrgId,
         asset_name: String(m.asset_name),
         asset_type: m.asset_type,
         file_url: m.file_url.trim(),
         created_at: new Date().toLocaleDateString("fa-IR"),
-      });
+      };
+      mediaAssets.push(item);
+      added.push(item);
     }
+    recordBulkAdd((req as any).user, "mediaAssets", added, "ورود گروهی فایل‌های کتابخانه (اکسل)", (a) => a.asset_name);
     saveDatabase();
     return res.json({
       status: "success",
       message: skipped
-        ? `فایل‌ها ذخیره شدند (${skipped} ردیف نامعتبر رد شد).`
+        ? `فایل‌ها ذخیره شدند (${skipped} ردیف نامعتبر یا تکراری رد شد).`
         : "فایل‌ها با موفقیت ذخیره شدند.",
     });
   }

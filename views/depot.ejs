@@ -1336,14 +1336,16 @@ function renderKanban(allItems) {
                 <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5; margin-bottom:10px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <div style="color: var(--text-gray); font-size: 0.9rem; font-weight:bold; margin-bottom:6px;">دپوی محتوا خالی است</div>
                 <div style="color: #94a3b8; font-size: 0.8rem; line-height: 1.5; margin-bottom: 15px;">برای شروع، محتوا‌های خود را به صورت تکی یا گروهی تزریق کنید.</div>
-                <button class="btn-primary"  onclick="openExcelModal()" style="">
+                <div class="empty-cta">
+                <button type="button" class="btn-primary" onclick="openExcelModal()">
                     <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                     تزریق گروهی
                 </button>
-                <button onclick="openFormModal()" style="background: var(--card-bg); color: var(--primary-color); border: 1px solid var(--primary-color); padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <button type="button" class="btn-outline" onclick="openFormModal()">
                     <svg style="pointer-events: none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     افزودن دستی
                 </button>
+                </div>
             </div>`;
         } else if (colItems.length === 0) {
             cardsHtml = '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;" class="empty-state">خالی</div>';

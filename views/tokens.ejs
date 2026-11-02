@@ -131,7 +131,7 @@
                 if(data.status === 'success') {
                     if(window.showToast) window.showToast('اتصال برقرار شد', 'success');
                     else showToast('اتصال برقرار شد');
-                    closeTokenModal(); document.getElementById("tokenAccount").value = ""; document.getElementById("tokenAccess").value = ""; loadTokens();
+                    document.getElementById("newTokenAccount").value = ""; document.getElementById("newTokenAccess").value = ""; loadTokens();
                 } else {
                     showToast(data.message);
                 }

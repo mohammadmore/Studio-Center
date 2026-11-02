@@ -743,9 +743,9 @@ window.filterTeam = function() {
             if (window.hideLoading) window.hideLoading();
             
             if (result.status === 'success') {
-                showToast('مجموعه‌های اکسل با موفقیت ذخیره شدند', 'success');
+                showToast(result.message || 'مجموعه‌های اکسل با موفقیت ذخیره شدند', 'success');
                 document.getElementById('excelPreviewModal').style.display = 'none';
-                loadCollections();
+                loadData();
             } else {
                 showToast(result.message || 'خطا در ذخیره مجموعه‌ها', 'error');
             }

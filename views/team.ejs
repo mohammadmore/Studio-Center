@@ -317,7 +317,7 @@
                 const titleMsg = currentTab === 'active' ? 'همکار فعالی یافت نشد!' : 'همکار غیرفعالی وجود ندارد!';
                 const subMsg = currentTab === 'active' ? 'با افزودن همکاران به سیستم، می‌توانید وظایف را به آن‌ها محول کنید و روند تولید محتوا را به صورت تیمی پیش ببرید.' : 'در حال حاضر هیچ یک از همکاران غیرفعال یا آرشیو نشده‌اند.';
                 const ctaBtn = currentTab === 'active' ? `
-                    <button class="btn-primary"  onclick="document.getElementById('addModal').style.display='flex'" style=""  >
+                    <button class="btn-primary"  onclick="openModal()" style=""  >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         افزودن اولین همکار
                     </button>` : '';

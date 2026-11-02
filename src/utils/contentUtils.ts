@@ -1,9 +1,11 @@
 import {
+  batch_operations,
   colleagues,
   collections,
   contentTemplates,
   contents,
   invoices,
+  mediaAssets,
   organizations,
   recycle_bin,
   roles,
@@ -40,7 +42,36 @@ const RESTORE_TARGETS: Record<string, any[]> = {
   collections,
   invoices,
   roles,
+  mediaAssets,
 };
+
+/** Arrays a bulk import can add to (and an undo can take back out of). */
+export function bulkTarget(table: string) {
+  return RESTORE_TARGETS[table] || null;
+}
+
+/**
+ * Records a bulk import in the activity history so it can be undone (the
+ * added items move to the recycle bin) and redone.
+ */
+export function recordBulkAdd(user: any, table: string, items: any[], title: string, titleOf: (x: any) => string) {
+  if (!items.length) return null;
+  const op = {
+    id: "batch_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+    type: "bulk_add",
+    table,
+    title,
+    description: `تعداد ${items.length} مورد به صورت گروهی اضافه شد.`,
+    item_ids: items.map((x) => x.id),
+    item_titles: items.slice(0, 200).map(titleOf),
+    user: user?.username || "system",
+    timestamp: new Date().toISOString(),
+    is_undone: false,
+  };
+  batch_operations.unshift(op);
+  if (batch_operations.length > 500) batch_operations.splice(500);
+  return op;
+}
 
 export function newBinId() {
   let id = Date.now();

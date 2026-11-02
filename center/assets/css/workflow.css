@@ -105,3 +105,12 @@
   .main-content { padding: 0 !important; margin: 0 !important; }
   .wf-card { break-inside: avoid; border-color: #ddd; }
 }
+@media (max-width: 600px) {
+  /* Wrapped button rows fill the line evenly instead of leaving ragged widths. */
+  .wf-actions > .wf-btn, .wf-actions > .btn-primary, .wf-actions > .btn-outline,
+  .wf-card > .wf-row > .wf-btn, .wf-card .wf-row.between > .wf-row > .wf-btn { flex: 1 1 auto; justify-content: center; }
+  /* The client menu is one swipeable line on phones. */
+  .wf-client-nav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
+  .wf-client-nav::-webkit-scrollbar { display: none; }
+  .wf-client-nav > .wf-btn { flex: 0 0 auto; white-space: nowrap; }
+}

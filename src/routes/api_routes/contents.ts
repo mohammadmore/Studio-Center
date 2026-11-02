@@ -23,8 +23,10 @@ import {
   toInt,
 } from "../../utils/helpers.js";
 import {
+  bulkTarget,
   cardColleagueIds,
   moveToRecycleBin,
+  recordBulkAdd,
   reDeleteBinItem,
   resolveColleagueIds,
   restoreBinItem,
@@ -884,13 +886,27 @@ subRouter.post("/manage_content_template", checkPermission("templates"), (req: a
       return res.status(400).json({ status: "error", message: "اطلاعات نامعتبر" });
     }
     let currentId = nextId(contentTemplates);
+    const added: any[] = [];
+    let duplicates = 0;
     for (const tpl of templates) {
       const items = normalizeTemplateItems(tpl?.items);
       if (!tpl?.name || !items) continue;
-      contentTemplates.push({ id: currentId++, name: String(tpl.name), items });
+      if (contentTemplates.some((t) => String(t.name).trim() === String(tpl.name).trim())) {
+        duplicates++;
+        continue;
+      }
+      const item = { id: currentId++, name: String(tpl.name).trim(), items };
+      contentTemplates.push(item);
+      added.push(item);
     }
+    recordBulkAdd(req.user, "contentTemplates", added, "ورود گروهی قالب‌ها (اکسل)", (t) => t.name);
     saveDatabase();
-    return res.json({ status: "success", message: "قالب‌ها اضافه شدند" });
+    return res.json({
+      status: "success",
+      added: added.length,
+      duplicates,
+      message: `${added.length.toLocaleString("fa-IR")} قالب اضافه شد` + (duplicates ? `؛ ${duplicates.toLocaleString("fa-IR")} قالب تکراری بود و دوباره اضافه نشد` : ""),
+    });
   }
   const items = normalizeTemplateItems(template?.items);
   if (action === "add") {
@@ -1330,6 +1346,19 @@ subRouter.post("/undo_batch_operation", (req: any, res) => {
       );
       contents.splice(idx, 1);
     }
+  } else if (operation.type === "bulk_add") {
+    const target = bulkTarget(operation.table);
+    if (!target) return res.status(400).json({ status: "error", message: "نوع عملیات برای لغو پشتیبانی نمی‌شود" });
+    operation.undo_bin_ids = [];
+    for (const itemId of operation.item_ids || []) {
+      const idx = target.findIndex((x) => x.id === itemId);
+      if (idx === -1) continue;
+      const item = target[idx];
+      operation.undo_bin_ids.push(
+        moveToRecycleBin(operation.table, item, item.title || item.org_name || item.name || item.asset_name || "مورد", req.user),
+      );
+      target.splice(idx, 1);
+    }
   } else if (operation.type === "batch_edit") {
     // Remember the current values so the change can be re-applied (redo).
     operation.redo_states = [];
@@ -1360,7 +1389,7 @@ subRouter.post("/redo_batch_operation", (req: any, res) => {
     for (const binId of operation.deleted_bin_ids || []) {
       reDeleteBinItem(recycle_bin.find((b) => b.id === binId));
     }
-  } else if (operation.type === "bulk_import") {
+  } else if (operation.type === "bulk_import" || operation.type === "bulk_add") {
     for (const binId of operation.undo_bin_ids || []) {
       restoreBinItem(recycle_bin.find((b) => b.id === binId));
     }

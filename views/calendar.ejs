@@ -1971,5 +1971,17 @@ function selectContent(element, id) {
     </script>
 <script src="assets/js/app.js?v=4"></script>
     <%- include('partials/content-identity') %>
+<script>
+    // Team checkboxes of the "new content" form: the chosen project manager is left out.
+    function updateScheduleTeamCheckboxes() {
+        const manager = document.getElementById('newScheduleManager').value;
+        document.querySelectorAll('input[name="newScheduleTeam_cb"]').forEach(cb => {
+            const row = cb.closest('label');
+            const isManager = manager && cb.value === manager;
+            if (isManager) cb.checked = false;
+            if (row) row.style.display = isManager ? 'none' : '';
+        });
+    }
+</script>
 </body>
 </html>

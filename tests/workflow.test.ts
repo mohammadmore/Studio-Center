@@ -407,6 +407,43 @@ describe("settings page", () => {
   });
 });
 
+describe("bulk imports", () => {
+  it("skip items that already exist and can be undone from the history", async () => {
+    const admin = await login("admin");
+    const cols = [{ title: "مجموعه الف", org_username: "brand1" }, { title: "مجموعه ب" }];
+    const first = await admin.post("/api/manage_collections").send({ action: "batch_add", cols });
+    assert.equal(first.body.added, 2);
+    const again = await admin.post("/api/manage_collections").send({ action: "batch_add", cols });
+    assert.equal(again.body.added, 0);
+    assert.equal(again.body.duplicates, 2);
+    assert.equal(state.collections.filter((c: any) => c.title === "مجموعه الف").length, 1);
+
+    const ops = await admin.get("/api/get_batch_operations");
+    const op = ops.body.data.find((o: any) => o.type === "bulk_add" && o.table === "collections");
+    assert.ok(op, "the import is in the activity history");
+    assert.deepEqual(op.item_titles, ["مجموعه الف", "مجموعه ب"]);
+    await admin.post("/api/undo_batch_operation").send({ batch_id: op.id });
+    assert.equal(state.collections.some((c: any) => c.title === "مجموعه الف"), false);
+    assert.ok(state.recycle_bin.some((b: any) => b.table === "collections" && b.item_title === "مجموعه الف"));
+    await admin.post("/api/redo_batch_operation").send({ batch_id: op.id });
+    assert.equal(state.collections.filter((c: any) => c.title === "مجموعه الف").length, 1);
+  });
+
+  it("records template, media and organisation imports too", async () => {
+    const admin = await login("admin");
+    await admin.post("/api/manage_content_template").send({ action: "batch_add", templates: [{ name: "قالب گروهی", items: [{ type: "پوستر", count: 2 }] }] });
+    await admin.post("/api/save_media").send({ action: "batch_add", media: [{ asset_name: "لوگو گروهی", file_url: "https://example.com/l.png" }] });
+    await admin.post("/api/manage_orgs").send({ action: "batch_add", orgs: [{ org_name: "برند گروهی" }] });
+    const ops = (await admin.get("/api/get_batch_operations")).body.data.filter((o: any) => o.type === "bulk_add");
+    for (const table of ["contentTemplates", "mediaAssets", "organizations"]) assert.ok(ops.some((o: any) => o.table === table), table);
+    const media = ops.find((o: any) => o.table === "mediaAssets");
+    await admin.post("/api/undo_batch_operation").send({ batch_id: media.id });
+    assert.equal(state.mediaAssets.some((m: any) => m.asset_name === "لوگو گروهی"), false);
+    await admin.post("/api/redo_batch_operation").send({ batch_id: media.id });
+    assert.equal(state.mediaAssets.some((m: any) => m.asset_name === "لوگو گروهی"), true);
+  });
+});
+
 describe("comment threads", () => {
   it("notifies the author of the comment that was answered", async () => {
     const ali = await login("ali");
