@@ -40,6 +40,61 @@
     document.addEventListener("keydown", function (ev) { if (ev.key === "Enter") fixLink(ev); }, true);
   }
 
+  // Older page code sets image/file addresses directly ("img.src = '/uploads/x.png'",
+  // or HTML strings without safeUrl). Give those the base path as well.
+  if (BASE) {
+    [window.HTMLImageElement, window.HTMLMediaElement, window.HTMLSourceElement].forEach(function (Ctor) {
+      if (!Ctor) return;
+      var desc = Object.getOwnPropertyDescriptor(Ctor.prototype, "src");
+      if (!desc || !desc.set) return;
+      Object.defineProperty(Ctor.prototype, "src", {
+        configurable: true,
+        enumerable: desc.enumerable,
+        get: function () { return desc.get.call(this); },
+        set: function (v) { desc.set.call(this, typeof v === "string" ? asvaUrl(v) : v); },
+      });
+    });
+    // url(/x) not already starting with the base path.
+    var STYLE_URL = new RegExp("url\\((['\"]?)\\/(?!\\/|" + BASE.slice(1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\/)", "g");
+    var fixNode = function (el) {
+      if (!el || el.nodeType !== 1) return;
+      ["src", "href", "poster", "data-light", "data-dark"].forEach(function (attr) {
+        var v = el.getAttribute(attr);
+        if (v && v.charAt(0) === "/" && v.charAt(1) !== "/") {
+          var fixed = asvaUrl(v);
+          if (fixed !== v) el.setAttribute(attr, fixed);
+        }
+      });
+      var st = el.getAttribute("style");
+      if (st && st.indexOf("url(") !== -1) {
+        var fixedStyle = st.replace(STYLE_URL, "url($1" + BASE + "/");
+        if (fixedStyle !== st) el.setAttribute("style", fixedStyle);
+      }
+    };
+    var fixTree = function (root) {
+      if (!root || root.nodeType !== 1) return;
+      fixNode(root);
+      var all = root.querySelectorAll("[src],[href],[poster],[data-light],[data-dark],[style*='url(']");
+      for (var i = 0; i < all.length; i++) fixNode(all[i]);
+    };
+    var startObserver = function () {
+      fixTree(document.documentElement);
+      new MutationObserver(function (list) {
+        list.forEach(function (m) {
+          if (m.type === "attributes") fixNode(m.target);
+          else m.addedNodes.forEach(fixTree);
+        });
+      }).observe(document.documentElement, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["src", "href", "poster", "data-light", "data-dark", "style"],
+      });
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", startObserver);
+    else startObserver();
+  }
+
   // ---------- escaping ----------
   var HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;" };
   window.escapeHtml = function (v) {

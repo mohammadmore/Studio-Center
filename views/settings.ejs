@@ -867,11 +867,9 @@
             if (logoInput) logoInput.value = '';
             updateStudioLogoPreview(type, '');
             
-            // Auto-save the form
-            const saveBtn = document.querySelector('#studioInfoForm button[type="submit"]');
-            if (saveBtn) {
-                saveBtn.click();
-            }
+            // Save right away. (Clicking the submit button was silently blocked by the
+            // browser while the required studio name was still empty.)
+            saveStudioInfo();
         }
 
         async function uploadStudioLogo(input, type) {
@@ -913,11 +911,9 @@
                         updateStudioLogoPreview(type, result.url);
                         if (window.showToast) showToast('تصویر با موفقیت آپلود شد، در حال ذخیره...', 'success');
                         
-                        // Auto-save the form
-                        const saveBtn = document.querySelector('#studioInfoForm button[type="submit"]');
-                        if (saveBtn) {
-                            saveBtn.click();
-                        }
+                        // Save right away. (Clicking the submit button was silently blocked by the
+                        // browser while the required studio name was still empty.)
+                        saveStudioInfo();
                     } else {
                         if (window.showToast) showToast('خطا در آپلود: ' + (result.message||''), 'error');
                     }
