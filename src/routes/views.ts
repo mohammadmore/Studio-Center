@@ -94,11 +94,11 @@ viewsRouter.get("/client-dashboard", clientAuthGuard, (req: any, res) => {
 });
 viewsRouter.get("/client-events", clientAuthGuard, (req: any, res) => {
   const org = stripSecrets(req.account);
-  res.render("client-events", { org, orgData: org });
+  res.render("client-events", { org, orgData: org, current: "client-events" });
 });
 viewsRouter.get("/client-review", clientAuthGuard, (req: any, res) => {
   const org = stripSecrets(req.account);
-  res.render("client-review", { org, orgData: org });
+  res.render("client-review", { org, orgData: org, current: "client-review" });
 });
 
 for (const view of ["client-requests", "client-files", "client-quotes"]) {

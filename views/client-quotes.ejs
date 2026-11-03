@@ -45,7 +45,11 @@
         }).join('');
     }
     async function decide(id, decision) {
-        const comment = window.prompt(decision === 'accept' ? 'توضیح (اختیاری):' : 'دلیل رد یا تغییرات مورد نظر:');
+        const comment = await wfPrompt(decision === 'accept' ? 'تایید پیش‌فاکتور' : 'رد پیش‌فاکتور', {
+            label: decision === 'accept' ? 'توضیح (اختیاری)' : 'دلیل رد یا تغییرات مورد نظر',
+            multiline: true, required: decision !== 'accept', okText: decision === 'accept' ? 'تایید و صدور فاکتور' : 'ثبت رد',
+            message: decision === 'accept' ? 'با تایید، فاکتور به‌صورت خودکار صادر می‌شود.' : '',
+        });
         if (comment === null) return;
         if (await api('/api/client_quotes', { id, decision, comment }, { success: decision === 'accept' ? 'تایید شد و فاکتور صادر شد' : 'ثبت شد' })) load();
     }

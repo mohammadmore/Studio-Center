@@ -62,7 +62,7 @@
             ${canEdit ? '<div class="wf-actions" style="margin-top:0;margin-bottom:12px"><button type="button" class="btn-primary" onclick="edit()">✏️ ویرایش کیت برند</button></div>' : ''}
             <div class="wf-grid-2">
                 <div class="wf-card"><h3>لوگوها</h3>${imgs || '<div class="wf-empty-sm">لوگویی ثبت نشده است.</div>'}</div>
-                <div class="wf-card"><h3>پالت رنگ</h3><div class="wf-row">${(k.colors || []).map(c => `<button type="button" class="wf-btn" onclick="copyText(${jsAttr(c.hex)})" title="کپی کد رنگ" style="flex-direction:column;gap:4px"><span class="wf-swatch" style="background:${escapeHtml(safeColor(c.hex))}"></span><small>${escapeHtml(c.name || '')}</small><small class="ltr">${escapeHtml(c.hex)}</small></button>`).join('') || '<div class="wf-empty-sm">رنگی ثبت نشده است.</div>'}</div></div>
+                <div class="wf-card"><h3>پالت رنگ</h3><div class="wf-row">${(k.colors || []).map(c => `<button type="button" class="wf-btn" onclick="copyText(${jsAttr(c.hex)})" title="کپی کد رنگ" style="flex-direction:column;gap:4px;flex:0 0 auto"><span class="wf-swatch" style="background:${escapeHtml(safeColor(c.hex))}"></span><small>${escapeHtml(c.name || '')}</small><small class="ltr">${escapeHtml(c.hex)}</small></button>`).join('') || '<div class="wf-empty-sm">رنگی ثبت نشده است.</div>'}</div></div>
                 <div class="wf-card"><h3>فونت‌ها</h3>${fileListHtml(k.fonts, { download: true, empty: 'فونتی ثبت نشده است.' })}</div>
                 <div class="wf-card"><h3>فایل‌ها و راهنمای برند (PDF، قالب‌ها…)</h3>${fileListHtml(k.files, { download: true, empty: 'فایلی ثبت نشده است.' })}</div>
                 <div class="wf-card"><h3>✅ بایدها</h3>${list(k.dos, 'ثبت نشده')}</div>

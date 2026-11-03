@@ -352,6 +352,51 @@
 
 <% userPermissions = typeof userPermissions !== "undefined" ? userPermissions : []; %>
 <script>window.ASVA_ME = <%- JSON.stringify({ id: (typeof user !== "undefined" && user) ? user.id : null, username: (typeof user !== "undefined" && user) ? user.username : "", full_name: (typeof user !== "undefined" && user) ? user.full_name : "", permissions: userPermissions }).replace(/</g, "\\u003c") %>; window.asvaCan = function (p) { var ps = (window.ASVA_ME && window.ASVA_ME.permissions) || []; return ps.indexOf("admin") !== -1 || [].concat(p).some(function (x) { return ps.indexOf(x) !== -1; }); };</script>
+<% if (userPermissions.includes('admin') && typeof current !== 'undefined' && (current === 'depot' || current === 'dashboard')) { %>
+<style>
+    .asva-setup { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px 18px; margin: 0 0 18px; box-shadow: var(--glass-shadow, 0 2px 10px rgba(0,0,0,0.04)); }
+    .asva-setup-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .asva-setup-head h3 { margin: 0; font-size: 1.05rem; }
+    .asva-setup-bar { height: 8px; border-radius: 8px; background: var(--border-color); overflow: hidden; margin: 10px 0 12px; }
+    .asva-setup-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--primary-color), #8b5cf6); border-radius: 8px; }
+    .asva-setup-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .asva-setup-list a { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; text-decoration: none; color: var(--text-dark); min-height: 40px; box-sizing: border-box; }
+    .asva-setup-list a:hover { border-color: var(--primary-color); }
+    .asva-setup-list a.done { opacity: .6; }
+    .asva-setup-list .ic { flex: 0 0 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border-color); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+    .asva-setup-list a.done .ic { background: var(--success-color, #10b981); border-color: transparent; color: #fff; }
+    .asva-setup-list small { display: block; color: var(--text-gray); font-size: .78rem; margin-top: 2px; line-height: 1.5; }
+    .asva-setup-x { background: none; border: 1px solid var(--border-color); border-radius: 10px; padding: 6px 12px; cursor: pointer; color: var(--text-gray); font-family: inherit; min-height: 36px; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var main = document.querySelector('.main-content');
+    if (!main || !window.fetch) return;
+    var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    var fa = function (n) { return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[d]; }); };
+    fetch('/api/setup_status', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (res) {
+        var d = res && res.data;
+        if (!d || d.dismissed || d.done >= d.total) return;
+        var box = document.createElement('section');
+        box.className = 'asva-setup';
+        box.setAttribute('aria-label', 'راه‌اندازی سیستم');
+        box.innerHTML = '<div class="asva-setup-head"><h3>🚀 راه‌اندازی استودیو — ' + fa(d.done) + ' از ' + fa(d.total) + ' مرحله انجام شده</h3>' +
+            '<button type="button" class="asva-setup-x" title="این کارت دیگر نمایش داده نشود">بعداً، نمایش نده</button></div>' +
+            '<div class="asva-setup-bar"><span style="width:' + Math.round(d.done / d.total * 100) + '%"></span></div>' +
+            '<ul class="asva-setup-list">' + d.steps.map(function (s) {
+                return '<li><a href="' + esc(s.href) + '" class="' + (s.done ? 'done' : '') + '"><span class="ic">' + (s.done ? '✓' : '') + '</span><span><b>' + esc(s.title) + '</b>' + (s.done ? '' : '<small>' + esc(s.hint) + '</small>') + '</span></a></li>';
+            }).join('') + '</ul>';
+        var header = main.querySelector('.page-header-container, .dashboard-header, .content-header, .header-panel');
+        if (header && header.parentNode === main) header.insertAdjacentElement('afterend', box); else main.insertBefore(box, main.firstChild);
+        box.querySelector('.asva-setup-x').onclick = function () {
+            box.remove();
+            fetch('/api/save_studio_info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setup_dismissed: true }) });
+            if (typeof showToast === 'function') showToast('کارت راه‌اندازی پنهان شد. هر زمان خواستید از تنظیمات پایه دوباره نمایشش دهید.', 'info');
+        };
+    }).catch(function () {});
+});
+</script>
+<% } %>
 <div id="notif-dropdown" style="display: none; position: fixed; top: 65px; right: 240px; width: 320px; background: var(--card-bg); border-radius: 12px; box-shadow: 0 20px 40px -5px rgba(0,0,0,0.15); border: 1px solid var(--border-color); z-index: 995; overflow: hidden; color: var(--text-gray); direction: rtl;">
     <div style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
         <span style="color: var(--text-gray); font-weight: bold;">پیام‌ها و اعلان‌ها</span>
@@ -434,8 +479,8 @@
                     پروژه‌های من
                 </a>
                 <div style="display:flex; gap:6px; margin-top:8px; justify-content:center;">
-                    <button type="button" class="wf-btn sm" onclick="openMyChannels()" title="دریافت اعلان در تلگرام و بله">🔔 اعلان‌های من</button>
-                    <button type="button" class="wf-btn sm" onclick="showIcsLink()" title="همگام‌سازی با تقویم گوشی">🗓️ تقویم</button>
+                    <button type="button" class="wf-btn sm" style="flex:1; white-space:nowrap; padding:4px 6px;" onclick="openMyChannels()" title="دریافت اعلان در تلگرام و بله">🔔 اعلان‌های من</button>
+                    <button type="button" class="wf-btn sm" style="flex:1; white-space:nowrap; padding:4px 6px;" onclick="showIcsLink()" title="همگام‌سازی با تقویم گوشی">🗓️ تقویم</button>
                 </div>
             </div>
         </div>
@@ -1241,8 +1286,10 @@ window.customConfirm = function(message) {
             input.setAttribute('data-jdp', 'true');
             // The library needs input type to be text
             if(input.type === 'date') input.type = 'text';
-            
-            if (!input.value) {
+            // Empty date fields stay empty: filling in "today" turned report and log
+            // filters into "today only" and gave unscheduled cards today's date on save.
+            // A form that wants today asks for it with data-default-today.
+            if (!input.value && input.hasAttribute('data-default-today')) {
                 input.value = jalaaliToday;
             }
         }
@@ -1666,6 +1713,7 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
                 <div style="padding: 10px 0;">
             `;
             
+            const OMNI_STATUS = { raw: 'ورودی خام', todo: 'در صف', doing: 'در حال تولید', in_progress: 'در حال تولید', review: 'ارزیابی استودیو', client_review: 'ارزیابی کارفرما', needs_revision: 'نیاز به اصلاح', approved_by_client: 'تایید کارفرما', ready_to_publish: 'آماده انتشار', scheduled: 'زمان‌بندی شده', published: 'منتشر شده', done: 'تکمیل شده', archived: 'آرشیو شده', pending: 'در انتظار' };
             results.contents.forEach(c => {
                 html += `
                     <a href="javascript:void(0)" onclick="closeOmnibar(); if(window.openContentDetails) { window.openContentDetails(${c.id}); } else { window.location.href='depot?open=${c.id}'; }" style="display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: inherit; transition: background 0.2s; border-right: 3px solid transparent;" onmouseover="this.style.background='var(--hover-bg)'; this.style.borderRight='3px solid var(--primary-color)'" onmouseout="this.style.background='transparent'; this.style.borderRight='3px solid transparent'">
@@ -1679,7 +1727,7 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
                                 <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--border-color);"></span>
                                 <span>${escapeHtml(c.content_type || 'محتوا')}</span>
                                 <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--border-color);"></span>
-                                <span>${escapeHtml(c.status)}</span>
+                                <span>${escapeHtml(OMNI_STATUS[c.status] || c.status || '')}</span>
                             </div>
                         </div>
                     </a>

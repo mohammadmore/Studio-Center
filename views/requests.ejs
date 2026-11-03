@@ -108,7 +108,7 @@
             };
             if (!open) return;
             const setStatus = async (status, ask) => {
-                const note = window.prompt(ask) ;
+                const note = await wfPrompt(status === 'rejected' ? 'رد درخواست' : 'درخواست اطلاعات بیشتر', { label: ask, multiline: true, required: true, okText: 'ثبت و اطلاع به کارفرما' });
                 if (note === null) return;
                 const res = await api('/api/requests', { action: 'set_status', id: r.id, status, note }, { success: 'ثبت شد و کارفرما خبردار شد' });
                 if (res) { m.close(); load(); }

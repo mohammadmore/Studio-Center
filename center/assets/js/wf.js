@@ -72,7 +72,12 @@
       document.removeEventListener("keydown", onKey);
       if (opts.onClose) opts.onClose();
     };
-    var onKey = function (e) { if (e.key === "Escape") close(); };
+    // Esc closes only the topmost dialog (a prompt can sit on top of another dialog).
+    var onKey = function (e) {
+      if (e.key !== "Escape") return;
+      var all = document.querySelectorAll(".wf-overlay");
+      if (all[all.length - 1] === overlay) close();
+    };
     overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
     overlay.querySelector(".wf-x").onclick = close;
     document.addEventListener("keydown", onKey);
@@ -81,6 +86,38 @@
     var first = overlay.querySelector("input,select,textarea");
     if (first) setTimeout(function () { if (!overlay.contains(document.activeElement)) first.focus(); }, 50);
     return { el: overlay, close: close, q: function (s) { return overlay.querySelector(s); } };
+  };
+
+  /**
+   * The app's own text prompt (the browser's prompt() looks foreign, is tiny on
+   * phones and cannot validate). Resolves to the text, or null when cancelled.
+   */
+  window.wfPrompt = function (title, opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var done = false;
+      var field = opts.multiline
+        ? '<textarea class="form-control" id="wfPromptInput" rows="4" placeholder="' + window.escapeHtml(opts.placeholder || "") + '">' + window.escapeHtml(opts.value || "") + "</textarea>"
+        : '<input class="form-control' + (opts.ltr ? " ltr" : "") + '" id="wfPromptInput" placeholder="' + window.escapeHtml(opts.placeholder || "") + '" value="' + window.escapeHtml(opts.value || "") + '">';
+      var m = window.wfModal(title,
+        (opts.message ? '<p class="muted" style="margin-top:0">' + window.escapeHtml(opts.message) + "</p>" : "") +
+        '<label class="wf-label">' + window.escapeHtml(opts.label || "") + field + '</label><div id="wfPromptError" style="color:var(--error-color);font-size:.85rem;min-height:1.2em"></div>' +
+        '<div class="wf-actions"><button type="button" class="wf-btn" id="wfPromptCancel">انصراف</button><button type="button" class="btn-primary" id="wfPromptOk">' + window.escapeHtml(opts.okText || "تایید") + "</button></div>",
+        { onClose: function () { if (!done) { done = true; resolve(null); } } });
+      var input = m.q("#wfPromptInput");
+      var ok = function () {
+        var v = input.value.trim();
+        if (opts.required && !v) { m.q("#wfPromptError").textContent = opts.requiredText || "این فیلد را پر کنید"; input.focus(); return; }
+        if (opts.validate) { var err = opts.validate(v); if (err) { m.q("#wfPromptError").textContent = err; input.focus(); return; } }
+        done = true;
+        m.close();
+        resolve(v);
+      };
+      m.q("#wfPromptOk").onclick = ok;
+      m.q("#wfPromptCancel").onclick = function () { m.close(); };
+      if (!opts.multiline) input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); ok(); } });
+      setTimeout(function () { input.focus(); }, 60);
+    });
   };
 
   /** Jalali date picker on inputs marked with data-jdp (pages without the sidebar load it here). */
@@ -215,17 +252,26 @@
         var val = sel.value;
         sel.value = "";
         if (val === "__save") {
-          var name = window.prompt("نام این نما (مثلاً «ریلزهای این هفته برند X»):");
-          if (!name || !name.trim()) return;
+          var name = await window.wfPrompt("ذخیره فیلترهای فعلی", { label: "نام این نما", placeholder: "مثلاً «ریلزهای این هفته برند X»", required: true, okText: "ذخیره" });
+          if (!name) return;
           var res = await window.api("/api/saved_views", { page: opts.page, name: name.trim(), filters: current() }, { success: "نما ذخیره شد" });
           if (res) { views = res.data.filter(function (v) { return v.page === opts.page; }); render(); }
         } else if (val === "__delete") {
-          var names = views.map(function (v, i) { return window.fa(i + 1) + ". " + v.name; }).join("\n");
-          var pick = window.prompt("شماره نمایی که حذف شود:\n" + names);
-          var idx = Number(window.latin(pick || "")) - 1;
-          if (!views[idx]) return;
-          var r = await window.api("/api/saved_views", { action: "delete", id: views[idx].id }, { success: "حذف شد" });
-          if (r) { views = r.data.filter(function (v) { return v.page === opts.page; }); render(); }
+          var dm = window.wfModal("حذف نماهای ذخیره‌شده", '<ul class="wf-files" id="svList"></ul>');
+          var drawList = function () {
+            var ul = dm.q("#svList");
+            if (!views.length) { ul.innerHTML = '<li class="muted">نمایی باقی نمانده است.</li>'; return; }
+            ul.innerHTML = views.map(function (v) {
+              return '<li><span style="flex:1">⭐ ' + window.escapeHtml(v.name) + '</span><button type="button" class="wf-btn sm danger" data-del="' + window.escapeHtml(v.id) + '">حذف</button></li>';
+            }).join("");
+            ul.querySelectorAll("[data-del]").forEach(function (b) {
+              b.onclick = async function () {
+                var r = await window.api("/api/saved_views", { action: "delete", id: b.getAttribute("data-del") }, { success: "حذف شد" });
+                if (r) { views = r.data.filter(function (v) { return v.page === opts.page; }); render(); drawList(); }
+              };
+            });
+          };
+          drawList();
         } else if (val) {
           var v = views.find(function (x) { return x.id === val; });
           if (v) apply(v);
@@ -282,7 +328,9 @@
       await navigator.clipboard.writeText(text);
       window.showToast && window.showToast("کپی شد", "success");
     } catch (e) {
-      window.prompt("کپی کنید:", text);
+      var m = window.wfModal("کپی کنید", '<p class="muted" style="margin-top:0">کپی خودکار ممکن نشد؛ متن انتخاب شده است، Ctrl+C (یا نگه داشتن انگشت و کپی) را بزنید.</p><input class="form-control ltr" id="wfCopyText" readonly value="' + window.escapeHtml(text) + '">');
+      var inp = m.q("#wfCopyText");
+      setTimeout(function () { inp.focus(); inp.select(); }, 60);
     }
   };
 })();

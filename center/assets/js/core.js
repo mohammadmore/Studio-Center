@@ -428,6 +428,11 @@
       socket.on("connect_error", function (err) {
         if (err && err.message === "unauthorized") socket.disconnect();
       });
+      // Someone changed data: forget cached lists so the next load is fresh.
+      socket.on("cache_bust", function () {
+        cacheClear();
+        window.dispatchEvent(new CustomEvent("asva:data_changed"));
+      });
       socket.on("notification", function (n) {
         notify((n && n.title ? n.title + ": " : "") + (n && n.description ? n.description : "اعلان جدید"), "info");
         if (typeof window.fetchNotifications === "function") window.fetchNotifications();

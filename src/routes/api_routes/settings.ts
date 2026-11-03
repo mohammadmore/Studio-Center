@@ -1,5 +1,6 @@
 import express from "express";
-import { organizations, settings, tokens } from "../../store/state.js";
+import { colleagues, contents, organizations, roles, settings, tokens } from "../../store/state.js";
+import { getIntegrationConfig } from "../../utils/notifiers.js";
 import { getBlobStore, saveDatabase } from "../../store/db.js";
 import { checkPermission, isClient } from "../../middleware/auth.js";
 import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
@@ -330,6 +331,25 @@ subRouter.post("/delete_font", checkPermission("settings"), async (req, res) => 
   if (settings.active_font === filename) settings.active_font = DEFAULT_FONT;
   saveDatabase();
   res.json({ status: "success", message: "فونت حذف شد" });
+});
+
+/** First-run checklist: what an admin still has to set up before the studio works smoothly. */
+subRouter.get("/setup_status", checkPermission("settings"), (req, res) => {
+  const info = settings.studio_info || {};
+  const active = (list: any) => (Array.isArray(list) ? list.filter((x: any) => x && x.is_active !== 0) : []);
+  const types = active(settings.content_type);
+  const integ = getIntegrationConfig();
+  const steps = [
+    { id: "studio", title: "نام و لوگوی استودیو", hint: "در تنظیمات پایه، نام و لوگوی روشن و تیره را وارد کنید.", href: "settings", done: !!(info.name && (info.logo_light || info.logo_dark)) },
+    { id: "content_types", title: "انواع محتوا و قیمت‌ها", hint: "انواع محتوا (پست، ریلز، ویدیو…) را با قیمت هر کدام تعریف کنید.", href: "settings", done: types.length > 0 && types.some((t: any) => Number(t.price) > 0) },
+    { id: "platforms", title: "پلتفرم‌های انتشار", hint: "اینستاگرام، تلگرام و… را در تنظیمات پایه اضافه کنید.", href: "settings", done: active(settings.platform).length > 0 },
+    { id: "roles", title: "نقش‌ها و سطح دسترسی", hint: "برای همکاران نقش‌هایی مثل طراح یا تدوینگر بسازید.", href: "settings", done: roles.some((r) => r.id != 1) },
+    { id: "team", title: "افزودن همکاران", hint: "حساب کاربری همکاران را بسازید.", href: "add-user", done: colleagues.filter((c) => c.is_active !== 0).length > 1 },
+    { id: "orgs", title: "افزودن اولین برند (کارفرما)", hint: "برند را با نام کاربری پنل کارفرما ثبت کنید.", href: "organizations", done: organizations.some((o) => o.is_active !== 0) },
+    { id: "integrations", title: "اطلاع‌رسانی بیرونی (پیامک، ایمیل، تلگرام، بله)", hint: "حداقل یک کانال را فعال کنید تا کارفرما و تیم خبردار شوند.", href: "integrations", done: ["sms", "email", "telegram", "bale"].some((ch) => integ[ch]?.enabled) },
+    { id: "first_content", title: "ساخت اولین محتوا", hint: "اولین کارت تولید را در میز کار بسازید.", href: "depot", done: contents.some((c) => !c.is_deleted) },
+  ];
+  res.json({ status: "success", data: { steps, done: steps.filter((s) => s.done).length, total: steps.length, dismissed: !!info.setup_dismissed } });
 });
 
 subRouter.get("/get_studio_info", (req, res) => {

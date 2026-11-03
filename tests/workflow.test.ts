@@ -480,3 +480,36 @@ describe("comment threads", () => {
     assert.equal(card(1).comments[1].parent_id, first.body.comment.id);
   });
 });
+
+describe("first-run setup checklist", () => {
+  it("lists the remaining steps for admins and can be hidden", async () => {
+    const admin = await login("admin");
+    const res = await admin.get("/api/setup_status");
+    assert.equal(res.status, 200);
+    const steps = res.body.data.steps;
+    assert.ok(steps.find((s: any) => s.id === "orgs").done);
+    assert.ok(steps.find((s: any) => s.id === "content_types").done);
+    assert.equal(steps.find((s: any) => s.id === "integrations").done, false);
+    assert.equal(res.body.data.dismissed, false);
+    await admin.post("/api/save_studio_info").send({ setup_dismissed: true }).expect(200);
+    assert.equal((await admin.get("/api/setup_status")).body.data.dismissed, true);
+    await admin.post("/api/save_studio_info").send({ setup_dismissed: false }).expect(200);
+  });
+  it("is not shown to staff without the settings permission", async () => {
+    const ali = await login("ali");
+    assert.equal((await ali.get("/api/setup_status")).status, 403);
+  });
+});
+
+describe("activity log", () => {
+  it("names the action in Persian and skips page assets and unknown paths", async () => {
+    const admin = await login("admin");
+    const before = state.audit_logs.length;
+    await admin.get("/assets/js/core.js");
+    await admin.get("/api/get_orgs");
+    await admin.post("/api/requests").send({ action: "create", org_id: 1, title: "درخواست تست لاگ" }).expect(200);
+    const added = state.audit_logs.slice(before);
+    assert.equal(added.length, 1, JSON.stringify(added));
+    assert.doesNotMatch(JSON.stringify(added[0]), /\/api\/requests/);
+  });
+});

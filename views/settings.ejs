@@ -186,6 +186,9 @@
 
                 
                 <div id="studio-settings-container" style="display: none;">
+                    <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                        <button type="button" class="btn-outline" style="padding:8px 14px;" onclick="showSetupCardAgain()">🚀 نمایش دوباره کارت راه‌اندازی در میز کار</button>
+                    </div>
                     <form id="studioInfoForm" onsubmit="saveStudioInfo(event)">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px;">
                             <div>
@@ -1530,6 +1533,11 @@
     function selectCustomRoleEmoji() {
         const val = document.getElementById('customRoleEmojiInput').value.trim();
         if(val) selectRoleIcon(val);
+    }
+    async function showSetupCardAgain() {
+        const res = await fetch('/api/save_studio_info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setup_dismissed: false }) }).then(r => r.json()).catch(() => null);
+        if (res && res.status === 'success') showToast('کارت راه‌اندازی دوباره در میز کار و داشبورد نمایش داده می‌شود.', 'success');
+        else showToast('ذخیره نشد؛ دوباره تلاش کنید.', 'error');
     }
 </script>
 </body>

@@ -43,7 +43,15 @@ subRouter.get("/global_search", (req: any, res) => {
   res.json({
     status: "success",
     results: {
-      contents: matchedContents.slice(0, 50),
+      contents: matchedContents.slice(0, 50).map((c) => ({
+        id: c.id,
+        title: c.title,
+        content_type: c.content_type,
+        status: c.status,
+        publish_date: c.publish_date,
+        org_id: c.org_id,
+        org_name: organizations.find((o) => o.id == c.org_id)?.org_name || "",
+      })),
       media: matchedMedia,
       orgs: matchedOrgs,
       collections: matchedCollections,

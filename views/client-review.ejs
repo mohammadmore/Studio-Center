@@ -287,6 +287,7 @@ var notifLoaded = false;
                 </button>
             </div>
         </div>
+        <%- include('partials/client-nav') %>
         <div style="text-align: center; margin-bottom: 30px;">
                 </div>
                 
@@ -437,9 +438,9 @@ var notifLoaded = false;
                 if (group === 'awaiting' || group === 'reviewed') {
                     cardHtml += `
                         <div class="action-buttons" style="flex-wrap: wrap;">
-                            <button class="btn-approve" style="background: var(--primary-color);" onclick="openReviewViewer(${item.id}, loadContent)">🔍 ${item.has_versions ? 'مشاهده نسخه' + (item.versions_count > 1 ? '‌ها' : '') + ' و نظر دقیق' : 'بازبینی دقیق و کپشن'}</button>
-                            <button class="btn-approve" onclick="reviewContent(${item.id}, 'approve')" ${item.status === 'approved_by_client' ? 'style="opacity: 0.5; cursor: not-allowed;" disabled' : ''}><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg> تایید نهایی</button>
-                            <button class="btn-reject" onclick="reviewContent(${item.id}, 'reject')" ${item.status === 'needs_revision' ? 'style="opacity: 0.5; cursor: not-allowed;" disabled' : ''}><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> نیاز به اصلاح</button>
+                            <button class="btn-approve" style="background: var(--primary-color);" onclick="openReviewViewer(${item.id}, loadContent)">🔍 ${item.has_versions ? 'مشاهده، نظر و تایید نسخه' + (item.versions_count > 1 ? '‌ها' : '') : 'بازبینی دقیق و کپشن'}</button>
+                            ${item.has_versions ? '<span style="font-size: 0.8rem; color: var(--text-gray); align-self: center;">برای تایید یا درخواست اصلاح، ابتدا نسخه را ببینید.</span>' : `<button class="btn-approve" onclick="reviewContent(${item.id}, 'approve')" ${item.status === 'approved_by_client' ? 'style="opacity: 0.5; cursor: not-allowed;" disabled' : ''}><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg> تایید نهایی</button>
+                            <button class="btn-reject" onclick="reviewContent(${item.id}, 'reject')" ${item.status === 'needs_revision' ? 'style="opacity: 0.5; cursor: not-allowed;" disabled' : ''}><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> نیاز به اصلاح</button>`}
                         </div>
                     `;
                     if (group === 'awaiting') {

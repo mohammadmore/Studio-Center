@@ -54,3 +54,17 @@ export function emitNotification(n: any) {
     io.to(`org:${n.user_id}`).emit("notification", payload);
   }
 }
+
+let cacheBustTimer: NodeJS.Timeout | null = null;
+/**
+ * Tells every open page that data changed, so it drops its short-lived GET cache
+ * instead of showing up to a minute of stale lists. Bursts collapse into one message.
+ */
+export function emitCacheBust() {
+  if (!io || cacheBustTimer) return;
+  cacheBustTimer = setTimeout(() => {
+    cacheBustTimer = null;
+    io?.emit("cache_bust", { at: Date.now() });
+  }, 800);
+  cacheBustTimer.unref?.();
+}

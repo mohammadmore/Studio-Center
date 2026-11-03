@@ -1,6 +1,6 @@
 /* Shared styles of the workflow pages and the card's workflow panel. */
 .wf-page { max-width: 1200px; margin: 0 auto; }
-.wf-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px; margin-bottom: 16px; box-sizing: border-box; }
+.wf-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--glass-shadow, 0 2px 10px rgba(0,0,0,0.04)); padding: 18px; margin-bottom: 16px; box-sizing: border-box; }
 .wf-card h3 { margin: 0 0 12px; font-size: 1.05rem; color: var(--text-dark); }
 .wf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .wf-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -17,10 +17,10 @@
 .muted { color: var(--text-gray); }
 .wf-empty { text-align: center; color: var(--text-gray); padding: 40px 10px; }
 .wf-empty-sm { color: var(--text-gray); font-size: 0.85rem; padding: 6px 0; }
-.wf-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-dark); cursor: pointer; font-family: inherit; font-size: 0.85rem; text-decoration: none; min-height: 36px; box-sizing: border-box; }
+.wf-btn { display: inline-flex; align-items: center; gap: 6px; justify-content: center; padding: 8px 16px; border-radius: 12px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-dark); cursor: pointer; font-family: inherit; font-size: 0.88rem; font-weight: 600; text-decoration: none; min-height: 40px; box-sizing: border-box; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
 .wf-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
-.wf-btn.sm { padding: 3px 8px; min-height: 28px; font-size: 0.78rem; }
-.wf-btn.primary { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+.wf-btn.sm { padding: 4px 10px; min-height: 32px; font-size: 0.8rem; border-radius: 10px; }
+.wf-btn.primary { background: linear-gradient(135deg, var(--primary-color), #8b5cf6, #ec4899); color: #fff; border-color: transparent; }
 .wf-btn.primary:hover { filter: brightness(1.1); color: #fff; }
 .wf-btn.success { background: var(--success-color, #10b981); color: #fff; border-color: transparent; }
 .wf-btn.danger { color: var(--error-color, #ef4444); border-color: rgba(239, 68, 68, 0.4); }
@@ -113,4 +113,10 @@
   .wf-client-nav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
   .wf-client-nav::-webkit-scrollbar { display: none; }
   .wf-client-nav > .wf-btn { flex: 0 0 auto; white-space: nowrap; }
+}
+/* Touch screens: a checkbox row is tapped as a whole, so the row gets a finger-sized height. */
+@media (pointer: coarse), (max-width: 768px) {
+  label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
+  input[type="checkbox"], input[type="radio"] { min-width: 22px; min-height: 22px; }
+  .wf-btn.sm { min-height: 36px; }
 }

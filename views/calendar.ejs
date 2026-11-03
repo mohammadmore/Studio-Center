@@ -1306,7 +1306,8 @@
             // List View Generation
             const tbody = document.getElementById('list-view-body');
             if (tbody) {
-                let listHtml = '';
+                const listChunks = [];
+                let listHtml = '', chunkCount = 0;
                 let hasItems = false;
                 Object.keys(window.monthlyData).sort((a,b)=>a-b).forEach(day => {
                     let d = parseInt(day);
@@ -1338,7 +1339,7 @@
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
                         `;
-                        listHtml += dayHeaderHtml;
+                        listHtml = dayHeaderHtml; chunkCount = dayData.length;
                         
                         dayData.forEach(ev => {
                             let badgeText = ev.content_type || 'محتوا';
@@ -1375,16 +1376,37 @@
                         });
                         
                         listHtml += '</div>'; // close the date group container
+                        listChunks.push({ html: listHtml, count: chunkCount });
                     }
                 });
-                // One DOM update for the whole list instead of one per row.
-                tbody.innerHTML = listHtml;
+                // A busy month can hold hundreds of cards: show whole days up to a batch, then a "show more" button.
+                window.calListChunks = listChunks;
+                window.calListLimit = 60;
+                renderCalendarList();
                 if (!hasItems) {
                     tbody.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-gray); background: var(--card-bg); border-radius: 12px;">رویدادی برای این ماه ثبت نشده است</div>';
                 }
             }
             window.allDepotItems = Object.values(window.monthlyData).flat();
         }
+
+        function renderCalendarList() {
+            const tbody = document.getElementById('list-view-body');
+            const chunks = window.calListChunks || [];
+            if (!tbody) return;
+            let html = '', shown = 0, i = 0;
+            for (; i < chunks.length; i++) {
+                if (shown > 0 && shown + chunks[i].count > window.calListLimit) break;
+                html += chunks[i].html; shown += chunks[i].count;
+            }
+            const total = chunks.reduce((n, c) => n + c.count, 0);
+            if (i < chunks.length) {
+                html += `<button type="button" class="btn-outline" style="width:100%; margin-top:8px;" onclick="window.calListLimit += 60; renderCalendarList();">نمایش بیشتر (${toPersianDigits(shown)} از ${toPersianDigits(total)} محتوا نمایش داده شده)</button>`;
+            }
+            tbody.innerHTML = html;
+            (window.selectedBatchIds || []).forEach(id => { const cb = tbody.querySelector('.batch-checkbox[value="' + id + '"]'); if (cb) cb.checked = true; });
+        }
+        window.renderCalendarList = renderCalendarList;
 
         window.openDayDetails = function(dayNumber, dayNameStr) {
             let gregorian = jalaali.toGregorian(currentYear, currentMonth, dayNumber);

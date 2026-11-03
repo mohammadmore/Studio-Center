@@ -161,7 +161,11 @@
     pane.querySelectorAll("[data-internal]").forEach(function (b) {
       b.onclick = async function () {
         var decision = b.getAttribute("data-internal");
-        var note = decision === "reject" ? window.prompt("توضیح برای اصلاح (اختیاری):") || "" : "";
+        var note = "";
+        if (decision === "reject") {
+          note = await window.wfPrompt("برگشت نسخه برای اصلاح", { label: "چه چیزی باید اصلاح شود؟", multiline: true, required: true, okText: "برگشت برای اصلاح" });
+          if (note === null) return;
+        }
         var res = await window.api("/api/review_versions", { action: "internal", id: it.id, decision: decision, note: note }, { success: "ثبت شد" });
         if (res) refresh(it.id);
       };
@@ -290,8 +294,12 @@
     };
     pane.querySelector("#dvUpload").onclick = async function () { add(await window.asvaPickAndUpload()); };
     pane.querySelector("#dvLink").onclick = function () {
-      var url = window.prompt("لینک فایل نهایی:");
-      if (url && /^https?:\/\//.test(url.trim())) add([{ name: url.trim().split("/").pop() || "لینک", url: url.trim() }]);
+      window.wfPrompt("لینک فایل نهایی", {
+        label: "لینک (Google Drive، Dropbox و …)", placeholder: "https://", ltr: true, required: true, okText: "افزودن",
+        validate: function (v) { return /^https?:\/\//i.test(v) ? "" : "لینک باید با http یا https شروع شود"; },
+      }).then(function (url) {
+        if (url) add([{ name: url.split("/").pop() || "لینک", url: url }]);
+      });
     };
     pane.querySelectorAll("[data-remove]").forEach(function (b) {
       b.onclick = async function () {

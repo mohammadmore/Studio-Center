@@ -19,6 +19,7 @@ import { auditRequest } from "./middleware/audit.js";
 import { isDatabaseReady, saveDatabase } from "./store/db.js";
 import { settings } from "./store/state.js";
 import { isSafeFileName } from "./utils/files.js";
+import { emitCacheBust } from "./utils/socket.js";
 
 /** Changes whenever a file under center/assets changes, so browsers can cache assets for long. */
 function computeAssetVersion() {
@@ -295,11 +296,16 @@ export function createApp() {
     next();
   });
 
+  const CACHE_NEUTRAL_API = /^\/api\/(login|logout|upload_|timer|heartbeat|mark_notification|read_notification)/;
   app.use(auditRequest);
   app.use((req, res, next) => {
+    // Routers rewrite req.url while handling, so remember the path the request came in on.
+    const path = req.path;
     res.on("finish", () => {
-      if (req.method !== "GET" && req.path.startsWith("/api/") && res.statusCode < 500) {
+      if (req.method !== "GET" && path.startsWith("/api/") && res.statusCode < 500) {
         saveDatabase();
+        // Other open pages drop their cached lists so they show this change.
+        if (res.statusCode < 400 && !CACHE_NEUTRAL_API.test(path)) emitCacheBust();
       }
     });
     next();

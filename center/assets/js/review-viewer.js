@@ -148,7 +148,9 @@
       body.querySelectorAll("[data-cap]").forEach(function (b) {
         b.onclick = async function () {
           var decision = b.getAttribute("data-cap");
-          var comment = decision === "reject" ? window.prompt("چه تغییری در کپشن لازم است؟") : "";
+          var comment = decision === "reject"
+            ? await window.wfPrompt("اصلاح کپشن", { label: "چه تغییری در کپشن لازم است؟", multiline: true, required: true, okText: "ارسال برای استودیو" })
+            : "";
           if (comment === null) return;
           var r = await window.api("/api/caption_review", { id: d.id, decision: decision, comment: comment }, { success: "ثبت شد" });
           if (r) { d.caption_approval = { status: decision === "approve" ? "approved" : "rejected", comment: comment }; render(); }
