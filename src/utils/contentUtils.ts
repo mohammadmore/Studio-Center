@@ -131,3 +131,19 @@ export function reDeleteBinItem(binItem: any) {
   binItem.restored = false;
   return true;
 }
+
+const looseName = (v: unknown) =>
+  String(v ?? "")
+    .replace(/[‌ ]/g, " ")
+    .replace(/ي/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+/** A brand named in an Excel cell: its id, exact name or panel username (spacing and Arabic letters ignored). */
+export function findOrgByRef(ref: unknown) {
+  const v = looseName(ref);
+  if (!v || v === "0") return undefined;
+  return organizations.find((o) => String(o.id) === v || looseName(o.org_name) === v || (o.username && looseName(o.username) === v));
+}

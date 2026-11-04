@@ -17,115 +17,105 @@ import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js
 import { getRoleInfoForUser, hasPermission, isAdmin } from "../../utils/authUtils.js";
 import { addAuditLog, addNotification } from "../../utils/logger.js";
 import { nextId, toInt } from "../../utils/helpers.js";
-import { moveToRecycleBin } from "../../utils/contentUtils.js";
+import { findOrgByRef, moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const subRouter = express.Router();
+
+const latinDigits = (v: unknown) =>
+  String(v ?? "")
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .trim();
+const yes = (v: unknown) => ["1", "true", "yes", "بله", "بلی", "دارد", "✓"].includes(latinDigits(v).toLowerCase());
+
+/** Rows sent by the page (header-based) or read from an old position-based file. */
+function rowsFromFile(buffer: Buffer) {
+  const workbook = xlsx.read(buffer, { type: "buffer" });
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  const data = xlsx.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+  return data.slice(1).map((row) => ({
+    title: row[0],
+    calendar: row[1],
+    day: row[2],
+    month: row[3],
+    base_year: row[4],
+    holiday: row[5],
+    org: yes(row[6]) ? row[7] : "",
+  }));
+}
 
 subRouter.post(
   "/upload_smart_events",
   checkPermission("smart-events"),
   upload.single("excelFile"),
-  async (req, res) => {
-    if (!req.file) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message:
-            "هیچ فایلی آپلود نشده است.",
-        });
-    }
+  async (req: any, res) => {
+    let rows: any[] = [];
     try {
-      const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const data = xlsx.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
-      const rows = data.slice(1);
-      let addedCount = 0;
-      rows.forEach((row) => {
-        const title = row[0];
-        const calendarTypeStr = row[1];
-        const day = parseInt(row[2]);
-        const month = parseInt(row[3]);
-        let baseYear = parseInt(row[4]);
-        if (isNaN(baseYear) || baseYear < 1300) {
-          const jDate = jalaali.toJalaali(new Date());
-          baseYear = jDate.jy;
-        }
-        const isHoliday = row[5] == 1 || row[5] == "1" ? 1 : 0;
-        const isCustom = row[6];
-        const orgName = row[7];
-        if (!title || !calendarTypeStr || isNaN(day) || isNaN(month)) {
-          return;
-        }
-        let calendar_type = "shamsi";
-        if (
-          typeof calendarTypeStr === "string" &&
-          calendarTypeStr.includes("قمری")
-        )
-          calendar_type = "ghamari";
-        else if (
-          typeof calendarTypeStr === "string" &&
-          calendarTypeStr.includes("میلادی")
-        )
-          calendar_type = "miladi";
-        let org_id = null;
-        if (
-          (isCustom == 1 || isCustom == "1") &&
-          orgName &&
-          orgName !== "0" &&
-          orgName !== 0
-        ) {
-          const cleanOrgName = orgName.toString().trim();
-          let org = organizations.find(
-            (o) => o.org_name && o.org_name.toString().trim() === cleanOrgName,
-          );
-          if (!org) {
-            org = {
-              id: nextId(organizations),
-              org_name: cleanOrgName,
-              color: "#4f46e5",
-              logo_url: "",
-              username: "",
-              passwordHash: "",
-              is_active: 1,
-            };
-            organizations.push(org);
-          }
-          if (org) {
-            org_id = org.id;
-          }
-        }
-        const newEvent = {
-          id:
-            nextId(smartEventsBank),
-          title: title.toString(),
-          calendar_type,
-          base_year: baseYear,
-          is_holiday: isHoliday,
-          shamsi_month: month,
-          shamsi_day: day,
-          org_id,
-        };
-        smartEventsBank.push(newEvent);
-        addedCount++;
-      });
-      saveDatabase();
-      res.json({
-        status: "success",
-        message: `${addedCount} مناسبت با موفقیت وارد شد.`,
-      });
+      if (req.file) rows = rowsFromFile(req.file.buffer);
+      else if (Array.isArray(req.body?.rows)) rows = req.body.rows;
     } catch (e) {
       console.error(e);
-      res
-        .status(500)
-        .json({
-          status: "error",
-          message:
-            "خطا در پردازش فایل اکسل.",
-        });
+      return res.status(400).json({ status: "error", message: "فایل اکسل خوانده نشد." });
     }
+    if (!rows.length) {
+      return res.status(400).json({ status: "error", message: "هیچ ردیفی برای ورود ارسال نشده است." });
+    }
+    if (rows.length > 5000) {
+      return res.status(400).json({ status: "error", message: "حداکثر ۵۰۰۰ ردیف در هر بار مجاز است." });
+    }
+    const currentYear = jalaali.toJalaali(new Date()).jy;
+    const added: any[] = [];
+    let invalid = 0;
+    let duplicates = 0;
+    let unknownOrgs = 0;
+    for (const row of rows) {
+      const title = String(row?.title ?? "").trim();
+      const day = parseInt(latinDigits(row?.day), 10);
+      const month = parseInt(latinDigits(row?.month), 10);
+      if (!title || !(day >= 1 && day <= 31) || !(month >= 1 && month <= 12)) {
+        invalid++;
+        continue;
+      }
+      const calText = String(row?.calendar ?? "");
+      const calendar_type = /قمری|ghamari|hijri/i.test(calText) ? "ghamari" : /میلادی|miladi|gregorian/i.test(calText) ? "miladi" : "shamsi";
+      let baseYear = parseInt(latinDigits(row?.base_year), 10);
+      if (isNaN(baseYear) || baseYear < 1300) baseYear = currentYear;
+      let org_id: number | null = null;
+      if (row?.org && latinDigits(row.org) !== "0") {
+        const org = findOrgByRef(row.org);
+        if (org) org_id = org.id;
+        else unknownOrgs++;
+      }
+      if (
+        smartEventsBank.some(
+          (e) => String(e.title).trim() === title && e.shamsi_day == day && e.shamsi_month == month && (e.org_id ?? null) == org_id,
+        )
+      ) {
+        duplicates++;
+        continue;
+      }
+      const event: any = {
+        id: nextId(smartEventsBank),
+        title,
+        calendar_type,
+        base_year: baseYear,
+        is_holiday: row?.holiday === true || yes(row?.holiday) ? 1 : 0,
+        shamsi_month: month,
+        shamsi_day: day,
+        org_id,
+      };
+      if (row?.description) event.description = String(row.description).slice(0, 2000);
+      smartEventsBank.push(event);
+      added.push(event);
+    }
+    recordBulkAdd(req.user, "smartEventsBank", added, "ورود گروهی مناسبت‌ها (اکسل)", (e) => e.title);
+    saveDatabase();
+    const parts = [`${added.length.toLocaleString("fa-IR")} مناسبت وارد شد`];
+    if (duplicates) parts.push(`${duplicates.toLocaleString("fa-IR")} مورد تکراری بود`);
+    if (invalid) parts.push(`${invalid.toLocaleString("fa-IR")} ردیف روز یا ماه نامعتبر داشت`);
+    if (unknownOrgs) parts.push(`برند ${unknownOrgs.toLocaleString("fa-IR")} ردیف پیدا نشد و مناسبت عمومی ثبت شد`);
+    res.json({ status: "success", message: parts.join("؛ "), added: added.length });
   },
 );
 

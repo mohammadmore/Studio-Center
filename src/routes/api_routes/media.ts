@@ -4,7 +4,7 @@ import { mediaAssets, organizations } from "../../store/state.js";
 import { getBlobStore, saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { nextId, toInt } from "../../utils/helpers.js";
-import { recordBulkAdd } from "../../utils/contentUtils.js";
+import { findOrgByRef, recordBulkAdd } from "../../utils/contentUtils.js";
 import { imagePurpose, optimizeImage } from "../../utils/images.js";
 import {
   extensionOf,
@@ -118,8 +118,9 @@ subRouter.post("/save_media", checkPermission("media"), (req, res) => {
         continue;
       }
       let numericOrgId = null;
-      if (m.org_username) {
-        const org = organizations.find((o) => o.username === m.org_username);
+      const orgRef = m.org ?? m.org_username;
+      if (orgRef) {
+        const org = findOrgByRef(orgRef);
         if (org) numericOrgId = org.id;
       } else if (m.org_id) {
         numericOrgId = toInt(m.org_id);
@@ -128,7 +129,7 @@ subRouter.post("/save_media", checkPermission("media"), (req, res) => {
         id: currentId++,
         org_id: numericOrgId,
         asset_name: String(m.asset_name),
-        asset_type: m.asset_type,
+        asset_type: String(m.asset_type || "تصویر / لوگو 🖼️"),
         file_url: m.file_url.trim(),
         created_at: new Date().toLocaleDateString("fa-IR"),
       };

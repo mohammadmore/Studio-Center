@@ -319,224 +319,56 @@ function notifyStatusChange(card: any, status: string) {
   }
 }
 
-subRouter.get("/download_content_excel_template", checkPermission("depot"), (req, res) => {
-  try {
-    const wb = xlsx.utils.book_new();
-    const sampleOrg =
-      organizations && organizations.length > 0
-        ? organizations[0].org_name
-        : "کیان تیم";
-    const sampleManager =
-      colleagues && colleagues.length > 0
-        ? colleagues[0].full_name || colleagues[0].username
-        : "مدیر کل (Admin)";
-    const templateData = [
-      {
-        "عنوان محتوا":
-          "ویدیوی معرفی محصول جدید",
-        "سازمان / برند":
-          sampleOrg,
-        "نوع محتوا":
-          "پست ویدیویی",
-        "مدیر پروژه":
-          sampleManager,
-        "همکاران (با کاما)":
-          "تدوینگر, مدیر داخلی",
-        "مراحل تولید (با کاما)":
-          "پژوهش و سناریو, فیلمبرداری, تدوین",
-        "وضعیت":
-          "ورودی خام",
-        "تاریخ انتشار":
-          "1405/02/15",
-        "ساعت انتشار":
-          "18:00",
-        "کپشن / توضیحات":
-          "سناریوی پیشنهادی برای ویدیوی معرفی محصول جدید...",
-        "لینک کاور":
-          "https://example.com/cover1.jpg",
-        "لینک ویدیو":
-          "https://example.com/video1.mp4",
-      },
-      {
-        "عنوان محتوا":
-          "پوستر تخفیفات ویژه فصل",
-        "سازمان / برند":
-          sampleOrg,
-        "نوع محتوا":
-          "پوستر گرافیکی",
-        "مدیر پروژه":
-          sampleManager,
-        "همکاران (با کاما)":
-          "طراح گرافیک",
-        "مراحل تولید (با کاما)":
-          "طراحی گرافیک",
-        "وضعیت": "در صف",
-        "تاریخ انتشار":
-          "1405/02/20",
-        "ساعت انتشار":
-          "12:00",
-        "کپشن / توضیحات":
-          "طراحی بنر و پوستر تخفیفات...",
-        "لینک کاور": "",
-        "لینک ویدیو": "",
-      },
-    ];
-    const wsData = xlsx.utils.json_to_sheet(templateData);
-    xlsx.utils.book_append_sheet(
-      wb,
-      wsData,
-      "دپوی محتوا",
-    );
-    const availableOrgs = (organizations || [])
-      .map((o) => o.org_name)
-      .join(" | ");
-    const availableTypes = ((settings && settings.content_type) || [])
-      .map((t: any) => t.setting_key)
-      .join(" | ");
-    const availableColleagues = (colleagues || [])
-      .map((c) => c.full_name || c.username)
-      .join(" | ");
-    const guideData = [
-      {
-        "نام ستون":
-          "عنوان محتوا",
-        "نوع": "اجباری",
-        "توضیحات و راهنما":
-          "نام یا تیتر اصلی کارت محتوا",
-        "مقادیر معتبر / موجود در سیستم":
-          "هر عنوان دلخواه",
-      },
-      {
-        "نام ستون":
-          "سازمان / برند",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "نام کارفرما یا برندی که محتوا متعلق به آن است",
-        "مقادیر معتبر / موجود در سیستم":
-          availableOrgs ||
-          "نام سازمان‌های ثبت‌شده در سیستم",
-      },
-      {
-        "نام ستون":
-          "نوع محتوا",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "فرمت و قالب محتوای تولیدی",
-        "مقادیر معتبر / موجود در سیستم":
-          availableTypes ||
-          "پوستر گرافیکی | پست ویدیویی | مقاله سئو ...",
-      },
-      {
-        "نام ستون":
-          "مدیر پروژه",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "نام یا نامکاربری مدیر پروژه مسئول",
-        "مقادیر معتبر / موجود در سیستم":
-          availableColleagues ||
-          "نام پرسنل استودیو",
-      },
-      {
-        "نام ستون":
-          "همکاران (با کاما)",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "اسامی همکاران درگیر که با کاما (,) یا | از هم جدا شده‌اند",
-        "مقادیر معتبر / موجود در سیستم":
-          availableColleagues,
-      },
-      {
-        "نام ستون":
-          "مراحل تولید (با کاما)",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "مراحل خط تولید محتوا که با کاما جدا می‌شوند",
-        "مقادیر معتبر / موجود در سیستم":
-          "پژوهش و سناریو | فیلمبرداری | عکاسی | طراحی گرافیک | تدوین | گویندگی",
-      },
-      {
-        "نام ستون":
-          "وضعیت",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "ستون کانبان محتوا",
-        "مقادیر معتبر / موجود در سیستم":
-          "ورودی خام (raw) | در صف (todo) | در حال انجام (doing) | تکمیل شده (done)",
-      },
-      {
-        "نام ستون":
-          "تاریخ انتشار",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "تاریخ برنامه‌ریزی انتشار (شمسی)",
-        "مقادیر معتبر / موجود در سیستم":
-          "مثال: 1405/02/15",
-      },
-      {
-        "نام ستون":
-          "ساعت انتشار",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "زمان انتشار",
-        "مقادیر معتبر / موجود در سیستم":
-          "مثال: 18:00",
-      },
-      {
-        "نام ستون":
-          "کپشن / توضیحات",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "متن کامل کپشن یا توضیحات تولید",
-        "مقادیر معتبر / موجود در سیستم":
-          "متن آزاد",
-      },
-      {
-        "نام ستون":
-          "لینک کاور",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "آدرس اینترنتی پوستر یا تصویر کاور",
-        "مقادیر معتبر / موجود در سیستم":
-          "آدرس کامل HTTP/HTTPS",
-      },
-      {
-        "نام ستون":
-          "لینک ویدیو",
-        "نوع": "اختیاری",
-        "توضیحات و راهنما":
-          "آدرس اینترنتی فایل ویدیویی یا ضمیمه",
-        "مقادیر معتبر / موجود در سیستم":
-          "آدرس کامل HTTP/HTTPS",
-      },
-    ];
-    const wsGuide = xlsx.utils.json_to_sheet(guideData);
-    xlsx.utils.book_append_sheet(
-      wb,
-      wsGuide,
-      "راهنمای فرمت",
-    );
-    const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    );
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="Asva_Content_Depot_Template.xlsx"',
-    );
-    res.setHeader("Content-Length", buf.length);
-    res.status(200).send(buf);
-  } catch (e) {
-    console.error("Error generating excel template:", e);
-    res
-      .status(500)
-      .json({
-        status: "error",
-        message:
-          "خطا در ایجاد نمونه فایل اکسل",
-      });
-  }
-});
+/** Board columns a card can be imported into; the Excel guide lists the same names. */
+export const IMPORT_STATUSES: [string, string][] = [
+  ["raw", "ورودی خام"],
+  ["todo", "در صف انتظار"],
+  ["in_progress", "در حال تولید"],
+  ["review", "ارزیابی استودیو"],
+  ["client_review", "ارزیابی کارفرما"],
+  ["needs_revision", "نیاز به اصلاح"],
+  ["done", "تکمیل شده"],
+  ["approved_by_client", "تایید کارفرما"],
+  ["ready_to_publish", "آماده انتشار"],
+  ["published", "منتشر شده"],
+];
+
+const looseText = (v: unknown) =>
+  String(v ?? "")
+    .replace(/[\u200c\u00a0]/g, " ")
+    .replace(/ي/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+/** A colleague from an Excel cell: exact name, username or id first, then a partial name. */
+function findColleagueByName(input: string) {
+  const v = looseText(input);
+  if (!v) return undefined;
+  return (
+    colleagues.find((c) => String(c.id) === v || looseText(c.full_name) === v || looseText(c.username) === v) ||
+    colleagues.find((c) => c.full_name && looseText(c.full_name).includes(v))
+  );
+}
+
+/** Status from an Excel cell: the board column name or its code; anything else lands in «ورودی خام». */
+export function importStatus(input: unknown) {
+  const v = looseText(input);
+  if (!v) return "raw";
+  const exact = IMPORT_STATUSES.find(([code, name]) => code === v || looseText(name) === v);
+  if (exact) return exact[0];
+  if (v === "doing" || v.includes("در حال انجام") || v.includes("تولید")) return "in_progress";
+  if (v.includes("صف")) return "todo";
+  if (v.includes("ارزیابی کارفرما") || v.includes("بررسی کارفرما")) return "client_review";
+  if (v.includes("ارزیابی") || v.includes("بازبینی داخلی")) return "review";
+  if (v.includes("اصلاح")) return "needs_revision";
+  if (v.includes("تایید")) return "approved_by_client";
+  if (v.includes("آماده")) return "ready_to_publish";
+  if (v.includes("منتشر")) return "published";
+  if (v.includes("تکمیل") || v === "تمام شده") return "done";
+  return "raw";
+}
 
 subRouter.post(
   "/bulk_import_contents",
@@ -599,13 +431,13 @@ subRouter.post(
         let targetOrgId = null;
         if (orgInput) {
           const orgInputStr = orgInput.toString().trim().toLowerCase();
-          const foundOrg = organizations.find(
-            (o) =>
-              o.id == orgInput ||
-              (o.org_name && o.org_name.toLowerCase() === orgInputStr) ||
-              (o.org_name && o.org_name.toLowerCase().includes(orgInputStr)) ||
-              (o.username && o.username.toLowerCase() === orgInputStr),
-          );
+          const foundOrg =
+            organizations.find(
+              (o) =>
+                o.id == orgInput ||
+                (o.org_name && o.org_name.toLowerCase() === orgInputStr) ||
+                (o.username && o.username.toLowerCase() === orgInputStr),
+            ) || organizations.find((o) => o.org_name && o.org_name.toLowerCase().includes(orgInputStr));
           if (foundOrg) {
             targetOrgId = foundOrg.id;
           }
@@ -616,7 +448,7 @@ subRouter.post(
           raw["content_type"] ||
           raw["type"];
         let targetType =
-          "پوستر گرافیکی";
+          ((settings.content_type || []) as any[]).find((t) => t && t.is_active !== 0)?.setting_key || "پوستر گرافیکی";
         if (typeInput) {
           const typeStr = typeInput.toString().trim();
           const foundType = (settings.content_type || []).find(
@@ -631,13 +463,7 @@ subRouter.post(
         let targetPM = null;
         if (pmInput) {
           const pmStr = pmInput.toString().trim();
-          const foundColl = colleagues.find(
-            (c) =>
-              c.id == pmStr ||
-              (c.full_name &&
-                c.full_name.toLowerCase().includes(pmStr.toLowerCase())) ||
-              (c.username && c.username.toLowerCase() === pmStr.toLowerCase()),
-          );
+          const foundColl = findColleagueByName(pmStr);
           targetPM = foundColl
             ? foundColl.full_name || foundColl.username
             : pmStr;
@@ -657,13 +483,7 @@ subRouter.post(
             .map((s: any) => s.trim())
             .filter(Boolean);
           assignedColleagues = parts.map((p: any) => {
-            const found = colleagues.find(
-              (c) =>
-                c.id == p ||
-                (c.full_name &&
-                  c.full_name.toLowerCase().includes(p.toLowerCase())) ||
-                (c.username && c.username.toLowerCase() === p.toLowerCase()),
-            );
+            const found = findColleagueByName(p);
             return found ? found.full_name || found.username || found.id : p;
           });
         }
@@ -688,65 +508,7 @@ subRouter.post(
               .filter(Boolean);
           }
         }
-        const statusInput = (
-          raw["وضعیت"] ||
-          raw["status"] ||
-          "raw"
-        )
-          .toString()
-          .trim()
-          .toLowerCase();
-        let targetStatus = "raw";
-        if (
-          statusInput.includes("todo") ||
-          statusInput.includes("صف")
-        ) {
-          targetStatus = "todo";
-        } else if (
-          statusInput.includes("doing") ||
-          statusInput.includes("انجام") ||
-          statusInput.includes("تولید")
-        ) {
-          targetStatus = "in_progress";
-        } else if (
-          statusInput.includes("done") ||
-          statusInput.includes("تکمیل")
-        ) {
-          targetStatus = "done";
-        } else if (statusInput.includes("منتشر")) {
-          targetStatus = "published";
-        } else if (
-          statusInput.includes(
-            "ارزیابی استودیو",
-          )
-        ) {
-          targetStatus = "review";
-        } else if (
-          statusInput.includes(
-            "ارزیابی کارفرما",
-          )
-        ) {
-          targetStatus = "client_review";
-        } else if (statusInput.includes("اصلاح")) {
-          targetStatus = "needs_revision";
-        } else if (
-          statusInput.includes(
-            "تایید کارفرما",
-          )
-        ) {
-          targetStatus = "approved_by_client";
-        } else if (
-          statusInput.includes(
-            "آماده انتشار",
-          )
-        ) {
-          targetStatus = "ready_to_publish";
-        } else if (
-          statusInput.includes("raw") ||
-          statusInput.includes("خام")
-        ) {
-          targetStatus = "raw";
-        }
+        const targetStatus = importStatus(raw["وضعیت"] ?? raw["status"]);
         const publishDate = normalizeJalaliDate(raw["تاریخ انتشار"] || raw["publish_date"] || "");
         const publishTime = (
           raw[
@@ -782,7 +544,14 @@ subRouter.post(
         )
           .toString()
           .trim();
-        const newContent = {
+        const collectionInput = String(raw["مجموعه"] ?? raw["collection"] ?? "").trim();
+        const platformsInput = raw["پلتفرم‌های انتشار"] ?? raw["پلتفرم‌ها"] ?? raw["publish_platforms"] ?? raw["platforms"];
+        const knownPlatforms = ((settings.platform || []) as any[]).map((p) => String(p.setting_key || ""));
+        const platforms = (Array.isArray(platformsInput) ? platformsInput : String(platformsInput ?? "").split(/[,،|]/))
+          .map((p: any) => String(p).trim())
+          .filter(Boolean)
+          .map((p: string) => knownPlatforms.find((k) => k.toLowerCase() === p.toLowerCase()) || p);
+        const newContent: any = {
           id: startId++,
           title: title.toString().trim(),
           org_id: targetOrgId,
@@ -796,9 +565,11 @@ subRouter.post(
           caption,
           cover_link: coverLink,
           video_link: videoLink,
+          publish_platforms: platforms,
           components_count: raw.components_count || {},
           created_at: new Date().toISOString(),
         };
+        if (collectionInput) newContent.collection_id = findOrCreateCollection(collectionInput, targetOrgId).id;
         contents.unshift(newContent);
         addedContents.push(newContent);
       }

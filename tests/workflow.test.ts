@@ -513,3 +513,77 @@ describe("activity log", () => {
     assert.doesNotMatch(JSON.stringify(added[0]), /\/api\/requests/);
   });
 });
+
+describe("Excel imports follow their guides", () => {
+  it("contents: exact status names, collection, platforms and exact colleague names", async () => {
+    state.settings.platform = [{ id: 9, setting_key: "Instagram", is_active: 1 }];
+    const admin = await login("admin");
+    const res = await admin.post("/api/bulk_import_contents").send({
+      items: [
+        { title: "ایمپورت ۱", org_name: "برند یک", collection: "کمپین تست", publish_platforms: ["instagram"], status: "ارزیابی کارفرما", assigned_colleagues: ["علی"], publish_date: "۱۴۰۵/۲/۵" },
+        { title: "ایمپورت ۲", status: "در صف انتظار" },
+        { title: "ایمپورت ۳", status: "تایید کارفرما" },
+      ],
+    });
+    assert.equal(res.body.status, "success", JSON.stringify(res.body));
+    const [c1, c2, c3] = ["ایمپورت ۱", "ایمپورت ۲", "ایمپورت ۳"].map((t) => state.contents.find((c: any) => c.title === t)!);
+    assert.equal(c1.status, "client_review");
+    assert.equal(c2.status, "todo");
+    assert.equal(c3.status, "approved_by_client");
+    assert.deepEqual(c1.publish_platforms, ["Instagram"]);
+    assert.deepEqual(c1.assigned_colleagues, ["علی"]);
+    assert.equal(c1.publish_date, "1405/02/05");
+    const col = state.collections.find((c: any) => c.id === c1.collection_id);
+    assert.equal(col?.title, "کمپین تست");
+    assert.equal(col?.org_id, 1);
+  });
+
+  it("collections: brand by name and parent by title, even when the parent comes later", async () => {
+    const admin = await login("admin");
+    const res = await admin.post("/api/manage_collections").send({
+      action: "batch_add",
+      cols: [
+        { title: "زیر پوشه", org: "برند دو", parent: "پوشه اصلی" },
+        { title: "پوشه اصلی", org: "brand2" },
+        { title: "بی‌برند", org: "ناموجود" },
+      ],
+    });
+    assert.equal(res.body.status, "success");
+    assert.match(res.body.message, /پیدا نشد/);
+    const child = state.collections.find((c: any) => c.title === "زیر پوشه")!;
+    const parent = state.collections.find((c: any) => c.title === "پوشه اصلی")!;
+    assert.equal(child.org_id, 2);
+    assert.equal(parent.org_id, 2);
+    assert.equal(child.parent_id, parent.id);
+    assert.equal(state.collections.find((c: any) => c.title === "بی‌برند")!.org_id, null);
+  });
+
+  it("smart events: header rows with Persian digits, no duplicates, unknown brands are not created", async () => {
+    const admin = await login("admin");
+    const orgCount = state.organizations.length;
+    const rows = [
+      { title: "روز تست", calendar: "شمسی", day: "۱", month: "۶", holiday: false },
+      { title: "سالگرد برند", calendar: "میلادی", day: 15, month: 8, org: "برند یک", holiday: true },
+      { title: "مناسبت برند ناموجود", calendar: "قمری", day: 2, month: 3, org: "برندی که نیست" },
+      { title: "بد", calendar: "شمسی", day: 40, month: 1 },
+    ];
+    const first = await admin.post("/api/upload_smart_events").send({ rows });
+    assert.equal(first.body.status, "success", JSON.stringify(first.body));
+    assert.equal(first.body.added, 3);
+    assert.equal(state.organizations.length, orgCount);
+    const ev = state.smartEventsBank.find((e: any) => e.title === "سالگرد برند")!;
+    assert.equal(ev.org_id, 1);
+    assert.equal(ev.calendar_type, "miladi");
+    assert.equal(ev.is_holiday, 1);
+    assert.equal(state.smartEventsBank.find((e: any) => e.title === "مناسبت برند ناموجود")!.org_id, null);
+    const again = await admin.post("/api/upload_smart_events").send({ rows });
+    assert.equal(again.body.added, 0);
+    assert.match(again.body.message, /تکراری/);
+  });
+
+  it("media: brand by name", async () => {
+    const admin = await login("admin");
+    await admin.post("/api/save_media").send({ action: "batch_add", media: [{ asset_name: "لوگوی تست", asset_type: "تصویر / لوگو 🖼️", file_url: "https://example.com/l.png", org: "برند یک" }] }).expect(200);
+    assert.equal(state.mediaAssets.find((m: any) => m.asset_name === "لوگوی تست")!.org_id, 1);
+  });
+});

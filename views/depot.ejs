@@ -934,26 +934,8 @@ async function submitBatchEdit() {
             <button onclick="closeExcelModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-gray);">&times;</button>
         </div>
 
-        <!-- باکس راهنمای استاندارد -->
-        <div style="background: rgba(128, 128, 128, 0.05); border: 1px solid var(--border-color); border-radius: 12px; padding: 18px; margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: var(--text-gray); font-size: 1rem;">📌 راهنمای فرمت استاندارد فایل اکسل:</h4>
-                <button type="button" onclick="downloadExcelTemplate()" class="btn-outline" style="display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; color: #166534; border: 1px solid #86efac; cursor: pointer; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.88rem; transition: all 0.2s;">
-                    <span>📄</span> دریافت نمونه فایل اکسل استاندارد (.xlsx)
-                </button>
-            </div>
-            <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0 0 10px; line-height: 1.6;">
-                شما می‌توانید لیست محتوا‌های استودیو را به صورت یکجا با اکسل وارد سیستم نمایید. لطفاً توجه داشته باشید:
-            </p>
-            <ul style="font-size: 0.82rem; color: var(--text-gray); margin: 0; padding-right: 18px; line-height: 1.7;">
-                <li><b>عنوان محتوا:</b> اجباری می‌باشد. ردیف‌های بدون عنوان نادیده گرفته می‌شوند.</li>
-                <li><b>سازمان / برند:</b> نام سازمان‌های فعال در سیستم (مانند کیان تیم). در صورت عدم تطابق، به سازمان پیشفرض تخصیص داده می‌شود.</li>
-                <li><b>نوع محتوا:</b> مانند <code>پوستر گرافیکی</code>، <code>پست ویدیویی</code>، <code>مقاله سئو</code> و ...</li>
-                <li><b>مراحل تولید:</b> با کاما جدا شوند (مثلاً: <code>پژوهش و سناریو, فیلمبرداری, تدوین</code>).</li>
-                <li><b>وضعیت:</b> شامل <code>ورودی خام</code>، <code>در صف</code>، <code>در حال انجام</code>، <code>تکمیل شده</code>.</li>
-                <li><b>تاریخ انتشار:</b> به فرمت تاریخ شمسی (مثلاً: <code>1405/02/15</code>).</li>
-            </ul>
-        </div>
+        <!-- راهنمای ستون‌ها؛ از assets/js/excel-specs.js ساخته می‌شود -->
+        <div id="contentExcelGuide" style="background: rgba(128, 128, 128, 0.05); border: 1px solid var(--border-color); border-radius: 12px; padding: 18px; margin-bottom: 20px;"></div>
 
         <!-- منطقه آپلود فایل -->
         <div id="excelDropZone" style="border: 2px dashed var(--border-color); background: rgba(128,128,128,0.05); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 20px;" onclick="document.getElementById('excelFileInput').click()">
@@ -1758,7 +1740,11 @@ setTimeout(() => {
     // Excel Import Logic
     let parsedExcelRows = [];
 
+    function contentExcelCtx() {
+        return { orgs: window.allOrgs, colleagues: window.allColleagues, settings: window.allSettings, collections: window.allCollections };
+    }
     function openExcelModal() {
+        AsvaExcel.renderGuide('contentExcelGuide', 'contents', contentExcelCtx());
         document.getElementById('excelModal').style.display = 'flex';
     }
     window.openExcelModal = openExcelModal;
@@ -1784,43 +1770,29 @@ setTimeout(() => {
     window.resetExcelImport = resetExcelImport;
 
     async function handleExcelSelect(event) {
-        await ensureXLSX();
         const file = event.target.files ? event.target.files[0] : null;
         if (!file) return;
-
-        if (typeof XLSX === 'undefined') {
-            if (window.showToast) window.showToast('کتابخانه پردازش اکسل بارگذاری نشده است. صفحه را رفرش کنید', 'error');
-            else showToast('کتابخانه پردازش اکسل بارگذاری نشده است');
-            return;
-        }
-
-        try {
-            const data = await file.arrayBuffer();
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const rows = XLSX.utils.sheet_to_json(worksheet);
-
-            if (!rows || rows.length === 0) {
-                if (window.showToast) window.showToast('هیچ داده‌ای در فایل اکسل یافت نشد', 'error');
-                return;
-            }
-
-            parsedExcelRows = rows.filter(r => {
-                const title = r['عنوان محتوا'] || r['عنوان'] || r['title'] || r['Title'] || r['نام محتوا'];
-                return title && title.toString().trim().length > 0;
-            });
-
-            if (parsedExcelRows.length === 0) {
-                if (window.showToast) window.showToast('هیچ ردیفی دارای ستون «عنوان محتوا» پیدا نشد', 'error');
-                return;
-            }
-
-            renderExcelPreview(parsedExcelRows);
-        } catch (e) {
-            console.error('Error reading excel file:', e);
-            if (window.showToast) window.showToast('خطا در خواندن و پردازش فایل اکسل', 'error');
-        }
+        const rows = await AsvaExcel.load(file, 'contents');
+        if (event.target && 'value' in event.target) event.target.value = '';
+        if (!rows) return;
+        const X = AsvaExcel;
+        parsedExcelRows = rows.map(r => ({
+            title: X.text(r.title),
+            org_name: X.text(r.org_name),
+            collection: X.text(r.collection),
+            content_type: X.text(r.content_type),
+            publish_platforms: X.list(r.publish_platforms),
+            project_manager: X.text(r.project_manager),
+            assigned_colleagues: X.list(r.assigned_colleagues),
+            stages: X.list(r.stages),
+            status: X.text(r.status),
+            publish_date: r.publish_date === undefined || r.publish_date === '' ? '' : X.jdate(r.publish_date),
+            publish_time: r.publish_time === undefined || r.publish_time === '' ? '' : X.time(r.publish_time),
+            caption: X.text(r.caption),
+            cover_link: X.text(r.cover_link),
+            video_link: X.text(r.video_link),
+        }));
+        renderExcelPreview(parsedExcelRows);
     }
     window.handleExcelSelect = handleExcelSelect;
 
@@ -1832,12 +1804,12 @@ setTimeout(() => {
         document.getElementById('parsedCount').innerText = rows.length;
 
         rows.forEach((r, idx) => {
-            const title = r['عنوان محتوا'] || r['عنوان'] || r['title'] || r['Title'] || r['نام محتوا'] || 'بدون عنوان';
-            const org = r['سازمان / برند'] || r['سازمان'] || r['کارفرما'] || r['org_name'] || 'پیشفرض سیستم';
-            const type = r['نوع محتوا'] || r['نوع'] || r['content_type'] || 'پوستر گرافیکی';
-            const pm = r['مدیر پروژه'] || r['project_manager'] || '-';
-            const status = r['وضعیت'] || r['status'] || 'ورودی خام';
-            const date = r['تاریخ انتشار'] || r['publish_date'] || '-';
+            const title = r.title;
+            const org = r.org_name || 'بدون برند';
+            const type = r.content_type || ((window.allSettings?.content_type || [])[0]?.setting_key) || '-';
+            const pm = r.project_manager || '-';
+            const status = r.status || 'ورودی خام';
+            const date = [r.publish_date, r.publish_time].filter(Boolean).join(' ') || '-';
 
             const tr = document.createElement('tr');
             tr.style.borderBottom = '1px solid rgba(128, 128, 128, 0.05)';
@@ -1894,150 +1866,8 @@ setTimeout(() => {
     }
     window.submitExcelImport = submitExcelImport;
 
-    async function downloadExcelTemplate() {
-        await ensureXLSX();
-        if (typeof XLSX === 'undefined') {
-            if (window.showToast) window.showToast('کتابخانه اکسل هنوز آماده نشده است', 'error');
-            return;
-        }
-
-        try {
-            const wb = XLSX.utils.book_new();
-
-            let sampleOrg = 'کیان تیم';
-            if (window.allOrganizations && window.allOrganizations.length > 0) {
-                sampleOrg = window.allOrganizations[0].org_name;
-            }
-
-            let sampleManager = 'مدیر کل (Admin)';
-            if (window.allColleagues && window.allColleagues.length > 0) {
-                sampleManager = window.allColleagues[0].full_name || window.allColleagues[0].username;
-            }
-
-            // Sheet 1: Template Data
-            const templateData = [
-                {
-                    'عنوان محتوا': 'ویدیوی معرفی محصول جدید',
-                    'سازمان / برند': sampleOrg,
-                    'نوع محتوا': 'پست ویدیویی',
-                    'مدیر پروژه': sampleManager,
-                    'همکاران (با کاما)': 'تدوینگر, مدیر داخلی',
-                    'مراحل تولید (با کاما)': 'پژوهش و سناریو, فیلمبرداری, تدوین',
-                    'وضعیت': 'ورودی خام',
-                    'تاریخ انتشار': '1405/02/15',
-                    'ساعت انتشار': '18:00',
-                    'کپشن / توضیحات': 'سناریوی پیشنهادی برای ویدیوی معرفی محصول جدید...',
-                    'لینک کاور': 'https://example.com/cover1.jpg',
-                    'لینک ویدیو': 'https://example.com/video1.mp4'
-                },
-                {
-                    'عنوان محتوا': 'پوستر تخفیفات ویژه فصل',
-                    'سازمان / برند': sampleOrg,
-                    'نوع محتوا': 'پوستر گرافیکی',
-                    'مدیر پروژه': sampleManager,
-                    'همکاران (با کاما)': 'طراح گرافیک',
-                    'مراحل تولید (با کاما)': 'طراحی گرافیک',
-                    'وضعیت': 'در صف',
-                    'تاریخ انتشار': '1405/02/20',
-                    'ساعت انتشار': '12:00',
-                    'کپشن / توضیحات': 'طراحی بنر و پوستر تخفیفات...',
-                    'لینک کاور': '',
-                    'لینک ویدیو': ''
-                }
-            ];
-
-            const wsData = XLSX.utils.json_to_sheet(templateData);
-            XLSX.utils.book_append_sheet(wb, wsData, 'دپوی محتوا');
-
-            // Sheet 2: Guide
-            const availableOrgs = (window.allOrganizations || []).map(o => o.org_name).join(' | ');
-            const availableColleagues = (window.allColleagues || []).map(c => c.full_name || c.username).join(' | ');
-            const availableTypes = (window.allSettings && window.allSettings.content_type || []).map(t => t.setting_key).join(' | ');
-
-            const guideData = [
-                {
-                    'نام ستون': 'عنوان محتوا',
-                    'نوع': 'اجباری',
-                    'توضیحات و راهنما': 'نام یا تیتر اصلی کارت محتوا',
-                    'مقادیر معتبر / موجود در سیستم': 'هر عنوان دلخواه'
-                },
-                {
-                    'نام ستون': 'سازمان / برند',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'نام کارفرما یا برندی که محتوا متعلق به آن است',
-                    'مقادیر معتبر / موجود در سیستم': availableOrgs || 'نام سازمان‌های ثبت‌شده در سیستم'
-                },
-                {
-                    'نام ستون': 'نوع محتوا',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'فرمت و قالب محتوای تولیدی',
-                    'مقادیر معتبر / موجود در سیستم': availableTypes || 'پوستر گرافیکی | پست ویدیویی | مقاله سئو ...'
-                },
-                {
-                    'نام ستون': 'مدیر پروژه',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'نام یا نامکاربری مدیر پروژه مسئول',
-                    'مقادیر معتبر / موجود در سیستم': availableColleagues || 'نام پرسنل استودیو'
-                },
-                {
-                    'نام ستون': 'همکاران (با کاما)',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'اسامی همکاران درگیر که با کاما (,) یا | از هم جدا شده‌اند',
-                    'مقادیر معتبر / موجود در سیستم': availableColleagues
-                },
-                {
-                    'نام ستون': 'مراحل تولید (با کاما)',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'مراحل خط تولید محتوا که با کاما جدا می‌شوند',
-                    'مقادیر معتبر / موجود در سیستم': 'پژوهش و سناریو | فیلمبرداری | عکاسی | طراحی گرافیک | تدوین | گویندگی'
-                },
-                {
-                    'نام ستون': 'وضعیت',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'ستون کانبان محتوا',
-                    'مقادیر معتبر / موجود در سیستم': 'ورودی خام (raw) | در صف (todo) | در حال انجام (doing) | تکمیل شده (done)'
-                },
-                {
-                    'نام ستون': 'تاریخ انتشار',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'تاریخ برنامه‌ریزی انتشار (شمسی)',
-                    'مقادیر معتبر / موجود در سیستم': 'مثال: 1405/02/15'
-                },
-                {
-                    'نام ستون': 'ساعت انتشار',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'زمان انتشار',
-                    'مقادیر معتبر / موجود در سیستم': 'مثال: 18:00'
-                },
-                {
-                    'نام ستون': 'کپشن / توضیحات',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'متن کامل کپشن یا توضیحات تولید',
-                    'مقادیر معتبر / موجود در سیستم': 'متن آزاد'
-                },
-                {
-                    'نام ستون': 'لینک کاور',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'آدرس اینترنتی پوستر یا تصویر کاور',
-                    'مقادیر معتبر / موجود در سیستم': 'آدرس کامل HTTP/HTTPS'
-                },
-                {
-                    'نام ستون': 'لینک ویدیو',
-                    'نوع': 'اختیاری',
-                    'توضیحات و راهنما': 'آدرس اینترنتی فایل ویدیویی یا ضمیمه',
-                    'مقادیر معتبر / موجود در سیستم': 'آدرس کامل HTTP/HTTPS'
-                }
-            ];
-
-            const wsGuide = XLSX.utils.json_to_sheet(guideData);
-            XLSX.utils.book_append_sheet(wb, wsGuide, 'راهنمای فرمت');
-
-            XLSX.writeFile(wb, 'Asva_Content_Depot_Template.xlsx');
-            if (window.showToast) window.showToast('قالب اکسل با موفقیت دانلود شد');
-        } catch (err) {
-            console.error('Error downloading template:', err);
-            window.location.href = '/api/download_content_excel_template';
-        }
+    function downloadExcelTemplate() {
+        return AsvaExcel.downloadSample('contents', contentExcelCtx());
     }
     window.downloadExcelTemplate = downloadExcelTemplate;
 
@@ -2123,6 +1953,8 @@ function autoFillPmDate() {
 
 
 <script src="assets/js/app.js?v=4"></script>
+<script src="assets/js/excel-import.js?v=1"></script>
+<script src="assets/js/excel-specs.js?v=1"></script>
     <%- include('partials/content-identity') %>
 
 <!-- Mobile specific overrides guaranteed to apply -->

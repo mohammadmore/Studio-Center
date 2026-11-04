@@ -64,7 +64,7 @@
             <div style="flex: 1; max-width: 300px;">
                 <input type="text" class="form-control" id="searchInput" placeholder="جستجوی نام فایل یا برند..." onkeyup="filterMedia()">
             </div>
-            <div style="display: flex; gap: 8px;"><input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelImport(event)"><button class="btn-outline" style="border: 1px solid var(--primary-color); color: var(--primary-color); padding: 8px 16px; border-radius: 8px; cursor: pointer;" onclick="openExcelGuideModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> ورود گروهی با اکسل</button><button class="btn-primary" onclick="openMediaModal()">+ افزودن فایل جدید</button></div>
+            <div style="display: flex; gap: 8px;"><input type="file" id="excelInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelImport(event)"><button class="btn-outline" style="border: 1px solid var(--primary-color); color: var(--primary-color); padding: 8px 16px; border-radius: 8px; cursor: pointer;" onclick="openExcelGuideModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> ورود گروهی با اکسل</button><button class="btn-primary" onclick="openMediaModal()">+ افزودن فایل جدید</button></div>
         </div>
 
         <div class="media-grid" id="mediaContainer">
@@ -84,13 +84,13 @@
                 </div>
                 <div class="form-group">
                     <label>نام و توضیح فایل:</label>
-                    <input type="text" id="assetName" class="form-control" placeholder="مثلاً: فایل لایهباز لوگو (AI)" required>
+                    <input type="text" id="assetName" class="form-control" placeholder="مثلاً: فایل لایه‌باز لوگو (AI)" required>
                 </div>
                 <div class="form-group">
                     <label>نوع فایل:</label>
                     <select id="assetType" class="form-control">
                         <option value="تصویر / لوگو 🖼️">تصویر / لوگو 🖼️</option>
-                        <option value="فایل لایهباز / وکتور 🎨">فایل لایهباز / وکتور 🎨</option>
+                        <option value="فایل لایه‌باز / وکتور 🎨">فایل لایه‌باز / وکتور 🎨</option>
                         <option value="فونت سازمانی 🔤">فونت سازمانی 🔤</option>
                         <option value="سند / راهنمای برند 📄">سند / راهنمای برند 📄</option>
                         <option value="صدا / موشن 🎵">صدا / موشن 🎵</option>
@@ -113,6 +113,8 @@
     </div>
 
     <script src="assets/js/app.js?v=4"></script>
+<script src="assets/js/excel-import.js?v=1"></script>
+<script src="assets/js/excel-specs.js?v=1"></script>
     <script>
         // لود اولیه
         setTimeout( async () => {
@@ -126,6 +128,7 @@
                 const res = await fetch('/api/get_orgs', { cache: 'no-store' });
                 const orgData = await res.json();
                 const orgs = orgData.data || [];
+                window.mediaOrgs = orgs;
                 const select = document.getElementById('orgSelector');
                 select.innerHTML = '<option value="">عمومی (همه برندها)</option>';
                 (orgs || []).forEach(org => {
@@ -239,32 +242,9 @@
     </script>
 <!-- Excel Guide Modal -->
 <div class="modal-overlay" id="excelGuideModal">
-    <div class="modal-box" style="width: 100%; max-width: 600px; box-sizing: border-box;">
+    <div class="modal-box" style="width: 100%; max-width: 820px; max-height: 90vh; overflow-y: auto; box-sizing: border-box;">
         <h3 style="margin-bottom: 15px; color: var(--text-dark);">راهنمای اکسل دارایی‌های دیجیتال</h3>
-        <p style="color: var(--text-gray); margin-bottom: 15px; line-height: 1.6;">
-            برای وارد کردن رسانه‌ها از طریق اکسل، فایل شما باید دارای ستون‌های زیر در ردیف اول (Header) باشد:
-        </p>
-        <table style="width: 100%; text-align: right; border-collapse: collapse; margin-bottom: 20px;">
-            <thead>
-                <tr style="background: rgba(128,128,128,0.05);">
-                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نام فایل</th>
-                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نوع فایل</th>
-                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">لینک مستقیم</th>
-                    <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نام کاربری سازمان (اختیاری)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">فایل لایه باز لوگو</td>
-                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">فایل لایه‌باز / وکتور 🎨</td>
-                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">https://...</td>
-                    <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">asva</td>
-                </tr>
-            </tbody>
-        </table>
-        <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 20px;">
-            نکته: نام کاربری سازمان مربوط به کارفرمای مورد نظر است که هنگام تعریف سازمان ثبت کرده‌اید. در صورت خالی بودن، رسانه بدون سازمان ثبت می‌شود.
-        </p>
+        <div id="excelGuideBody"></div>
         <div style="display: flex; gap: 10px;"><button class="btn-primary" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'; document.getElementById('excelInput').click();">متوجه شدم، انتخاب فایل اکسل</button><button class="btn-outline" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'">بستن</button></div>
     </div>
 </div>
@@ -287,63 +267,25 @@
     let pendingExcelMedia = [];
 
     function openExcelGuideModal() {
+        AsvaExcel.renderGuide('excelGuideBody', 'media', { orgs: window.mediaOrgs });
         document.getElementById('excelGuideModal').style.display = 'flex';
     }
 
-    function handleExcelImport(event) {
+    async function handleExcelImport(event) {
         const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            await ensureXLSX();
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            
-            if (json.length < 2) {
-                showToast('فایل اکسل خالی است یا فرمت نامعتبر است', 'error');
-                return;
-            }
-
-            // parse columns
-            const headers = json[0].map(h => typeof h === 'string' ? h.trim() : h);
-            const nameIdx = headers.indexOf('نام فایل');
-            const typeIdx = headers.indexOf('نوع فایل');
-            const urlIdx = headers.indexOf('لینک مستقیم');
-            const orgIdx = headers.indexOf('نام کاربری سازمان (اختیاری)');
-
-            if (nameIdx === -1 || urlIdx === -1 || typeIdx === -1) {
-                showToast('ستون‌های نام فایل، نوع فایل یا لینک مستقیم یافت نشدند.', 'error');
-                return;
-            }
-
-            pendingExcelMedia = [];
-            
-            for (let i = 1; i < json.length; i++) {
-                const row = json[i];
-                if (!row || row.length === 0 || !row[nameIdx]) continue;
-                
-                const asset_name = String(row[nameIdx]).trim();
-                const asset_type = String(row[typeIdx]).trim();
-                const file_url = String(row[urlIdx]).trim();
-                const org_username = orgIdx !== -1 && row[orgIdx] ? String(row[orgIdx]).trim() : '';
-
-                pendingExcelMedia.push({
-                    asset_name, asset_type, file_url, org_username
-                });
-            }
-
-            if (pendingExcelMedia.length === 0) {
-                showToast('هیچ رسانه‌ای در فایل یافت نشد', 'error');
-                return;
-            }
-
-            showExcelPreview();
-        };
-        reader.readAsArrayBuffer(file);
-        event.target.value = ''; // reset
+        event.target.value = '';
+        const rows = await AsvaExcel.load(file, 'media');
+        if (!rows) return;
+        const X = AsvaExcel;
+        pendingExcelMedia = rows.map(r => ({
+            asset_name: X.text(r.asset_name),
+            asset_type: X.mediaType(r.asset_type),
+            file_url: X.text(r.file_url),
+            org: X.text(r.org),
+        }));
+        const bad = pendingExcelMedia.filter(m => !/^(https?:\/\/|\/uploads\/)/i.test(m.file_url)).length;
+        if (bad) showToast(`${bad} ردیف لینک معتبر (شروع با https://) ندارد و هنگام ذخیره رد می‌شود.`, 'info');
+        showExcelPreview();
     }
 
     function showExcelPreview() {
@@ -357,7 +299,7 @@
                         <div>نام فایل: <span style="font-weight:bold;">${escapeHtml(media.asset_name)}</span></div>
                         <div>نوع فایل: <span style="font-weight:bold;">${escapeHtml(media.asset_type)}</span></div>
                         <div style="grid-column: 1/-1;">لینک: <a href="${escapeHtml(safeUrl(media.file_url))}" target="_blank" style="color:var(--primary-color)">${escapeHtml(media.file_url.substring(0,40))}...</a></div>
-                        <div>نام کاربری سازمان: <span style="font-weight:bold;">${escapeHtml(media.org_username || 'بدون سازمان')}</span></div>
+                        <div>برند: <span style="font-weight:bold;">${escapeHtml(media.org || 'عمومی (همه برندها)')}</span></div>
                     </div>
                 </div>
             `);
@@ -386,7 +328,7 @@
             if (window.hideLoading) window.hideLoading();
             
             if (result.status === 'success') {
-                showToast('رسانه‌های اکسل با موفقیت ذخیره شدند', 'success');
+                showToast(result.message || 'رسانه‌های اکسل با موفقیت ذخیره شدند', 'success');
                 document.getElementById('excelPreviewModal').style.display = 'none';
                 loadMedia();
             } else {

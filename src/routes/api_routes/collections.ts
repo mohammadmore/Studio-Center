@@ -11,7 +11,7 @@ import { saveDatabase } from "../../store/db.js";
 import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
 import { hasPermission, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeColor, safeUrl, toInt } from "../../utils/helpers.js";
-import { moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
+import { findOrgByRef, moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
 import { isUsernameTaken } from "./users.js";
 
 const subRouter = express.Router();
@@ -45,13 +45,17 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
     }
     let currentId = nextId(collections);
     const added: any[] = [];
+    const parents: [any, string][] = [];
     let duplicates = 0;
+    let unknownOrgs = 0;
     for (const col of cols) {
       if (!col || !col.title) continue;
       let numericOrgId = null;
-      if (col.org_username) {
-        const org = organizations.find((o) => o.username === col.org_username);
+      const orgRef = col.org ?? col.org_username;
+      if (orgRef) {
+        const org = findOrgByRef(orgRef);
         if (org) numericOrgId = org.id;
+        else unknownOrgs++;
       } else if (col.org_id) {
         numericOrgId = toInt(col.org_id);
       }
@@ -61,9 +65,17 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
         duplicates++;
         continue;
       }
-      const item = { id: currentId++, title, org_id: numericOrgId, created_at: persianDate(), is_active: 1 };
+      const item: any = { id: currentId++, title, org_id: numericOrgId, parent_id: null, created_at: persianDate(), is_active: 1 };
       collections.push(item);
       added.push(item);
+      if (col.parent && String(col.parent).trim()) parents.push([item, String(col.parent).trim()]);
+    }
+    // Parents are resolved after every row exists, so a parent may come later in the file.
+    for (const [item, parentTitle] of parents) {
+      const parent =
+        collections.find((c) => c !== item && String(c.title).trim() === parentTitle && (c.org_id ?? null) == (item.org_id ?? null)) ||
+        collections.find((c) => c !== item && String(c.title).trim() === parentTitle);
+      if (parent) item.parent_id = parent.id;
     }
     recordBulkAdd(req.user, "collections", added, "ورود گروهی مجموعه‌ها (اکسل)", (c) => c.title);
     saveDatabase();
@@ -71,7 +83,10 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
       status: "success",
       added: added.length,
       duplicates,
-      message: `${added.length.toLocaleString("fa-IR")} مجموعه اضافه شد` + (duplicates ? `؛ ${duplicates.toLocaleString("fa-IR")} مورد تکراری بود و دوباره اضافه نشد` : ""),
+      message:
+        `${added.length.toLocaleString("fa-IR")} مجموعه اضافه شد` +
+        (duplicates ? `؛ ${duplicates.toLocaleString("fa-IR")} مورد تکراری بود و دوباره اضافه نشد` : "") +
+        (unknownOrgs ? `؛ برند ${unknownOrgs.toLocaleString("fa-IR")} ردیف پیدا نشد و بدون برند ثبت شد` : ""),
     });
   }
   if (action === "add") {

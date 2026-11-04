@@ -13,7 +13,13 @@
         let parsedExcelScheduleRows = [];
         let excelScheduleWarnings = [];
 
+        function scheduleExcelCtx() {
+            return { orgs: window.allOrgs, contents: (window.allDepotItems || []).slice().sort((a, b) => String(a.publish_date || '').localeCompare(String(b.publish_date || ''))) };
+        }
         function openExcelScheduleModal() {
+            AsvaExcel.renderGuide('scheduleExcelGuide', 'schedule', scheduleExcelCtx());
+            const btn = document.querySelector('#scheduleExcelGuide [data-excel-sample]');
+            if (btn) btn.innerHTML = '📄 دریافت فهرست محتواهای این ماه برای زمان‌بندی (.xlsx)';
             document.getElementById('excelScheduleModal').style.display = 'flex';
             resetExcelScheduleModal();
         }
@@ -41,29 +47,22 @@
                 return;
             }
             try {
-                const data = await file.arrayBuffer();
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const rows = XLSX.utils.sheet_to_json(worksheet);
-
-                if (!rows || rows.length === 0) {
-                    if (window.showToast) window.showToast('هیچ داده‌ای در فایل اکسل یافت نشد', 'error');
-                    return;
-                }
-
-                parsedExcelScheduleRows = rows.map(r => ({
-                    content_id: r['شناسه محتوا'] || r['شناسه'] || r['id'],
-                    org_name: r['نام تیم'] || r['تیم'] || r['سازمان'] || r['org'],
-                    publish_date: r['تاریخ انتشار'] || r['publish_date'],
-                    publish_time: r['زمان انتشار'] || r['ساعت انتشار'] || r['publish_time']
-                })).filter(r => r.content_id && r.org_name && String(r.org_name).trim() !== '' && !isNaN(parseInt(r.content_id)));
-
+                const rows = await AsvaExcel.load(file, 'schedule');
+                document.getElementById('excelScheduleInput').value = '';
+                if (!rows) return;
+                const X = AsvaExcel;
+                parsedExcelScheduleRows = rows
+                    .map(r => ({
+                        content_id: X.num(r.content_id),
+                        org_name: X.text(r.org_name),
+                        publish_date: r.publish_date === undefined || r.publish_date === '' ? '' : X.jdate(r.publish_date),
+                        publish_time: r.publish_time === undefined || r.publish_time === '' ? '' : X.time(r.publish_time),
+                    }))
+                    .filter(r => r.content_id);
                 if (parsedExcelScheduleRows.length === 0) {
-                    if (window.showToast) window.showToast('هیچ ردیف معتبری حاوی شناسه محتوا و نام تیم یافت نشد', 'error');
+                    if (window.showToast) window.showToast('هیچ ردیفی با شناسه محتوای عددی پیدا نشد', 'error');
                     return;
                 }
-
                 renderExcelSchedulePreview();
             } catch (e) {
                 console.error(e);
@@ -634,23 +633,13 @@
                 <button class="close-modal" onclick="closeExcelScheduleModal()">&times;</button>
             </div>
             <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
-                <div style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-                <h4 style="margin: 0; color: var(--text-gray); font-size: 1rem;">📌 راهنمای فرمت استاندارد:</h4>
-                <p style="font-size: 0.9rem; line-height: 1.6; margin-top: 8px;">
-                فایل اکسل شما باید حاوی این ستون‌ها در ردیف اول (Header) باشد:
-                <br>
-                - <b>شناسه محتوا</b> (الزامی) <br>
-                - <b>نام تیم</b> (الزامی) <br>
-                - <b>تاریخ انتشار</b> (مثلاً 1403/05/12)<br>
-                - <b>زمان انتشار</b> (مثلاً 10:30)
-                </p>
-                </div>
-                
+                <div id="scheduleExcelGuide" style="background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);"></div>
+
                 <div id="excelScheduleDropZone" style="border: 2px dashed var(--primary-color); border-radius: 12px; padding: 40px; text-align: center; background: rgba(79, 70, 229, 0.05); cursor: pointer; transition: background 0.3s;" onclick="document.getElementById('excelScheduleInput').click();">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px;"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4Z"/><path d="M18 21v-8a2 2 0 0 0-2-2h-3"/><path d="M4 22V4a2 2 0 0 1 2-2h8l6 6v14"/></svg>
                     <div style="font-weight: 700; color: var(--primary-color); font-size: 1rem; margin-bottom: 4px;">انتخاب یا رها کردن فایل اکسل</div>
-                    <div style="color: var(--text-gray); font-size: 0.85rem;">فرمت‌های مجاز: xlsx, xls</div>
-                    <input type="file" id="excelScheduleInput" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelScheduleFile(this.files[0])">
+                    <div style="color: var(--text-gray); font-size: 0.85rem;">فرمت‌های مجاز: xlsx, xls, csv</div>
+                    <input type="file" id="excelScheduleInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelScheduleFile(this.files[0])">
                 </div>
                 
                 <div id="excelSchedulePreviewArea" style="display: none;">
@@ -1992,6 +1981,8 @@ function selectContent(element, id) {
         setTimeout( () => { applyViewMode(); initCalendar(); });
     </script>
 <script src="assets/js/app.js?v=4"></script>
+<script src="assets/js/excel-import.js?v=1"></script>
+<script src="assets/js/excel-specs.js?v=1"></script>
     <%- include('partials/content-identity') %>
 <script>
     // Team checkboxes of the "new content" form: the chosen project manager is left out.

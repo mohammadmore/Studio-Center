@@ -69,7 +69,7 @@
                 <input type="text" class="form-control" id="searchInput" placeholder="جستجو در نام قالب‌ها..." onkeyup="filterTemplates()">
             </div>
             <div style="display: flex; gap: 8px;">
-                <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelImport(event)">
+                <input type="file" id="excelInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelImport(event)">
                 <button class="btn-outline" style="border: 1px solid var(--primary-color); color: var(--primary-color);" onclick="openExcelGuideModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> ورود گروهی با اکسل</button>
                 <button class="btn-primary" onclick="openModal()">+ ساخت قالب جدید</button>
             </div>
@@ -118,42 +118,10 @@
 
     <!-- Excel Guide Modal -->
     <div class="modal-overlay" id="excelGuideModal">
-        <div class="modal-box" style="width: 100%; max-width: 600px; box-sizing: border-box;">
+        <div class="modal-box" style="width: 100%; max-width: 820px; max-height: 90vh; overflow-y: auto; box-sizing: border-box;">
             <h3 style="margin-bottom: 15px; color: var(--text-dark);">راهنمای اکسل قالب‌ها</h3>
-            <p style="color: var(--text-gray); margin-bottom: 15px; line-height: 1.6;">
-                برای وارد کردن قالب‌ها از طریق اکسل، فایل شما باید دارای ستون‌های زیر در ردیف اول (Header) باشد. نام ستون‌ها باید دقیقاً مطابق موارد زیر باشد:
-            </p>
-            <table style="width: 100%; text-align: right; border-collapse: collapse; margin-bottom: 20px;">
-                <thead>
-                    <tr style="background: rgba(128,128,128,0.05);">
-                        <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نام قالب</th>
-                        <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">فاصله روز</th>
-                        <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">نوع محتوا</th>
-                        <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">موضوع</th>
-                        <th style="padding: 10px; border-bottom: 1px solid var(--border-color);">تعداد</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">پکیج پایه</td>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">1</td>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">پست</td>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">معرفی محصول</td>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">1</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">پکیج پایه</td>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">3</td>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">استوری</td>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">پشت صحنه</td>
-                        <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">2</td>
-                    </tr>
-                </tbody>
-            </table>
-            <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 20px;">
-                نکته: ردیف‌هایی که "نام قالب" یکسانی دارند، به عنوان آیتم‌های یک قالب در نظر گرفته می‌شوند.
-            </p>
-            <div style="display: flex; gap: 10px;"><button class="btn-primary" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'; document.getElementById('excelInput').click();">متوجه شدم، انتخاب فایل اکسل</button><button class="btn-outline" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'">بستن</button></div>
+        <div id="excelGuideBody"></div>
+        <div style="display: flex; gap: 10px;"><button class="btn-primary" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'; document.getElementById('excelInput').click();">متوجه شدم، انتخاب فایل اکسل</button><button class="btn-outline" style="flex: 1;" onclick="document.getElementById('excelGuideModal').style.display='none'">بستن</button></div>
         </div>
     </div>
 
@@ -388,70 +356,29 @@
         let pendingExcelTemplates = [];
 
         function openExcelGuideModal() {
+            AsvaExcel.renderGuide('excelGuideBody', 'templates', { settings: { content_type: contentTypes } });
             document.getElementById('excelGuideModal').style.display = 'flex';
         }
 
-        function handleExcelImport(event) {
+        async function handleExcelImport(event) {
             const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-            await ensureXLSX();
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                
-                if (json.length < 2) {
-                    showToast('فایل اکسل خالی است یا فرمت نامعتبر است', 'error');
-                    return;
-                }
-
-                // parse columns
-                const headers = json[0].map(h => typeof h === 'string' ? h.trim() : h);
-                const nameIdx = headers.indexOf('نام قالب');
-                const offsetIdx = headers.indexOf('فاصله روز');
-                const typeIdx = headers.indexOf('نوع محتوا');
-                const topicIdx = headers.indexOf('موضوع');
-                const countIdx = headers.indexOf('تعداد');
-
-                if (nameIdx === -1 || offsetIdx === -1 || typeIdx === -1 || topicIdx === -1 || countIdx === -1) {
-                    showToast('ستون‌های فایل اکسل صحیح نیست. لطفا راهنمای اکسل را مطالعه کنید.', 'error');
-                    return;
-                }
-
-                const templatesMap = {};
-                
-                for (let i = 1; i < json.length; i++) {
-                    const row = json[i];
-                    if (!row || row.length === 0 || !row[nameIdx]) continue;
-                    
-                    const tplName = String(row[nameIdx]).trim();
-                    const dayOffset = parseInt(row[offsetIdx]) || 1;
-                    const type = row[typeIdx] ? String(row[typeIdx]).trim() : '';
-                    const topic = row[topicIdx] ? String(row[topicIdx]).trim() : '';
-                    const count = parseInt(row[countIdx]) || 1;
-
-                    if (!templatesMap[tplName]) {
-                        templatesMap[tplName] = { name: tplName, items: [] };
-                    }
-                    
-                    templatesMap[tplName].items.push({
-                        dayOffset, type, topic, count
-                    });
-                }
-
-                pendingExcelTemplates = Object.values(templatesMap);
-                if (pendingExcelTemplates.length === 0) {
-                    showToast('هیچ قالبی در فایل یافت نشد', 'error');
-                    return;
-                }
-
-                showExcelPreview();
-            };
-            reader.readAsArrayBuffer(file);
-            event.target.value = ''; // reset
+            event.target.value = '';
+            const rows = await AsvaExcel.load(file, 'templates');
+            if (!rows) return;
+            const X = AsvaExcel;
+            const types = contentTypes.map(t => t.setting_key);
+            const map = {};
+            rows.forEach(r => {
+                const name = X.text(r.name);
+                const day = Math.min(31, Math.max(1, Math.round(X.num(r.day) || 1)));
+                const typeText = X.text(r.type);
+                const type = types.find(t => X.norm(t) === X.norm(typeText)) || typeText;
+                const count = Math.max(1, Math.round(X.num(r.count) || 1));
+                if (!map[name]) map[name] = { name, items: [] };
+                map[name].items.push({ dayOffset: day, type, topic: X.text(r.topic), count });
+            });
+            pendingExcelTemplates = Object.values(map);
+            showExcelPreview();
         }
 
         function showExcelPreview() {
@@ -461,7 +388,7 @@
             pendingExcelTemplates.forEach((tpl, index) => {
                 let itemsHtml = tpl.items.map(item => `
                     <div style="display: flex; gap: 10px; font-size: 0.9rem; margin-bottom: 5px; padding: 5px; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color);">
-                        <div style="flex: 1;">روز: <span style="font-weight:bold;">${escapeHtml(item.dayOffset)}</span></div>
+                        <div style="flex: 1;">روز ماه: <span style="font-weight:bold;">${escapeHtml(item.dayOffset)}</span></div>
                         <div style="flex: 1;">نوع: <span style="font-weight:bold;">${escapeHtml(item.type)}</span></div>
                         <div style="flex: 2;">موضوع: <span style="font-weight:bold;">${escapeHtml(item.topic)}</span></div>
                         <div style="flex: 1;">تعداد: <span style="font-weight:bold;">${item.count}</span></div>
@@ -499,7 +426,7 @@
                 if (window.hideLoading) window.hideLoading();
                 
                 if (result.status === 'success') {
-                    showToast('قالب‌های اکسل با موفقیت ذخیره شدند', 'success');
+                    showToast(result.message || 'قالب‌های اکسل با موفقیت ذخیره شدند', 'success');
                     document.getElementById('excelPreviewModal').style.display = 'none';
                     loadTemplates();
                 } else {
@@ -512,5 +439,7 @@
         }
     </script>
 <script src="assets/js/app.js?v=4"></script>
+<script src="assets/js/excel-import.js?v=1"></script>
+<script src="assets/js/excel-specs.js?v=1"></script>
 </body>
 </html>
