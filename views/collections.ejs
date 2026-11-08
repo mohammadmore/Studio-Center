@@ -237,15 +237,56 @@
         const contentsUnder = (id) => { const ids = window.getAllDescendantCollectionIds(id); return allContents.filter(c => ids.includes(c.collection_id)); };
         const pathText = (id) => folderPath(id).map(c => c.title).join(' › ');
 
-        function openFolder(id, opts = {}) {
-            currentFolderId = id ? Number(id) : null;
-            const url = currentFolderId ? 'collections?folder=' + currentFolderId : 'collections';
-            if (opts.replace) history.replaceState({ folder: currentFolderId }, '', url);
-            else if (opts.push !== false) history.pushState({ folder: currentFolderId }, '', url);
+        const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let navToken = 0;
+        /**
+         * Opens a folder in place. Going in, the page zooms toward the clicked folder and fades,
+         * then the folder's content fades in (about half a second); going up plays it the other way.
+         */
+        async function openFolder(id, opts = {}) {
+            const target = id ? Number(id) : null;
+            const prev = currentFolderId;
+            const url = target ? 'collections?folder=' + target : 'collections';
+            if (opts.replace) history.replaceState({ folder: target }, '', url);
+            else if (opts.push !== false) history.pushState({ folder: target }, '', url);
+
+            const grid = document.getElementById('collectionsGrid');
+            const animate = !opts.replace && !reduceMotion && prev !== target && grid && typeof grid.animate === 'function';
+            const deeper = !!target && (prev == null || folderPath(target).some(c => c.id == prev));
+            const token = ++navToken;
+            if (animate) {
+                let origin = '50% 0';
+                if (opts.originEl && opts.originEl.isConnected) {
+                    const g = grid.getBoundingClientRect(), r = opts.originEl.getBoundingClientRect();
+                    origin = `${Math.round(r.left + r.width / 2 - g.left)}px ${Math.round(r.top + r.height / 2 - g.top)}px`;
+                }
+                grid.style.transformOrigin = origin;
+                grid.style.pointerEvents = 'none';
+                await grid.animate(
+                    [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: deeper ? 'scale(1.05)' : 'scale(0.96)' }],
+                    { duration: 180, easing: 'ease-in', fill: 'forwards' }
+                ).finished.catch(() => {});
+                if (token !== navToken) return; // another folder was clicked meanwhile
+            }
+
+            currentFolderId = target;
             const search = document.getElementById('search_collection');
             if (search && opts.keepSearch !== true) search.value = '';
             renderCollections();
             if (!opts.keepScroll) window.scrollTo({ top: 0 });
+
+            if (animate) {
+                grid.getAnimations().forEach(a => a.cancel());
+                grid.style.transformOrigin = '50% 0';
+                const enter = grid.animate(
+                    [{ opacity: 0, transform: deeper ? 'scale(0.95)' : 'scale(1.04)' }, { opacity: 1, transform: 'scale(1)' }],
+                    { duration: 320, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+                );
+                document.getElementById('folderPath').animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });
+                enter.finished.catch(() => {}).then(() => { if (token === navToken) grid.style.pointerEvents = ''; });
+            } else if (grid) {
+                grid.style.pointerEvents = '';
+            }
         }
         window.openFolder = openFolder;
         window.addEventListener('popstate', () => {
@@ -353,8 +394,8 @@
                     <div style="position:absolute; top:0; bottom:0; right:-6px; left:0; background:${bg}; border:1px solid var(--border-color); border-right:4px solid color-mix(in srgb, ${cardColor} 60%, var(--card-bg)); border-radius:12px; z-index:-1; pointer-events:none;"></div>
                     <div style="position:absolute; top:0; bottom:0; right:-12px; left:0; background:${bg}; border:1px solid var(--border-color); border-right:4px solid color-mix(in srgb, ${cardColor} 30%, var(--card-bg)); border-radius:12px; z-index:-2; pointer-events:none;"></div>`;
             }
-            card.onclick = (e) => { if (!e.target.closest('button')) openFolder(col.id); };
-            card.onkeydown = (e) => { if (e.key === 'Enter' && e.target === card) openFolder(col.id); };
+            card.onclick = (e) => { if (!e.target.closest('button')) openFolder(col.id, { originEl: card }); };
+            card.onkeydown = (e) => { if (e.key === 'Enter' && e.target === card) openFolder(col.id, { originEl: card }); };
             card.innerHTML = `
                 ${stackHtml}
                 <div style="position: absolute; left: 15px; top: 15px; display: flex; flex-direction: column; gap: 5px; z-index: 2;">
