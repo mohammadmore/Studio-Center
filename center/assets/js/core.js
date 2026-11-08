@@ -232,6 +232,41 @@
   }
   window.clearApiCache = cacheClear;
 
+  // A bare "#" link is a button in disguise: following it would scroll the page back to the top.
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href="#"]') : null;
+    if (a) e.preventDefault();
+  }, true);
+
+  /**
+   * Runs a reload and puts every scroll position back afterwards (the page, lists, open
+   * dialogs), so a list redrawn after a change does not jump the user back to the top.
+   * Elements replaced by the reload are found again by id.
+   */
+  window.asvaKeepScroll = async function (fn) {
+    var saved = [];
+    var root = document.scrollingElement || document.documentElement;
+    saved.push({ el: root, top: root.scrollTop, left: root.scrollLeft });
+    document.querySelectorAll("body *").forEach(function (el) {
+      if (el.scrollTop > 0 || el.scrollLeft > 0) saved.push({ el: el, id: el.id, top: el.scrollTop, left: el.scrollLeft });
+    });
+    var restore = function () {
+      saved.forEach(function (s) {
+        var el = s.el.isConnected ? s.el : (s.id ? document.getElementById(s.id) : null);
+        if (!el) return;
+        if (el.scrollTop !== s.top) el.scrollTop = s.top;
+        if (el.scrollLeft !== s.left) el.scrollLeft = s.left;
+      });
+    };
+    try {
+      return await fn();
+    } finally {
+      restore();
+      // Content drawn a frame later (images, lazy lists) can change heights once more.
+      requestAnimationFrame(restore);
+    }
+  };
+
   function sessionExpired() {
     if (redirecting || /^\/(index|login)?$/.test(appPath(location.pathname))) return;
     redirecting = true;

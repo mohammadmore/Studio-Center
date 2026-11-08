@@ -593,11 +593,14 @@ window.cardStageTransition = async function (id, newStatusId, newStatusName) {
  * after a change it reloads whichever list the current page shows (and window.allDepotItems with it).
  */
 window.reloadContentSource = async function () {
+    const run = async () => {
+        if (typeof loadDepot === 'function') return loadDepot(true);
+        if (typeof renderCalendar === 'function') return renderCalendar();
+        if (typeof loadMyProjects === 'function') return loadMyProjects();
+        if (typeof loadData === 'function') return loadData();
+    };
     try {
-        if (typeof loadDepot === 'function') return await loadDepot();
-        if (typeof renderCalendar === 'function') return await renderCalendar();
-        if (typeof loadMyProjects === 'function') return await loadMyProjects();
-        if (typeof loadData === 'function') return await loadData();
+        return window.asvaKeepScroll ? await window.asvaKeepScroll(run) : await run();
     } catch (e) {
         console.error('reload after card change failed', e);
     }

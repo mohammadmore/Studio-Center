@@ -78,7 +78,9 @@
     socket.on("content_updated", (data) => {
         if (typeof loadDepot === "function") {
             if (window.currentEditingContentId != data.contentId) {
-                loadDepot(true); // silent refresh
+                // Several changes in a row (dragging cards one after another) cause one redraw, in place.
+                clearTimeout(window.__depotLiveReload);
+                window.__depotLiveReload = setTimeout(() => loadDepot(true), 600);
             }
         }
         showNotification("محتوا بروز شد", { body: `محتوای ${data.card?.title || 'بدون عنوان'} تغییر کرد.` });

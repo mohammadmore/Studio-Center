@@ -314,8 +314,8 @@ function clearBatchSelection() {
 document.addEventListener('DOMContentLoaded', function() {
     const oldRenderKanban = window.renderKanban;
     if (typeof oldRenderKanban !== 'function') return;
-    window.renderKanban = function(items) {
-        oldRenderKanban(items);
+    window.renderKanban = function(items, options) {
+        oldRenderKanban(items, options);
         updateBatchUI();
     };
 });
@@ -1042,7 +1042,8 @@ async function submitBatchEdit() {
 
 async function loadDepot(silent = false) {
     const board = document.getElementById('kanbanBoard');
-    if(!silent) board.innerHTML = '<div style="padding:120px; text-align:center; color: var(--text-gray);">در حال لود...</div>';
+    // Only the first load shows a placeholder; later reloads redraw in place so nobody loses their spot.
+    if(!silent && !board.querySelector('.kanban-column')) board.innerHTML = '<div style="padding:120px; text-align:center; color: var(--text-gray);">در حال لود...</div>';
     
     try {
         if (!window.allOrgs) {
@@ -1223,7 +1224,57 @@ async function drop(ev, newStatus) {
     }
 }
 
-function renderKanban(allItems) {
+/**
+ * Where the user is on the board: scroll of the page, the board and every column,
+ * how many cards each column has opened with «نمایش بیشتر» and which column is full-screen.
+ * A redraw (live update, save, undo) puts all of it back so the user does not jump to the top.
+ */
+function captureBoardView() {
+    const board = document.getElementById('kanbanBoard');
+    if (!board || !board.querySelector('.kanban-column')) return null;
+    const cols = {};
+    board.querySelectorAll('.column-body[id]').forEach(b => { cols[b.id] = b.scrollTop; });
+    const shown = {};
+    Object.entries(window.__depotColumns || {}).forEach(([k, v]) => { shown[k] = v.shown; });
+    const expanded = board.querySelector('.column-expanded .column-body[id]');
+    const scrollers = [];
+    for (let el = board; el && el !== document.documentElement; el = el.parentElement) {
+        if (el.scrollTop || el.scrollLeft) scrollers.push([el, el.scrollTop, el.scrollLeft]);
+    }
+    return { cols, shown, expanded: expanded ? expanded.id : null, scrollers, x: window.scrollX, y: window.scrollY };
+}
+
+function restoreBoardView(view) {
+    if (!view) return;
+    const board = document.getElementById('kanbanBoard');
+    if (view.expanded) {
+        const body = document.getElementById(view.expanded);
+        const col = body && body.closest('.kanban-column');
+        const btn = col && col.querySelector('.col-expand-btn');
+        if (btn && !col.classList.contains('column-expanded') && !col.classList.contains('column-collapsed')) toggleColumnExpand(btn);
+    }
+    Object.entries(view.cols).forEach(([id, top]) => {
+        const b = document.getElementById(id);
+        if (b) b.scrollTop = top;
+    });
+    view.scrollers.forEach(([el, top, left]) => { if (el.isConnected) { el.scrollTop = top; el.scrollLeft = left; } });
+    window.scrollTo(view.x, view.y);
+}
+
+function renderKanban(allItems, options = {}) {
+    // A new filter starts from the top; a redraw of the same view keeps the user's place.
+    const view = options.resetView ? null : captureBoardView();
+    window.__depotPrevShown = view ? view.shown : null;
+    try {
+        renderKanbanBoard(allItems);
+    } finally {
+        window.__depotPrevShown = null;
+    }
+    if (options.resetView) document.querySelectorAll('#kanbanBoard .column-body').forEach(b => { b.scrollTop = 0; });
+    else restoreBoardView(view);
+}
+
+function renderKanbanBoard(allItems) {
     const term = (document.getElementById('searchInput')?.value || '').toLowerCase();
     const orgFilter = (document.getElementById('orgFilter')?.value || '').toLowerCase();
     const statusFilter = (document.getElementById('statusFilter')?.value || '');
@@ -1332,7 +1383,9 @@ function renderKanban(allItems) {
         } else if (colItems.length === 0) {
             cardsHtml = '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;" class="empty-state">خالی</div>';
         } else {
-            const shown = colItems.slice(0, CARDS_PER_PAGE);
+            // After a redraw, a column keeps the cards the user had already opened with «نمایش بیشتر».
+            const prevShown = (window.__depotPrevShown || {})[colKey || statusKey] || 0;
+            const shown = colItems.slice(0, Math.max(CARDS_PER_PAGE, prevShown));
             window.__depotColumns[colKey || statusKey] = { items: colItems, shown: shown.length, statusKey };
             cardsHtml = shown.map(item => cardHtml(item, statusKey)).join('');
             const left = colItems.length - shown.length;
@@ -1582,7 +1635,7 @@ let filterTimer = null;
 function filterCards() {
     // Typing in the search box re-renders at most every 200ms.
     clearTimeout(filterTimer);
-    filterTimer = setTimeout(() => renderKanban(window.allDepotItems), 200);
+    filterTimer = setTimeout(() => renderKanban(window.allDepotItems, { resetView: true }), 200);
 }
 
 window.isGroupedByOrg = false;

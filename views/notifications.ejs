@@ -57,7 +57,7 @@ body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; p
         </div>
             <div style="display: flex; gap: 10px;">
                 <a href="<%= typeof landingPage !== 'undefined' ? landingPage : 'dashboard' %>" class="btn-read-all" style="background-color: #95a5a6;">بازگشت به صفحه اصلی</a>
-                <a href="#" onclick="markAllRead()" class="btn-read-all">✓ همه را خواندم</a>
+                <a href="#" onclick="event.preventDefault(); markAllRead()" class="btn-read-all">✓ همه را خواندم</a>
             </div>
         </div>
 
@@ -109,7 +109,7 @@ body {  background-color: var(--bg-color); color: var(--text-dark); margin: 0; p
                             <div class="notif-footer">
                                 <span>🕒 ثبت شده در: ${escapeHtml(window.toPersianDigits ? window.toPersianDigits(n.created_at) : n.created_at)}</span>
                                 <div class="notif-actions">
-                                    ${isUnread ? `<a href="#" onclick="markRead(${n.id})" class="action-read">✓ متوجه شدم</a>` : ''}
+                                    ${isUnread ? `<a href="#" onclick="event.preventDefault(); markRead(${n.id})" class="action-read">✓ متوجه شدم</a>` : ''}
                                     ${(() => {
                                         if (n.type === 'calendar_approved') {
                                             return `<a href="calendar" style="margin-right: 10px; color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">مشاهده تقویم ➔</a>`;
