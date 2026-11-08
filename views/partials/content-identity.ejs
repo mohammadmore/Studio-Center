@@ -268,8 +268,8 @@ function openContentDetails(id, editMode = false) {
         { id: 'client_review', name: 'ارزیابی کارفرما' },
         { id: 'needs_revision', name: 'نیاز به اصلاح' },
         { id: 'done', name: 'تکمیل شده' },
-        { id: 'approved_by_client', name: `تایید کارفرما <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg>`, plainName: 'تایید کارفرما' },
-        { id: 'ready_to_publish', name: `آماده انتشار <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg>`, plainName: 'آماده انتشار' },
+        { id: 'approved_by_client', name: 'تایید کارفرما' },
+        { id: 'ready_to_publish', name: 'آماده انتشار' },
         { id: 'published', name: 'منتشر شده' }
     ];
     let currentIndex = allStatuses.findIndex(s => s.id === (item.status === 'doing' ? 'in_progress' : (item.status || 'raw')));
@@ -327,8 +327,8 @@ function openContentDetails(id, editMode = false) {
                         <option value="client_review" ${item.status === 'client_review' ? 'selected' : ''}>ارزیابی کارفرما</option>
                         <option value="needs_revision" ${item.status === 'needs_revision' ? 'selected' : ''}>نیاز به اصلاح</option>
                         <option value="done" ${item.status === 'done' ? 'selected' : ''}>تکمیل شده</option>
-                        <option value="approved_by_client" ${item.status === 'approved_by_client' ? 'selected' : ''}>تایید کارفرما <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></option>
-                        <option value="ready_to_publish" ${item.status === 'ready_to_publish' ? 'selected' : ''}>آماده انتشار <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg></option>
+                        <option value="approved_by_client" ${item.status === 'approved_by_client' ? 'selected' : ''}>تایید کارفرما</option>
+                        <option value="ready_to_publish" ${item.status === 'ready_to_publish' ? 'selected' : ''}>آماده انتشار</option>
                         <option value="published" ${item.status === 'published' ? 'selected' : ''}>منتشر شده</option>
                     </select>
                 </div>
@@ -429,7 +429,7 @@ const colRadios = (window.allCollections || []).map(c => `
                 <div>
                     <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> همکاران تیم:</strong>
                     <div style="margin-top:4px; border:1px solid #ddd; border-radius:6px; padding:8px; background: var(--card-bg);">
-                        <input type="text" id="team_filter" placeholder="<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-left: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> جستجوی همکار..." onkeyup="filterTeam()" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:4px; margin-bottom:8px; font-size:0.85rem;">
+                        <input type="text" id="team_filter" placeholder="جستجوی همکار..." onkeyup="filterTeam()" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:4px; margin-bottom:8px; font-size:0.85rem;">
                         <div id="team_checkbox_list" style="max-height:160px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:8px;">
                             ${teamCheckboxes}
                         </div>

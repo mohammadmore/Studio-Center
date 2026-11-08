@@ -353,8 +353,8 @@ function toggleBatchFields() {
                 <option value="client_review">ارزیابی کارفرما</option>
                 <option value="needs_revision">نیاز به اصلاح</option>
                 <option value="done">تکمیل شده</option>
-                <option value="approved_by_client">تایید کارفرما <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></option>
-                <option value="ready_to_publish">آماده انتشار <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg></option>
+                <option value="approved_by_client">تایید کارفرما</option>
+                <option value="ready_to_publish">آماده انتشار</option>
                 <option value="published">منتشر شده</option>
             </select>
         `;
@@ -782,8 +782,8 @@ async function submitBatchEdit() {
             <option value="client_review">ارزیابی کارفرما</option>
             <option value="needs_revision">نیاز به اصلاح</option>
             <option value="done">تکمیل شده</option>
-            <option value="approved_by_client">تایید کارفرما <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg></option>
-            <option value="ready_to_publish">آماده انتشار <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'/><path d='m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07'/><path d='m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07'/></svg></option>
+            <option value="approved_by_client">تایید کارفرما</option>
+            <option value="ready_to_publish">آماده انتشار</option>
             <option value="published">منتشر شده</option>
         </select>
         <select id="platformFilter" onchange="filterCards()" style="padding:14px; border:1px solid var(--border-color); border-radius:8px;">
@@ -845,14 +845,14 @@ async function submitBatchEdit() {
                 <label style="font-weight: bold; display: block; margin-bottom: 8px;">عملکرد (Action)</label>
                 <select id="batchAction" onchange="toggleBatchFields()" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; background: var(--card-bg);">
                     <option value="">-- انتخاب کنید --</option>
-                    <option value="delete"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 6h18'/><path d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/><path d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/><line x1='10' x2='10' y1='11' y2='17'/><line x1='14' x2='14' y1='11' y2='17'/></svg> حذف گروهی</option>
+                    <option value="delete">🗑️ حذف گروهی</option>
                     <option value="archive">📦 آرشیو گروهی (بایگانی)</option>
-                    <option value="status"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg> تغییر وضعیت</option>
+                    <option value="status">🔄 تغییر وضعیت</option>
                     <option value="components">🧩 ویرایش تعداد اجزا</option>
                     <option value="org">🏢 تغییر سازمان/کارفرما</option>
                     <option value="collection">📁 تغییر مجموعه</option>
                     <option value="type">🏷️ تغییر نوع محتوا</option>
-                    <option value="manager"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> تغییر مدیر پروژه</option>
+                    <option value="manager">👤 تغییر مدیر پروژه</option>
                     <option value="team">👥 تغییر همکاران تیم</option>
                     <option value="platforms">📱 تغییر پلتفرم‌های انتشار</option>
                     <option value="stages">⚙️ تغییر مراحل تولید</option>
