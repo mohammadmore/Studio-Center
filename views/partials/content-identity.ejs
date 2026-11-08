@@ -361,7 +361,7 @@ function openContentDetails(id, editMode = false) {
                 <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> مجموعه (آلبوم):</strong> <div style="margin-top:4px;">${colTitle}</div></div>
                 <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> مدیر پروژه:</strong> <div style="margin-top:4px;">${mgrDisplay}</div></div>
 <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> همکاران تیم:</strong> <div style="margin-top:4px;">${teamHtml}</div></div>
-                <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M8 2v4'/><path d='M16 2v4'/><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M3 10h18'/></svg> تاریخ انتشار:</strong> <div style="margin-top:4px;">${escapeHtml(window.formatPublishDate(item.publish_date, item.publish_time))}</div></div>
+                <div><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M8 2v4'/><path d='M16 2v4'/><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M3 10h18'/></svg> تاریخ انتشار:</strong> <div style="margin-top:4px;">${window.formatPublishDate(item.publish_date, item.publish_time)}</div></div>
                 
                 <div style="grid-column: 1 / -1;"><strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> پلتفرم‌های انتشار:</strong> <div style="margin-top:4px; display:flex; gap:4px; flex-wrap:wrap;">${platformsHtml}</div></div>
             </div>
@@ -816,6 +816,7 @@ window.toEnglishDigits = function (str) {
     });
 };
 
+// Returns safe HTML: every value is escaped here, so callers insert it as is.
 window.formatPublishDate = function(dateStr, timeStr) {
     let timePart = timeStr ? ' - ساعت ' + timeStr : '';
     if (!dateStr) return '<span style="color:#94a3b8">تعیین نشده</span>';
@@ -828,9 +829,9 @@ window.formatPublishDate = function(dateStr, timeStr) {
         const date = new Date(g.gy, g.gm - 1, g.gd);
         const days = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
         const dayName = days[date.getDay()];
-        return dayName + ' ' + window.toPersianDigits(dateStr) + (timePart ? window.toPersianDigits(timePart) : '');
+        if (dayName) return escapeHtml(dayName + ' ' + window.toPersianDigits(dateStr) + (timePart ? window.toPersianDigits(timePart) : ''));
     }
-    return window.toPersianDigits(`${escapeHtml(dateStr)}${escapeHtml(timePart)}`);
+    return escapeHtml(window.toPersianDigits(`${dateStr}${timePart}`));
 };
 
 window.contentIdentityConfirmSave = async function() {
