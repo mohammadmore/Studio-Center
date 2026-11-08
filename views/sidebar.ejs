@@ -1776,7 +1776,7 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
             
             results.collections.forEach(c => {
                 html += `
-                    <a href="javascript:void(0)" onclick="closeOmnibar(); window.location.href='collections'" style="display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: inherit; transition: background 0.2s; border-right: 3px solid transparent;" onmouseover="this.style.background='var(--hover-bg)'; this.style.borderRight='3px solid var(--warning-color, #f59e0b)'" onmouseout="this.style.background='transparent'; this.style.borderRight='3px solid transparent'">
+                    <a href="collections?folder=${Number(c.id)}" onclick="closeOmnibar()" style="display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: inherit; transition: background 0.2s; border-right: 3px solid transparent;" onmouseover="this.style.background='var(--hover-bg)'; this.style.borderRight='3px solid var(--warning-color, #f59e0b)'" onmouseout="this.style.background='transparent'; this.style.borderRight='3px solid transparent'">
                         <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(245,158,11,0.1); display: flex; align-items: center; justify-content: center; margin-left: 15px; color: var(--warning-color, #f59e0b);">
                             <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/></svg>
                         </div>

@@ -37,6 +37,15 @@ subRouter.get("/get_collections", (req, res) => {
   res.json({ status: "success", data });
 });
 
+/** The collection and every collection nested under it, at any depth. */
+function descendantCollectionIds(rootId: number) {
+  const ids = [rootId];
+  for (let i = 0; i < ids.length && i < 10000; i++) {
+    for (const c of collections) if (c.parent_id == ids[i] && !ids.includes(c.id)) ids.push(c.id);
+  }
+  return ids;
+}
+
 subRouter.post("/manage_collections", checkPermission("collections"), (req: any, res) => {
   const { action, id, title, org_id, cols } = req.body;
   if (action === "batch_add") {
@@ -90,19 +99,24 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
     });
   }
   if (action === "add") {
-    if (!title || typeof title !== "string") {
+    if (!title || typeof title !== "string" || !title.trim()) {
       return res.status(400).json({ status: "error", message: "عنوان مجموعه الزامی است" });
     }
-    collections.push({
+    const parentId = req.body.parent_id ? toInt(req.body.parent_id) : null;
+    if (parentId && !collections.some((c) => c.id === parentId)) {
+      return res.status(400).json({ status: "error", message: "مجموعه والد پیدا نشد" });
+    }
+    const item = {
       id: nextId(collections),
       title: title.trim(),
       org_id: org_id ? toInt(org_id) : null,
-      parent_id: req.body.parent_id ? toInt(req.body.parent_id) : null,
+      parent_id: parentId,
       created_at: persianDate(),
       is_active: 1,
-    });
+    };
+    collections.push(item);
     saveDatabase();
-    return res.json({ status: "success", message: "مجموعه اضافه شد" });
+    return res.json({ status: "success", message: "مجموعه اضافه شد", data: item });
   }
   if (action === "edit") {
     const col = collections.find((c) => c.id == id);
@@ -143,16 +157,31 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
     });
   }
   if (action === "delete") {
-    const idx = collections.findIndex((c) => c.id == id);
-    if (idx === -1) return res.status(404).json({ status: "error", message: "مجموعه یافت نشد" });
-    const col = collections[idx];
-    const binId = moveToRecycleBin("collections", col, col.title || "مجموعه", req.user);
-    collections.splice(idx, 1);
-    collections.forEach((c) => {
-      if (c.parent_id == col.id) c.parent_id = null;
+    const col = collections.find((c) => c.id == id);
+    if (!col) return res.status(404).json({ status: "error", message: "مجموعه یافت نشد" });
+    // A folder goes to the recycle bin with everything inside it, and comes back the same way.
+    const subIds = descendantCollectionIds(col.id).filter((cid) => cid !== col.id);
+    const allIds = new Set([col.id, ...subIds]);
+    const relatedCollections = collections.filter((c) => subIds.includes(c.id));
+    const relatedContents = contents.filter((c) => c.collection_id != null && allIds.has(Number(c.collection_id)));
+    const binId = moveToRecycleBin("collections", col, col.title || "مجموعه", req.user, {
+      related_collections: relatedCollections,
+      related_contents: relatedContents,
     });
+    for (let i = collections.length - 1; i >= 0; i--) if (allIds.has(collections[i].id)) collections.splice(i, 1);
+    const contentIds = new Set(relatedContents.map((c) => c.id));
+    for (let i = contents.length - 1; i >= 0; i--) if (contentIds.has(contents[i].id)) contents.splice(i, 1);
     saveDatabase();
-    return res.json({ status: "success", message: "مجموعه حذف شد", bin_id: binId });
+    const parts = [];
+    if (subIds.length) parts.push(`${subIds.length.toLocaleString("fa-IR")} زیرمجموعه`);
+    if (relatedContents.length) parts.push(`${relatedContents.length.toLocaleString("fa-IR")} محتوا`);
+    return res.json({
+      status: "success",
+      message: "مجموعه" + (parts.length ? ` همراه با ${parts.join(" و ")}` : "") + " به سطل زباله منتقل شد",
+      bin_id: binId,
+      removed_collections: subIds.length,
+      removed_contents: relatedContents.length,
+    });
   }
   res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
 });

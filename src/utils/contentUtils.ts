@@ -99,7 +99,11 @@ export function restoreBinItem(binItem: any) {
   const target = RESTORE_TARGETS[binItem.table];
   if (!target) return false;
   if (!target.some((x) => x.id === binItem.data?.id)) target.unshift(binItem.data);
-  // Deleting an organisation also removed its content cards; bring them back too.
+  // Deleting a collection also removed its sub-collections; bring them back too.
+  for (const col of binItem.related_collections || []) {
+    if (!collections.some((c) => c.id === col.id)) collections.push(col);
+  }
+  // Deleting an organisation or a collection also removed its content cards; bring them back too.
   for (const card of binItem.related_contents || []) {
     if (!contents.some((c) => c.id === card.id)) contents.push(card);
   }
@@ -123,6 +127,10 @@ export function reDeleteBinItem(binItem: any) {
   if (idx !== -1) {
     binItem.data = target[idx];
     target.splice(idx, 1);
+  }
+  const relatedColIds = new Set((binItem.related_collections || []).map((c: any) => c.id));
+  for (let i = collections.length - 1; i >= 0; i--) {
+    if (relatedColIds.has(collections[i].id)) collections.splice(i, 1);
   }
   const relatedIds = new Set((binItem.related_contents || []).map((c: any) => c.id));
   for (let i = contents.length - 1; i >= 0; i--) {

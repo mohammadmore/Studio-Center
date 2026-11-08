@@ -16,6 +16,28 @@
         .modal-box { background: var(--card-bg); width: 90%; width: 100%; max-width: 800px; box-sizing: border-box; padding: 30px; border-radius: 15px; max-height: 90vh; overflow-y: auto; }
         .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
         .content-card { background: rgba(128, 128, 128, 0.05); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; }
+        /* Folder browsing */
+        .folder-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px; padding: 10px 14px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; }
+        .folder-path { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
+        .folder-path .crumb { background: none; border: 1px dashed transparent; color: var(--primary-color); font-family: inherit; font-size: 0.95rem; font-weight: 600; cursor: pointer; padding: 6px 10px; border-radius: 8px; min-height: 36px; }
+        .folder-path .crumb:hover { background: rgba(99, 102, 241, 0.08); }
+        .folder-path .crumb.current { color: var(--text-dark); cursor: default; font-weight: 800; }
+        .folder-path .crumb-sep { color: var(--text-gray); font-size: 0.9rem; }
+        .folder-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .folder-actions button { min-height: 36px; padding: 6px 12px; border-radius: 10px; font-family: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .section-title { grid-column: 1 / -1; margin: 18px 0 0; font-size: 1rem; color: var(--text-gray); display: flex; align-items: center; gap: 8px; }
+        .section-title small { font-weight: normal; }
+        .collection-card[draggable="true"], .content-card[draggable="true"] { -webkit-user-drag: element; }
+        .is-dragging { opacity: 0.45; }
+        .drop-ok { outline: 2px dashed var(--primary-color) !important; outline-offset: 3px; background-color: rgba(99, 102, 241, 0.08) !important; }
+        .folder-path .crumb.drop-ok { border-color: var(--primary-color); }
+        .drag-hint { font-size: 0.8rem; color: var(--text-gray); line-height: 1.7; }
+        .card-path { font-size: 0.78rem; color: var(--text-gray); margin-top: 4px; }
+        .drag-hint { flex-basis: 100%; margin: 0; }
+        .drag-hint-touch { display: none; }
+        @media (pointer: coarse) { .drag-hint-mouse { display: none; } .drag-hint-touch { display: inline; } }
+        @media (pointer: coarse), (max-width: 768px) { .collection-card { min-height: 215px; } }
+        @media (max-width: 600px) { .folder-bar { padding: 8px; } .folder-actions { width: 100%; } .folder-actions button { flex: 1 1 calc(50% - 6px); } }
     </style>
 </head>
 
@@ -52,6 +74,15 @@
             </div>
         </div>
 
+        <div class="folder-bar" id="folderBar">
+            <nav class="folder-path" id="folderPath" aria-label="مسیر مجموعه"></nav>
+            <div class="folder-actions" id="folderActions"></div>
+            <div class="drag-hint" id="dragHint">
+                <span class="drag-hint-mouse">💡 برای جابه‌جایی، مجموعه یا محتوا را روی مجموعه‌ی مقصد یا یکی از بخش‌های مسیر بالا بکشید و رها کنید.</span>
+                <span class="drag-hint-touch">💡 برای جابه‌جایی در گوشی: مجموعه را با «ویرایش» و محتوا را با «ویرایش کلی» شناسنامه‌اش به مجموعه‌ی دیگر ببرید.</span>
+            </div>
+        </div>
+
         <div class="org-grid" id="collectionsGrid">
             <!-- Loading -->
             <div class="skeleton" style="height: 60px; width: 100%; margin-bottom: 10px; border-radius: 8px;"></div><div class="skeleton" style="height: 60px; width: 100%; border-radius: 8px;"></div>
@@ -75,9 +106,9 @@
                     </select>
                 </div>
                 <div class="form-group" style="margin-top: 15px;">
-                    <label>مجموعه والد (اختیاری - زیرمجموعه قرار دادن)</label>
+                    <label>داخل کدام مجموعه باشد؟</label>
                     <select id="parent_id" class="form-control">
-                        <option value="">مجموعه اصلی (بدون والد)</option>
+                        <option value="">همه مجموعه‌ها (سطح اول)</option>
                     </select>
                 </div>
                 
@@ -86,24 +117,6 @@
                     <button type="submit" class="btn btn-primary">ذخیره مجموعه</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- Modal for Viewing Contents -->
-    <div class="modal-overlay" id="viewModal">
-        <div class="modal-box" id="viewModalBox">
-            <div id="viewModalBackButtonContainer"></div>
-            <h2 id="viewModalTitle" style="margin-top: 5px;">محتوا‌های مجموعه</h2>
-            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                <p style="color: var(--text-gray); margin: 0;" id="viewModalOrg"></p>
-                <img id="viewModalOrgLogo" src="" alt="" style="width: 24px; height: 24px; border-radius: 4px; display: none; object-fit: contain;">
-                <p style="color: var(--text-gray); margin: 0; font-size: 0.9rem; padding-right: 15px; border-right: 1px solid var(--border-color);" id="viewModalCount"></p>
-            </div>
-            <input type="text" id="viewModalSearch" class="form-control" placeholder="جستجو در محتوا‌ها (شامل زیرمجموعه‌ها)..." onkeyup="filterViewModal()" style="margin-top: 15px; width: 100%; border-radius: 8px;">
-            <div class="cards-grid" id="viewModalCards"></div>
-            <div style="margin-top: 25px; text-align: left;">
-                <button type="button" class="btn-outline"  onclick="closeModals()" >بستن</button>
-            </div>
         </div>
     </div>
 
@@ -158,13 +171,10 @@
                 collectionsList = window.allCollections;
                 orgsList = window.allOrgs;
                 if (contentsRes.status === 'success') { allContents = contentsRes.data; window.allDepotItems = contentsRes.data; }
-                renderCollections();
                 renderOrgsDropdown();
-                // Refresh view modal if it's open
-                if (document.getElementById('viewModal') && document.getElementById('viewModal').style.display === 'flex') {
-                    const currentColId = document.getElementById('viewModalBox').dataset.currentColId;
-                    if (currentColId) openViewModal(parseInt(currentColId));
-                }
+                // The folder in the address may have been deleted meanwhile: fall back to its nearest existing parent.
+                if (currentFolderId && !colById(currentFolderId)) openFolder(null, { replace: true });
+                else renderCollections();
             } catch (err) {
                 console.error(err);
                 showToast('خطا در دریافت اطلاعات', 'error');
@@ -195,300 +205,332 @@
             if(filterSelect) filterSelect.value = selectedFilter;
         }
 
+        // ───────────── Folder browsing: collections open in place, like folders in a file manager ─────────────
+        const BASE_TITLE = document.title;
+        let currentFolderId = (() => { const v = parseInt(new URLSearchParams(location.search).get('folder'), 10); return Number.isFinite(v) ? v : null; })();
+        const colById = (id) => (collectionsList || []).find(c => c.id == id);
+        const isVisibleCol = (c) => c && c.status !== 'archived';
+        const toFa = (n) => window.toPersianDigits(n);
+
+        /** The chain of collections from the top level down to this one. */
+        function folderPath(id) {
+            const path = [];
+            for (let c = colById(id), guard = 0; c && guard < 100; guard++) {
+                path.unshift(c);
+                c = c.parent_id ? colById(c.parent_id) : null;
+            }
+            return path;
+        }
+        /** Collections directly inside a folder (null = top level). A collection whose parent is gone counts as top level. */
+        function childFolders(id) {
+            return (collectionsList || []).filter(c => isVisibleCol(c) && (id
+                ? c.parent_id == id
+                : (!c.parent_id || !colById(c.parent_id))));
+        }
+        window.getAllDescendantCollectionIds = function(id) {
+            const ids = [id];
+            for (let i = 0; i < ids.length && i < 10000; i++) {
+                (collectionsList || []).forEach(c => { if (c.parent_id == ids[i] && isVisibleCol(c) && !ids.includes(c.id)) ids.push(c.id); });
+            }
+            return ids;
+        };
+        const contentsUnder = (id) => { const ids = window.getAllDescendantCollectionIds(id); return allContents.filter(c => ids.includes(c.collection_id)); };
+        const pathText = (id) => folderPath(id).map(c => c.title).join(' › ');
+
+        function openFolder(id, opts = {}) {
+            currentFolderId = id ? Number(id) : null;
+            const url = currentFolderId ? 'collections?folder=' + currentFolderId : 'collections';
+            if (opts.replace) history.replaceState({ folder: currentFolderId }, '', url);
+            else if (opts.push !== false) history.pushState({ folder: currentFolderId }, '', url);
+            const search = document.getElementById('search_collection');
+            if (search && opts.keepSearch !== true) search.value = '';
+            renderCollections();
+            if (!opts.keepScroll) window.scrollTo({ top: 0 });
+        }
+        window.openFolder = openFolder;
+        window.addEventListener('popstate', () => {
+            const v = parseInt(new URLSearchParams(location.search).get('folder'), 10);
+            openFolder(Number.isFinite(v) ? v : null, { push: false });
+        });
+
+        function renderPath() {
+            const nav = document.getElementById('folderPath');
+            const actions = document.getElementById('folderActions');
+            const path = folderPath(currentFolderId);
+            const crumbs = [{ id: null, title: 'همه مجموعه‌ها' }].concat(path.map(c => ({ id: c.id, title: c.title })));
+            nav.innerHTML = '';
+            crumbs.forEach((c, i) => {
+                if (i) nav.insertAdjacentHTML('beforeend', '<span class="crumb-sep" aria-hidden="true">›</span>');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const last = i === crumbs.length - 1;
+                btn.className = 'crumb' + (last ? ' current' : '');
+                btn.textContent = (i === 0 ? '🗂️ ' : '📁 ') + c.title;
+                if (last) btn.setAttribute('aria-current', 'page');
+                else btn.onclick = () => openFolder(c.id);
+                makeDropTarget(btn, c.id);
+                nav.appendChild(btn);
+            });
+            const cur = colById(currentFolderId);
+            actions.innerHTML = cur
+                ? `<button type="button" class="btn-outline" onclick="openAddModal(null)">📁 زیرمجموعه جدید</button>
+                   <button type="button" class="btn-edit" style="width:auto" onclick="openAddModal(${cur.id})">✏️ ویرایش</button>
+                   <button type="button" class="btn-edit" style="width:auto; background:var(--warning-color); color:#fff" onclick="archiveCol(${cur.id})">📦 آرشیو</button>
+                   <button type="button" class="btn-delete" style="width:auto" onclick="deleteCol(${cur.id})">🗑️ حذف</button>`
+                : '';
+            document.title = cur ? cur.title + ' | ' + BASE_TITLE : BASE_TITLE;
+        }
+
         function renderCollections() {
             const grid = document.getElementById('collectionsGrid');
+            renderPath();
             grid.innerHTML = '';
-            
-            const filterSelect = document.getElementById('filter_org_id');
-            const filterValue = filterSelect ? filterSelect.value : "";
-            const searchInput = document.getElementById('search_collection');
-            const searchVal = searchInput ? searchInput.value.toLowerCase() : "";
-            
-            let filteredList = collectionsList || [];
+
+            const filterValue = (document.getElementById('filter_org_id') || {}).value || '';
+            const searchVal = ((document.getElementById('search_collection') || {}).value || '').trim().toLowerCase();
+            const orgMatch = (orgId) => filterValue === '' || (filterValue === 'null' ? !orgId : orgId == filterValue);
+
+            let folders, items;
             if (searchVal) {
-                filteredList = filteredList.filter(c => c.title.toLowerCase().includes(searchVal));
+                // Search covers everything below the current folder (or every collection at the top level).
+                const scope = currentFolderId ? window.getAllDescendantCollectionIds(currentFolderId).filter(id => id !== currentFolderId) : null;
+                folders = (collectionsList || []).filter(c => isVisibleCol(c) && (!scope || scope.includes(c.id)) && String(c.title || '').toLowerCase().includes(searchVal));
+                items = currentFolderId ? contentsUnder(currentFolderId).filter(c => String(c.title || '').toLowerCase().includes(searchVal) || String(c.caption || '').toLowerCase().includes(searchVal)) : [];
+            } else {
+                folders = childFolders(currentFolderId);
+                items = currentFolderId ? allContents.filter(c => c.collection_id == currentFolderId) : [];
             }
-            if (filterValue === "null") {
-                filteredList = filteredList.filter(c => !c.org_id);
-            } else if (filterValue !== "") {
-                filteredList = filteredList.filter(c => c.org_id == filterValue);
-            }
-            
-            // Only show root collections on main view if not searching
-            if (!searchVal) {
-                filteredList = filteredList.filter(c => !c.parent_id);
-            }
-            
-            if (filteredList.length === 0) {
-                grid.innerHTML = `
+            folders = folders.filter(c => orgMatch(c.org_id));
+            items = items.filter(c => orgMatch(c.org_id));
+
+            document.getElementById('dragHint').style.display = (folders.length + items.length) > 0 && !searchVal ? '' : 'none';
+
+            if (!folders.length && !items.length) {
+                if (!currentFolderId && !searchVal && filterValue === '' && !(collectionsList || []).some(isVisibleCol)) {
+                    grid.innerHTML = `
     <div style="grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--card-bg); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
-        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
-        </div>
+        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 2rem;">📁</div>
         <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">هنوز مجموعه‌ای نساخته‌اید!</h3>
         <p style="color: var(--text-gray); width: 100%; max-width: 400px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">مجموعه‌ها به شما کمک می‌کنند محتوا‌های کمپین‌ها و پروژه‌ها را به صورت منظم دسته‌بندی و مدیریت کنید.</p>
-        <button class="btn-primary"  onclick="openAddModal()" style=""  >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            ساخت اولین مجموعه
-        </button>
+        <button type="button" class="btn-primary" onclick="openAddModal()">➕ ساخت اولین مجموعه</button>
     </div>`;
+                } else {
+                    const msg = searchVal || filterValue !== '' ? 'با این جستجو یا فیلتر چیزی پیدا نشد.' : 'این مجموعه خالی است.';
+                    grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px 20px; color: var(--text-gray); background: var(--card-bg); border: 1px dashed var(--border-color); border-radius: 12px;">
+                        <div style="font-size:2rem; margin-bottom:8px;">📂</div><div style="margin-bottom:14px;">${msg}</div>
+                        ${currentFolderId && !searchVal ? '<button type="button" class="btn-outline" onclick="openAddModal(null)">📁 ساخت زیرمجموعه</button> <span style="color:var(--text-gray); font-size:0.85rem; display:block; margin-top:10px;">محتوا را می‌توانید از «ویرایش کلی» شناسنامه‌اش به این مجموعه بیاورید یا از مجموعه‌ی دیگری روی مسیر بالا بکشید.</span>' : ''}
+                    </div>`;
+                }
                 return;
             }
 
-            (filteredList || []).forEach(col => {
-                // Count how many items in this collection
-                const allColIds = window.getAllDescendantCollectionIds ? window.getAllDescendantCollectionIds(col.id) : [col.id];
-                const itemsCount = allContents.filter(c => allColIds.includes(c.collection_id)).length;
-                
-                const card = document.createElement('div');
-                card.className = 'collection-card';
-                const cardColor = safeColor(col.org_color) || 'var(--primary-color)';
-                card.style.borderRight = `4px solid ${cardColor}`;
-                card.style.background = `color-mix(in srgb, ${cardColor} 10%, var(--card-bg))`;
-                
-                const hasSub = collectionsList.some(c => c.parent_id === col.id);
-                let stackHtml = '';
-                if (hasSub) {
-                    card.style.isolation = 'isolate';
-                    const bg = `color-mix(in srgb, ${cardColor} 10%, var(--card-bg))`;
-                    card.style.background = bg;
-                    stackHtml = `
-                        <div style="position:absolute; top:0; bottom:0; right:-6px; left:0; background:${bg}; border:1px solid var(--border-color); border-right:4px solid color-mix(in srgb, ${cardColor} 60%, var(--card-bg)); border-radius:12px; z-index:-1; pointer-events:none;"></div>
-                        <div style="position:absolute; top:0; bottom:0; right:-12px; left:0; background:${bg}; border:1px solid var(--border-color); border-right:4px solid color-mix(in srgb, ${cardColor} 30%, var(--card-bg)); border-radius:12px; z-index:-2; pointer-events:none;"></div>
-                    `;
-                }
-                
-                card.onclick = (e) => {
-                    if(!e.target.closest('button')) {
-                        openViewModal(col.id);
-                    }
-                };
-                card.innerHTML = `
-                    ${stackHtml}
-                    <div style="position: absolute; left: 15px; top: 15px; display: flex; flex-direction: column; gap: 5px; z-index: 2;">
-                        <button class="btn-edit" onclick="event.stopPropagation(); openAddModal(${col.id})">ویرایش</button>
-                        <button class="btn-edit" onclick="event.stopPropagation(); archiveCol(${col.id})" style="background:var(--warning-color); color:#fff; border:none;">آرشیو</button>
-                        <button class="btn-delete" onclick="event.stopPropagation(); deleteCol(${col.id})">حذف</button>
-                    </div>
-                    
-                    <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-gray); padding-left: 90px; min-height: 2.8em; line-height: 1.4;">${escapeHtml(col.title)}</h3>
-                    
-                    <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
-                        ${col.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(col.org_logo))}" style="width:24px; height:24px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : `<span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${escapeHtml(col.org_color || 'var(--text-gray)')}"></span>`}
-                        <span style="font-size: 0.9rem; color: var(--text-gray);">${escapeHtml(col.org_name)}</span>
-                    </div>
-                    
-                    <div style="margin-top: auto; padding-top: 15px; font-size: 0.85rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: flex-end;">
-                        <span>تاریخ ایجاد: ${escapeHtml(col.created_at || 'نامشخص')}</span>
-                        <span style="background: rgba(128, 128, 128, 0.1); padding: 2px 8px; border-radius: 4px; color: var(--text-gray);">${window.toPersianDigits(itemsCount)} محتوا</span>
-                    </div>
-                `;
-                grid.appendChild(card);
+            if (folders.length) {
+                if (currentFolderId || searchVal) grid.insertAdjacentHTML('beforeend', `<h3 class="section-title">📁 ${searchVal ? 'مجموعه‌ها' : 'زیرمجموعه‌ها'} <small>(${toFa(folders.length)})</small></h3>`);
+                folders.forEach(col => grid.appendChild(folderCard(col, !!searchVal)));
+            }
+            if (items.length) {
+                grid.insertAdjacentHTML('beforeend', `<h3 class="section-title">📄 محتواها <small>(${toFa(items.length)})</small></h3>`);
+                items.forEach(item => grid.appendChild(contentCard(item, !!searchVal)));
+            }
+        }
+
+        function folderCard(col, showPath) {
+            const itemsCount = contentsUnder(col.id).length;
+            const subCount = childFolders(col.id).length;
+            const card = document.createElement('div');
+            card.className = 'collection-card';
+            card.tabIndex = 0;
+            card.setAttribute('role', 'link');
+            card.setAttribute('aria-label', 'باز کردن مجموعه ' + col.title);
+            const cardColor = safeColor(col.org_color) || 'var(--primary-color)';
+            card.style.borderRight = `4px solid ${cardColor}`;
+            card.style.background = `color-mix(in srgb, ${cardColor} 10%, var(--card-bg))`;
+            let stackHtml = '';
+            if (subCount) {
+                card.style.isolation = 'isolate';
+                const bg = `color-mix(in srgb, ${cardColor} 10%, var(--card-bg))`;
+                stackHtml = `
+                    <div style="position:absolute; top:0; bottom:0; right:-6px; left:0; background:${bg}; border:1px solid var(--border-color); border-right:4px solid color-mix(in srgb, ${cardColor} 60%, var(--card-bg)); border-radius:12px; z-index:-1; pointer-events:none;"></div>
+                    <div style="position:absolute; top:0; bottom:0; right:-12px; left:0; background:${bg}; border:1px solid var(--border-color); border-right:4px solid color-mix(in srgb, ${cardColor} 30%, var(--card-bg)); border-radius:12px; z-index:-2; pointer-events:none;"></div>`;
+            }
+            card.onclick = (e) => { if (!e.target.closest('button')) openFolder(col.id); };
+            card.onkeydown = (e) => { if (e.key === 'Enter' && e.target === card) openFolder(col.id); };
+            card.innerHTML = `
+                ${stackHtml}
+                <div style="position: absolute; left: 15px; top: 15px; display: flex; flex-direction: column; gap: 5px; z-index: 2;">
+                    <button type="button" class="btn-edit" onclick="event.stopPropagation(); openAddModal(${col.id})">ویرایش</button>
+                    <button type="button" class="btn-edit" onclick="event.stopPropagation(); archiveCol(${col.id})" style="background:var(--warning-color); color:#fff; border:none;">آرشیو</button>
+                    <button type="button" class="btn-delete" onclick="event.stopPropagation(); deleteCol(${col.id})">حذف</button>
+                </div>
+                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-gray); padding-left: 90px; min-height: 2.8em; line-height: 1.4;">📁 ${escapeHtml(col.title)}</h3>
+                ${showPath && col.parent_id ? `<div class="card-path">در: ${escapeHtml(pathText(col.parent_id))}</div>` : ''}
+                <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
+                    ${col.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(col.org_logo))}" style="width:24px; height:24px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : `<span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${escapeHtml(safeColor(col.org_color) || 'var(--text-gray)')}"></span>`}
+                    <span style="font-size: 0.9rem; color: var(--text-gray);">${escapeHtml(col.org_name)}</span>
+                </div>
+                <div style="margin-top: auto; padding-top: 15px; font-size: 0.85rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: flex-end; gap: 6px; flex-wrap: wrap;">
+                    <span>تاریخ ایجاد: ${escapeHtml(col.created_at || 'نامشخص')}</span>
+                    <span style="display:flex; gap:4px;">
+                        ${subCount ? `<span style="background: rgba(128, 128, 128, 0.1); padding: 2px 8px; border-radius: 4px; color: var(--text-gray);">${toFa(subCount)} زیرمجموعه</span>` : ''}
+                        <span style="background: rgba(128, 128, 128, 0.1); padding: 2px 8px; border-radius: 4px; color: var(--text-gray);">${toFa(itemsCount)} محتوا</span>
+                    </span>
+                </div>`;
+            makeDraggable(card, 'folder', col.id);
+            makeDropTarget(card, col.id);
+            return card;
+        }
+
+        function contentCard(item, showPath) {
+            const div = document.createElement('div');
+            div.className = 'content-card';
+            div.tabIndex = 0;
+            div.style.cursor = 'pointer';
+            div.style.transition = 'transform 0.2s, box-shadow 0.2s';
+            const cardColor = safeColor(item.org_color) || 'var(--primary-color)';
+            div.style.background = `color-mix(in srgb, ${cardColor} 10%, transparent)`;
+            div.style.borderRight = `4px solid ${cardColor}`;
+            div.onclick = () => window.openContentDetails(item.id);
+            div.onkeydown = (e) => { if (e.key === 'Enter' && e.target === div) window.openContentDetails(item.id); };
+            const orgBadgeStyle = `background: color-mix(in srgb, ${cardColor} 8%, transparent); color: ${cardColor}; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold; display:inline-flex; align-items:center; gap:6px; margin-bottom:8px;`;
+            div.innerHTML = `
+                <div style="${orgBadgeStyle}">
+                    ${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:24px; height:24px; border: 1px solid white; border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'}
+                    <span>${escapeHtml(item.org_name || 'بدون سازمان')}</span>
+                </div>
+                <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray); line-height: 1.4;">📄 ${escapeHtml(item.title || 'بدون عنوان')}</div>
+                ${showPath && item.collection_id != currentFolderId ? `<div class="card-path">در: ${escapeHtml(pathText(item.collection_id))}</div>` : ''}
+                <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px;"><span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${escapeHtml(item.content_type || 'نامشخص')}</span></div>
+                <div style="font-size: 0.85rem; margin-top: 10px;">وضعیت: ${escapeHtml(translateStatus(item.status))}</div>`;
+            makeDraggable(div, 'content', item.id);
+            return div;
+        }
+
+        // ───────────── Drag and drop (always confirmed, with undo) ─────────────
+        let dragging = null;
+        function makeDraggable(el, type, id) {
+            el.draggable = true;
+            el.addEventListener('dragstart', (e) => {
+                dragging = { type, id };
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', type + ':' + id);
+                el.classList.add('is-dragging');
             });
+            el.addEventListener('dragend', () => {
+                dragging = null;
+                el.classList.remove('is-dragging');
+                document.querySelectorAll('.drop-ok').forEach(x => x.classList.remove('drop-ok'));
+            });
+        }
+        /** Can the item being dragged go into this folder (null = top level)? */
+        function canDropInto(targetId) {
+            if (!dragging) return false;
+            const target = targetId ? Number(targetId) : null;
+            if (dragging.type === 'folder') {
+                const col = colById(dragging.id);
+                if (!col) return false;
+                if (target && window.getAllDescendantCollectionIds(col.id).includes(target)) return false; // not into itself or its own sub-folders
+                return (col.parent_id && colById(col.parent_id) ? col.parent_id : null) != target;
+            }
+            const item = allContents.find(c => c.id == dragging.id);
+            if (!item || !target) return !!item && !!item.collection_id; // top level = take it out of every collection
+            return item.collection_id != target;
+        }
+        function makeDropTarget(el, targetId) {
+            el.addEventListener('dragover', (e) => {
+                if (!canDropInto(targetId)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                el.classList.add('drop-ok');
+            });
+            el.addEventListener('dragleave', (e) => { if (!el.contains(e.relatedTarget)) el.classList.remove('drop-ok'); });
+            el.addEventListener('drop', (e) => {
+                e.preventDefault();
+                el.classList.remove('drop-ok');
+                const what = dragging;
+                dragging = null;
+                if (what) moveItem(what, targetId ? Number(targetId) : null);
+            });
+        }
+
+        async function postJson(url, body) {
+            const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            return r.json().catch(() => ({}));
+        }
+        const reloadKeepingPlace = () => (window.asvaKeepScroll ? window.asvaKeepScroll(loadData) : loadData());
+
+        async function moveItem(what, targetId) {
+            const target = targetId ? colById(targetId) : null;
+            const targetName = target ? `«${target.title}»` : '«همه مجموعه‌ها» (سطح اول)';
+            if (what.type === 'folder') {
+                const col = colById(what.id);
+                const subs = window.getAllDescendantCollectionIds(col.id).length - 1;
+                const count = contentsUnder(col.id).length;
+                const inside = [subs ? `${toFa(subs)} زیرمجموعه` : '', count ? `${toFa(count)} محتوا` : ''].filter(Boolean).join(' و ');
+                const msg = `مجموعه «${col.title}»${inside ? ' همراه با ' + inside : ''} به ${targetName} منتقل شود؟`;
+                if (!(await window.customConfirm(msg))) return;
+                const oldParent = col.parent_id || null;
+                const res = await postJson('/api/manage_collections', { action: 'edit', id: col.id, parent_id: targetId || '' });
+                if (res.status !== 'success') { showToast(res.message || 'جابه‌جایی انجام نشد', 'error'); return; }
+                await reloadKeepingPlace();
+                showToast(`مجموعه «${col.title}» منتقل شد`, 'success', { text: 'بازگردانی', callback: async () => {
+                    const back = await postJson('/api/manage_collections', { action: 'edit', id: col.id, parent_id: oldParent || '' });
+                    if (back.status === 'success') { await reloadKeepingPlace(); showToast('جابه‌جایی لغو شد', 'info'); }
+                    else showToast(back.message || 'بازگردانی انجام نشد', 'error');
+                } });
+                return;
+            }
+            const item = allContents.find(c => c.id == what.id);
+            if (!item) return;
+            const changeOrg = target && target.org_id && target.org_id != item.org_id;
+            let msg = target ? `محتوای «${item.title}» به مجموعه ${targetName} منتقل شود؟` : `محتوای «${item.title}» از مجموعه خارج شود و بدون مجموعه بماند؟`;
+            if (changeOrg) msg += ` برند این محتوا هم از «${item.org_name || 'بدون برند'}» به «${target.org_name}» تغییر می‌کند.`;
+            if (!(await window.customConfirm(msg))) return;
+            const before = { collection_id: item.collection_id || '', org_id: item.org_id || '' };
+            const body = { id: item.id, collection_id: targetId || '' };
+            if (changeOrg) body.org_id = target.org_id;
+            const res = await postJson('/api/update_content_details', body);
+            if (res.status !== 'success') { showToast(res.message || 'جابه‌جایی انجام نشد', 'error'); return; }
+            await reloadKeepingPlace();
+            showToast(target ? `محتوا به ${targetName} منتقل شد` : 'محتوا از مجموعه خارج شد', 'success', { text: 'بازگردانی', callback: async () => {
+                const undo = { id: item.id, collection_id: before.collection_id };
+                if (changeOrg) undo.org_id = before.org_id;
+                const back = await postJson('/api/update_content_details', undo);
+                if (back.status === 'success') { await reloadKeepingPlace(); showToast('جابه‌جایی لغو شد', 'info'); }
+                else showToast(back.message || 'بازگردانی انجام نشد', 'error');
+            } });
         }
 
         function openAddModal(id = null) {
             document.getElementById('addModal').style.display = 'flex';
             const form = document.getElementById('addForm');
             form.reset();
-            
-            // Populate parent_id select
+            // A collection cannot go inside itself or inside one of its own sub-collections.
+            const blocked = id ? window.getAllDescendantCollectionIds(id) : [];
             const parentSelect = document.getElementById('parent_id');
-            parentSelect.innerHTML = '<option value="">مجموعه اصلی (بدون والد)</option>';
-            collectionsList.forEach(c => {
-                // Prevent cyclic assignment (cannot be its own parent)
-                if (c.id !== id) {
-                    const opt = document.createElement('option');
-                    opt.value = c.id;
-                    opt.textContent = c.title + (c.org_name ? ' (' + c.org_name + ')' : '');
-                    parentSelect.appendChild(opt);
-                }
-            });
-            
+            parentSelect.innerHTML = '<option value="">همه مجموعه‌ها (سطح اول)</option>';
+            (collectionsList || []).filter(c => isVisibleCol(c) && !blocked.includes(c.id))
+                .map(c => ({ id: c.id, label: pathText(c.id) + (c.org_name ? ' (' + c.org_name + ')' : '') }))
+                .sort((a, b) => a.label.localeCompare(b.label, 'fa'))
+                .forEach(o => { const opt = document.createElement('option'); opt.value = o.id; opt.textContent = o.label; parentSelect.appendChild(opt); });
+
             if (id) {
                 document.getElementById('modalTitle').textContent = 'ویرایش مجموعه';
-                const col = collectionsList.find(c => c.id === id);
+                const col = colById(id);
                 document.getElementById('colId').value = col.id;
                 document.getElementById('title').value = col.title;
                 document.getElementById('org_id').value = col.org_id || '';
-                document.getElementById('parent_id').value = col.parent_id || '';
+                parentSelect.value = col.parent_id && colById(col.parent_id) ? col.parent_id : '';
             } else {
-                document.getElementById('modalTitle').textContent = 'ایجاد مجموعه جدید';
+                // A new collection goes inside the folder being viewed, with that folder's brand.
+                const cur = colById(currentFolderId);
+                document.getElementById('modalTitle').textContent = cur ? `زیرمجموعه‌ی جدید در «${cur.title}»` : 'ایجاد مجموعه جدید';
                 document.getElementById('colId').value = '';
+                parentSelect.value = cur ? cur.id : '';
+                document.getElementById('org_id').value = cur && cur.org_id ? cur.org_id : '';
             }
+            setTimeout(() => document.getElementById('title').focus(), 50);
         }
-        
-        
-        window.getAllDescendantCollectionIds = function(id) {
-            let ids = [id];
-            const subCols = collectionsList.filter(c => c.parent_id === id && c.status !== 'archived');
-            for (let sub of subCols) {
-                ids = ids.concat(window.getAllDescendantCollectionIds(sub.id));
-            }
-            return ids;
-        };
-        
-        window.filterViewModal = function() {
-            const q = document.getElementById('viewModalSearch').value.toLowerCase();
-            const id = parseInt(document.getElementById('viewModalBox').dataset.currentColId);
-            if (!q) {
-                openViewModal(id);
-                return;
-            }
-            
-            const cardsGrid = document.getElementById('viewModalCards');
-            cardsGrid.innerHTML = '';
-            
-            const allColIds = window.getAllDescendantCollectionIds(id);
-            const matchedContents = allContents.filter(c => allColIds.includes(c.collection_id) && (c.title.toLowerCase().includes(q) || (c.caption && c.caption.toLowerCase().includes(q))));
-            
-            if (matchedContents.length > 0) {
-                matchedContents.forEach((item, index) => {
-                    const div = document.createElement('div');
-                    div.className = 'content-card';
-                    div.style.cursor = 'pointer';
-                    div.style.transition = 'transform 0.2s, box-shadow 0.2s';
-                    div.onmouseover = () => { div.style.transform = 'translateY(-2px)'; div.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1)'; };
-                    div.onmouseout = () => { div.style.transform = 'translateY(0)'; div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'; };
-                    div.onclick = () => { window.openContentDetails(item.id); };
-                    div.innerHTML = `
-                        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px;">#${index + 1}</div>
-                        <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray);">${escapeHtml(item.title)}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;"><span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${escapeHtml(item.content_type || 'نامشخص')}</span></div>
-                        <div style="font-size: 0.85rem; margin-top: 10px; margin-bottom: 5px;">وضعیت: ${translateStatus(item.status)}</div>
-                    `;
-                    cardsGrid.appendChild(div);
-                });
-            } else {
-                cardsGrid.innerHTML = '<p style="color: var(--text-gray); grid-column:1/-1;">نتیجه‌ای یافت نشد.</p>';
-            }
-        };
 
-        function openViewModal(id) {
-            document.getElementById('viewModalBox').dataset.currentColId = id;
-            const col = collectionsList.find(c => c.id === id);
-            if(!col) return;
-            
-            if (col.parent_id) {
-                document.getElementById('viewModalBackButtonContainer').innerHTML = `<button onclick="openViewModal(${escapeHtml(col.parent_id)})" style="background:none; border:none; color:var(--primary-color); cursor:pointer; font-size:0.9rem; display:flex; align-items:center; gap:5px; padding: 0;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m15 18-6-6 6-6'/></svg> بازگشت به مجموعه قبلی</button>`;
-            } else {
-                document.getElementById('viewModalBackButtonContainer').innerHTML = '';
-            }
-            document.getElementById('viewModalTitle').textContent = col.title;
-            document.getElementById('viewModalBox').style.maxWidth = '900px';
-            document.getElementById('viewModalBox').style.width = '90%';
-            document.getElementById('viewModalOrg').textContent = 'سازمان: ' + col.org_name;
-            const logoEl = document.getElementById('viewModalOrgLogo');
-            if (col.org_logo) {
-                logoEl.src = col.org_logo;
-                logoEl.style.display = 'block';
-            } else {
-                logoEl.style.display = 'none';
-            }
-            document.getElementById('viewModalSearch').value = '';
-            
-            const allColIdsForCount = window.getAllDescendantCollectionIds(id);
-            const totalCount = allContents.filter(c => allColIdsForCount.includes(c.collection_id)).length;
-            const toPersianNum = (num) => String(num).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
-            document.getElementById('viewModalCount').textContent = `تعداد کل محتواها: ${toPersianNum(totalCount)}`;
-            
-            const cardsGrid = document.getElementById('viewModalCards');
-            cardsGrid.innerHTML = '';
-            
-            // Find sub-collections
-            const subCols = collectionsList.filter(c => c.parent_id === id);
-            if (subCols.length > 0) {
-                const subColsHeader = document.createElement('h3');
-                subColsHeader.style.gridColumn = '1/-1';
-                subColsHeader.style.marginTop = '10px';
-                subColsHeader.style.marginBottom = '10px';
-                subColsHeader.style.color = 'var(--text-gray)';
-                subColsHeader.textContent = 'زیرمجموعه‌ها:';
-                cardsGrid.appendChild(subColsHeader);
-                
-                subCols.forEach(subCol => {
-                    const div = document.createElement('div');
-                    div.className = 'content-card';
-                    div.style.cursor = 'pointer';
-                    div.style.background = 'rgba(99, 102, 241, 0.05)';
-                    div.style.borderLeft = '3px solid var(--primary-color)';
-                    div.style.transition = 'transform 0.2s, box-shadow 0.2s';
-                    div.onmouseover = () => { div.style.transform = 'translateY(-2px)'; div.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1)'; };
-                    div.onmouseout = () => { div.style.transform = 'translateY(0)'; div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'; };
-                    div.onclick = () => { openViewModal(subCol.id); };
-                    const subAllColIds = window.getAllDescendantCollectionIds(subCol.id);
-                    const subCount = allContents.filter(c => subAllColIds.includes(c.collection_id)).length;
-                    div.innerHTML = `<div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 5px; color: var(--text-dark); display:flex; align-items:center; gap:8px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/></svg> ${escapeHtml(subCol.title)}</div><div style="font-size:0.8rem; color:var(--text-gray);">تعداد محتواها: ${toPersianNum(subCount)} | کلیک کنید تا باز شود</div>`;
-                    cardsGrid.appendChild(div);
-                });
-            }
-            
-            const items = allContents.filter(c => c.collection_id === id);
-            
-            if(items.length > 0) {
-                const contentsHeader = document.createElement('h3');
-                contentsHeader.style.gridColumn = '1/-1';
-                contentsHeader.style.marginTop = '20px';
-                contentsHeader.style.marginBottom = '10px';
-                contentsHeader.style.color = 'var(--text-gray)';
-                contentsHeader.textContent = 'محتواها:';
-                cardsGrid.appendChild(contentsHeader);
-            }
-            
-            // Sort by creation or title, let's just reverse for newest first or keep order
-            if(items.length === 0 && subCols.length === 0) {
-                cardsGrid.innerHTML = '<p style="color: var(--text-gray); grid-column:1/-1;">هیچ محتوایی یا زیرمجموعه‌ای در این مجموعه وجود ندارد.</p>';
-            }
-            
-            
-            Array.from(items).forEach((item, index) => {
-                const div = document.createElement('div');
-                div.className = 'content-card';
-                div.style.cursor = 'pointer';
-                div.style.transition = 'transform 0.2s, box-shadow 0.2s';
-                
-                const cardColor = safeColor(item.org_color) || 'var(--primary-color)';
-                const isEvent = item.title && item.title.includes('پست مناسبتی');
-                
-                if (isEvent) {
-                    div.style.background = 'linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%)';
-                    div.style.borderRight = '4px solid #d946ef';
-                    div.style.borderLeft = '1px solid #f0abfc';
-                    div.style.borderTop = '1px solid #f0abfc';
-                    div.style.borderBottom = '1px solid #f0abfc';
-                    div.style.boxShadow = '0 4px 6px -1px rgba(217, 70, 239, 0.2)';
-                } else {
-                    div.style.background = `color-mix(in srgb, ${cardColor} 10%, transparent)`;
-                    div.style.borderRight = `4px solid ${cardColor}`;
-                    div.style.borderLeft = `1px solid color-mix(in srgb, ${cardColor} 20%, transparent)`;
-                    div.style.borderTop = `1px solid color-mix(in srgb, ${cardColor} 20%, transparent)`;
-                    div.style.borderBottom = `1px solid color-mix(in srgb, ${cardColor} 20%, transparent)`;
-                }
-
-                div.onmouseover = () => { div.style.transform = 'translateY(-2px)'; div.style.boxShadow = `0 10px 15px -3px color-mix(in srgb, ${cardColor} 30%, transparent)`; };
-                div.onmouseout = () => { div.style.transform = 'translateY(0)'; div.style.boxShadow = isEvent ? '0 4px 6px -1px rgba(217, 70, 239, 0.2)' : 'none'; };
-                div.onclick = () => { window.openContentDetails(item.id); };
-                
-                const orgBadgeStyle = `background: color-mix(in srgb, ${cardColor} 8%, transparent); color: ${cardColor}; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold; display:inline-block; margin-bottom:8px;`;
-
-                div.innerHTML = `
-                    <div style="${orgBadgeStyle}; display:inline-flex; align-items:center; gap:6px;">
-                        ${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:24px; height:24px; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} 
-                        <span>${escapeHtml(item.org_name || 'بدون سازمان')}</span>
-                    </div>
-                    <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray); line-height: 1.4;">${escapeHtml(item.title || 'بدون عنوان')}</div>
-                    <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px; display: flex; align-items: center; gap: 4px;">
-                        <span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${escapeHtml(item.content_type || 'نامشخص')}</span>
-                    </div>
-                    <div style="font-size: 0.85rem; margin-top: 10px; margin-bottom: 5px;">وضعیت: ${translateStatus(item.status)}</div>
-                `;
-                cardsGrid.appendChild(div);
-            });
-
-            
-            document.getElementById('viewModal').style.display = 'flex';
-        }
-        
         function translateStatus(s) {
             if(s === 'raw' || s === 'raw_event') return 'ورودی خام';
             if(s === 'todo') return 'در صف انتظار';
@@ -501,12 +543,11 @@
             if(s === 'ready_to_publish') return 'آماده انتشار';
             if(s === 'published') return 'منتشر شده 🌟';
             if(s === 'archived') return 'آرشیو شده';
-            return s;
+            return s || 'ورودی خام';
         }
 
         function closeModals() {
             document.getElementById('addModal').style.display = 'none';
-            document.getElementById('viewModal').style.display = 'none';
         }
 
         async function submitForm(e) {
@@ -519,74 +560,67 @@
                 org_id: document.getElementById('org_id').value,
                 parent_id: document.getElementById('parent_id').value
             };
-
-            const res = await fetch('/api/manage_collections', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            }).then(r => r.json());
-
+            const res = await postJson('/api/manage_collections', payload);
             if (res.status === 'success') {
                 document.getElementById('addModal').style.display = 'none';
-                loadData();
+                showToast(res.message || 'ذخیره شد', 'success');
+                await reloadKeepingPlace();
             } else {
-                showToast(res.message);
+                showToast(res.message || 'ذخیره نشد', 'error');
             }
         }
 
-        
-        async function archiveCol(id) {
-            const col = collectionsList.find(c => c.id == id);
-            const title = col ? col.title : 'نامشخص';
-            if (!(await window.customConfirm(`آیا از آرشیو مجموعه (${title}) اطمینان دارید؟`))) return;
-            const res = await fetch('/api/manage_collections', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ action: 'archive', id })
-            }).then(r => r.json());
+        /** After the open folder is archived or deleted, go up to the nearest folder that still shows. */
+        function leaveFolderIfGone(id) {
+            if (!currentFolderId) return;
+            if (!window.getAllDescendantCollectionIds(id).includes(currentFolderId)) return;
+            const col = colById(id);
+            openFolder(col && col.parent_id && colById(col.parent_id) ? col.parent_id : null, { replace: true });
+        }
 
+        async function archiveCol(id) {
+            const col = colById(id);
+            const title = col ? col.title : 'نامشخص';
+            const subs = window.getAllDescendantCollectionIds(id).length - 1;
+            const count = contentsUnder(id).length;
+            const inside = [subs ? `${toFa(subs)} زیرمجموعه` : '', count ? `${toFa(count)} محتوا` : ''].filter(Boolean).join(' و ');
+            if (!(await window.customConfirm(`مجموعه «${title}»${inside ? ' همراه با ' + inside : ''} آرشیو شود؟ از صفحه‌ی «آرشیو محتوا» قابل بازگردانی است.`))) return;
+            const res = await postJson('/api/manage_collections', { action: 'archive', id });
             if (res.status === 'success') {
-                loadData();
+                leaveFolderIfGone(id);
+                await reloadKeepingPlace();
                 window.showToast('مجموعه آرشیو شد', 'success');
             } else {
-                showToast(res.message);
+                showToast(res.message || 'آرشیو انجام نشد', 'error');
             }
         }
 
         async function deleteCol(id) {
-            const col = collectionsList.find(c => c.id == id);
+            const col = colById(id);
             const title = col ? col.title : 'نامشخص';
-            if (!(await window.customConfirm(`آیا از حذف مجموعه (${title}) اطمینان دارید؟`))) return;
-            // Optimistic UI update could be added here, but let's just do it fast
-            const res = await fetch('/api/manage_collections', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ action: 'delete', id })
-            }).then(r => r.json());
-
-            if (res.status === 'success') {
-                loadData();
-                if (res.bin_id) {
-                    window.showToast('مجموعه حذف شد', 'info', {
-                        text: 'بازگردانی',
-                        callback: async () => {
-                            const restoreRes = await fetch('/api/recycle_bin', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ action: 'restore', bin_id: res.bin_id })
-                            }).then(r => r.json());
-                            if (restoreRes.status === 'success') {
-                                loadData();
-                                window.showToast('مجموعه با موفقیت بازگردانی شد', 'success');
-                            }
-                        }
-                    });
-                } else {
-                    window.showToast(res.message, 'success');
+            const subs = window.getAllDescendantCollectionIds(id).length - 1;
+            const count = contentsUnder(id).length;
+            const inside = [subs ? `${toFa(subs)} زیرمجموعه` : '', count ? `${toFa(count)} محتوا` : ''].filter(Boolean).join(' و ');
+            const msg = inside
+                ? `مجموعه «${title}» همراه با ${inside} به سطل زباله منتقل شود؟ همه با هم و یکجا قابل بازگردانی هستند.`
+                : `مجموعه «${title}» به سطل زباله منتقل شود؟`;
+            if (!(await window.customConfirm(msg))) return;
+            const parent = col && col.parent_id && colById(col.parent_id) ? col.parent_id : null;
+            const inThisFolder = currentFolderId && window.getAllDescendantCollectionIds(id).includes(currentFolderId);
+            const res = await postJson('/api/manage_collections', { action: 'delete', id });
+            if (res.status !== 'success') { showToast(res.message || 'حذف انجام نشد', 'error'); return; }
+            if (inThisFolder) openFolder(parent, { replace: true });
+            await reloadKeepingPlace();
+            window.showToast(res.message || 'مجموعه حذف شد', 'info', res.bin_id ? {
+                text: 'بازگردانی',
+                callback: async () => {
+                    const restoreRes = await postJson('/api/recycle_bin', { action: 'restore', bin_id: res.bin_id });
+                    if (restoreRes.status === 'success') {
+                        await reloadKeepingPlace();
+                        window.showToast('مجموعه و همه‌ی محتوای داخلش بازگردانی شد', 'success');
+                    } else window.showToast(restoreRes.message || 'بازگردانی انجام نشد', 'error');
                 }
-            } else {
-                showToast(res.message);
-            }
+            } : null);
         }
 
         loadData();

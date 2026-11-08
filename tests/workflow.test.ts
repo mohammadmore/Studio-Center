@@ -587,3 +587,35 @@ describe("Excel imports follow their guides", () => {
     assert.equal(state.mediaAssets.find((m: any) => m.asset_name === "لوگوی تست")!.org_id, 1);
   });
 });
+
+describe("collections as folders", () => {
+  it("deleting a folder takes its sub-folders and content to the recycle bin, and restore brings all back", async () => {
+    const admin = await login("admin");
+    const mk = async (title: string, parent_id?: number) =>
+      (await admin.post("/api/manage_collections").send({ action: "add", title, org_id: 1, parent_id: parent_id ?? "" })).body.data.id as number;
+    const a = await mk("پوشه الف");
+    const b = await mk("پوشه ب", a);
+    const c = await mk("پوشه ج", b);
+    state.contents.push({ id: 9001, title: "در ب", org_id: 1, collection_id: b, status: "raw" }, { id: 9002, title: "در ج", org_id: 1, collection_id: c, status: "raw" }, { id: 9003, title: "در الف", org_id: 1, collection_id: a, status: "raw" });
+    // A folder cannot move into its own sub-folder.
+    const loop = await admin.post("/api/manage_collections").send({ action: "edit", id: a, parent_id: c });
+    assert.equal(loop.status, 400);
+    const del = await admin.post("/api/manage_collections").send({ action: "delete", id: b });
+    assert.equal(del.body.status, "success");
+    assert.equal(del.body.removed_collections, 1);
+    assert.equal(del.body.removed_contents, 2);
+    assert.ok(!state.collections.some((x: any) => x.id === b || x.id === c));
+    assert.ok(!state.contents.some((x: any) => x.id === 9001 || x.id === 9002));
+    assert.ok(state.contents.some((x: any) => x.id === 9003), "content of the parent folder stays");
+    const restore = await admin.post("/api/recycle_bin").send({ action: "restore", bin_id: del.body.bin_id });
+    assert.equal(restore.body.status, "success", JSON.stringify(restore.body));
+    assert.equal(state.collections.find((x: any) => x.id === c)?.parent_id, b);
+    assert.equal(state.collections.find((x: any) => x.id === b)?.parent_id, a);
+    assert.ok(state.contents.some((x: any) => x.id === 9001) && state.contents.some((x: any) => x.id === 9002));
+  });
+  it("a sub-folder needs an existing parent", async () => {
+    const admin = await login("admin");
+    const res = await admin.post("/api/manage_collections").send({ action: "add", title: "یتیم", parent_id: 999999 });
+    assert.equal(res.status, 400);
+  });
+});
