@@ -1683,7 +1683,7 @@ async function confirmStageTransition(id, newStatusId, newStatusName) {
                 openContentDetails(id, false); // Reload modal details
                 if (window.showToast) window.showToast('وضعیت با موفقیت تغییر کرد', 'success');
             } else {
-                if (window.showToast) window.showToast('خطا در انتقال کارت', 'error');
+                if (window.showToast) window.showToast(result.message || 'خطا در انتقال کارت', 'error');
             }
         } catch(e) {
             if (window.showToast) window.showToast('خطا در انتقال کارت', 'error');

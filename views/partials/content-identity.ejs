@@ -281,12 +281,12 @@ function openContentDetails(id, editMode = false) {
 
     let stageStepperHtml = `
         <div style="display:flex; justify-content:space-between; align-items:center; background: rgba(128, 128, 128, 0.05); padding:12px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:16px;">
-            <button ${prevStatus ? '' : 'disabled'} onclick="confirmStageTransition(${item.id}, '${prevStatus ? prevStatus.id : ''}', ${jsAttr(prevStatus ? (prevStatus.plainName || prevStatus.name || '') : '')})" style="background:${prevStatus ? 'white' : 'transparent'}; border:1px solid ${prevStatus ? 'var(--border-color)' : 'transparent'}; padding:8px 12px; border-radius:6px; cursor:${prevStatus ? 'pointer' : 'default'}; color: var(--text-gray); display:flex; align-items:center; gap:4px; font-size:0.9rem;">
+            <button ${prevStatus ? '' : 'disabled'} onclick="cardStageTransition(${item.id}, '${prevStatus ? prevStatus.id : ''}', ${jsAttr(prevStatus ? (prevStatus.plainName || prevStatus.name || '') : '')})" style="background:${prevStatus ? 'white' : 'transparent'}; border:1px solid ${prevStatus ? 'var(--border-color)' : 'transparent'}; padding:8px 12px; border-radius:6px; cursor:${prevStatus ? 'pointer' : 'default'}; color: var(--text-gray); display:flex; align-items:center; gap:4px; font-size:0.9rem;">
                 <span style="font-size:1.2rem;">${prevStatus ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>' : ''}</span>
                 ${prevStatus ? 'قبلی' : ''}
             </button>
             <div style="font-size:1.2rem; font-weight:bold; color:var(--primary-color);">${escapeHtml(currentStatus.name)}</div>
-            <button ${nextStatus ? '' : 'disabled'} onclick="confirmStageTransition(${item.id}, '${nextStatus ? nextStatus.id : ''}', ${jsAttr(nextStatus ? (nextStatus.plainName || nextStatus.name || '') : '')})" style="background:${nextStatus ? 'var(--primary-color)' : 'transparent'}; border:none; padding:8px 12px; border-radius:6px; cursor:${nextStatus ? 'pointer' : 'default'}; color:${nextStatus ? 'white' : 'transparent'}; display:flex; align-items:center; gap:4px; font-size:0.9rem;">
+            <button ${nextStatus ? '' : 'disabled'} onclick="cardStageTransition(${item.id}, '${nextStatus ? nextStatus.id : ''}', ${jsAttr(nextStatus ? (nextStatus.plainName || nextStatus.name || '') : '')})" style="background:${nextStatus ? 'var(--primary-color)' : 'transparent'}; border:none; padding:8px 12px; border-radius:6px; cursor:${nextStatus ? 'pointer' : 'default'}; color:${nextStatus ? 'white' : 'transparent'}; display:flex; align-items:center; gap:4px; font-size:0.9rem;">
                 ${nextStatus ? 'بعدی' : ''}
                 <span style="font-size:1.2rem;">${nextStatus ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' : ''}</span>
             </button>
@@ -560,6 +560,49 @@ const colRadios = (window.allCollections || []).map(c => `
 }
 window.openContentDetails = openContentDetails;
 
+/** «قبلی/بعدی» in the card: the depot moves the card on its board itself; other pages reload their list. */
+window.cardStageTransition = async function (id, newStatusId, newStatusName) {
+    if (!newStatusId) return;
+    if (typeof confirmStageTransition === 'function') return confirmStageTransition(id, newStatusId, newStatusName);
+    const item = (window.allDepotItems || []).find(i => i.id == id);
+    const label = `${item && item.content_type ? item.content_type : 'محتوای'} «${item && item.title ? item.title : 'بدون عنوان'}»`;
+    if (!(await window.customConfirm(`${label} به مرحله ${newStatusName} منتقل شود!؟`))) return;
+    try {
+        const res = await fetch('/api/add_content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update_status', id: parseInt(id), status: newStatusId })
+        });
+        const result = await res.json().catch(() => ({}));
+        if (result.status !== 'success') {
+            window.showToast(result.message || 'وضعیت تغییر نکرد', 'error');
+            return;
+        }
+        if (item) item.status = newStatusId;
+        window.showToast('وضعیت با موفقیت تغییر کرد', 'success');
+        await reloadContentSource();
+        openContentDetails(id, false);
+    } catch (e) {
+        console.error(e);
+        window.showToast('خطا در ارتباط با سرور', 'error');
+    }
+};
+
+/**
+ * The content card is shared by the depot, calendar, collections and "my projects" pages;
+ * after a change it reloads whichever list the current page shows (and window.allDepotItems with it).
+ */
+window.reloadContentSource = async function () {
+    try {
+        if (typeof loadDepot === 'function') return await loadDepot();
+        if (typeof renderCalendar === 'function') return await renderCalendar();
+        if (typeof loadMyProjects === 'function') return await loadMyProjects();
+        if (typeof loadData === 'function') return await loadData();
+    } catch (e) {
+        console.error('reload after card change failed', e);
+    }
+};
+
 async function saveAllEditFields(id, closeAfterSave = false) {
     const title = document.getElementById('edit_title').value;
     const org_id = document.getElementById('edit_org_id').value;
@@ -604,7 +647,7 @@ async function saveAllEditFields(id, closeAfterSave = false) {
         if (result.status === 'success') {
             (result.warnings || []).forEach(w => window.showToast && window.showToast('⚠️ ' + w, 'info'));
             window.hasUnsavedChanges = false;
-            await loadDepot();
+            await reloadContentSource();
             showToast('تغییرات با موفقیت ذخیره شد', 'success');
             if (closeAfterSave) {
                 closeDetailsModal();
@@ -673,7 +716,7 @@ async function saveField(id, field, value) {
         });
         const result = await res.json();
         if (result.status === 'success') {
-            await loadDepot();
+            await reloadContentSource();
             openContentDetails(id);
         } else {
             showToast('خطا در ثبت اطلاعات', 'error');
@@ -696,7 +739,7 @@ async function archiveContent(id) {
         const result = await res.json();
         if (result.status === 'success') {
             closeDetailsModal();
-            loadDepot(); // reload the board
+            reloadContentSource(); // reload the board
         } else {
             showToast(result.message);
         }
@@ -717,7 +760,7 @@ async function deleteContent(id) {
         const result = await res.json();
         if (result.status === 'success') {
             closeDetailsModal();
-            loadDepot();
+            reloadContentSource();
             
             if (result.bin_id) {
                 window.showToast('محتوا به سطل زباله منتقل شد', 'info', {
@@ -729,7 +772,7 @@ async function deleteContent(id) {
                             body: JSON.stringify({ action: 'restore', bin_id: result.bin_id })
                         });
                         window.showToast('محتوا با موفقیت بازگردانی شد', 'success');
-                        loadDepot();
+                        reloadContentSource();
                     }
                 });
             } else {
