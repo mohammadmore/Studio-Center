@@ -176,7 +176,7 @@ async function encryptSecretsInRollingCopies() {
 /**
  * Emergency access: with RESET_ADMIN_PASSWORD set in the host's environment, the admin account
  * (RESET_ADMIN_USERNAME, default "admin") gets that password on startup and is re-enabled.
- * Meant for a locked-out owner; remove the variable afterwards, or every restart resets it again.
+ * Meant for a locked-out owner. Each value is applied once; remove the variable afterwards.
  */
 function applyEmergencyAdminReset() {
   const newPassword = normalizePasswordInput(process.env.RESET_ADMIN_PASSWORD || "");
@@ -192,13 +192,17 @@ function applyEmergencyAdminReset() {
     console.error(`RESET_ADMIN_PASSWORD was not applied: ${problem}`);
     return false;
   }
-  if (account.passwordHash && bcrypt.compareSync(newPassword, account.passwordHash) && account.is_active !== 0) {
-    console.warn("WARNING: RESET_ADMIN_PASSWORD is still set. Remove it from the environment now that you can log in.");
+  // Each value is applied once: a later restart with the variable still set must not undo a
+  // password the admin chose afterwards (hosts restart idle processes on their own).
+  const marker = crypto.createHmac("sha256", "admin-reset:" + config.sessionSecret).update(`${username}\n${newPassword}`).digest("hex");
+  if (settings.admin_reset_applied === marker) {
+    console.warn("WARNING: RESET_ADMIN_PASSWORD is still set (already applied, ignored). Remove it from the environment.");
     return false;
   }
   account.passwordHash = bcrypt.hashSync(newPassword, 10);
   account.is_active = 1;
   account.status = "active";
+  settings.admin_reset_applied = marker;
   console.warn("=".repeat(60));
   console.warn(`The password of "${account.username}" was reset from RESET_ADMIN_PASSWORD.`);
   console.warn("Log in, then REMOVE RESET_ADMIN_PASSWORD from the environment and restart.");
