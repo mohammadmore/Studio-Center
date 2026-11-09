@@ -269,3 +269,11 @@ export function normalizePasswordInput(value: unknown) {
     .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
     .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
 }
+
+/** When a form sends the "repeat password" field, both entries must match. */
+export function passwordConfirmProblem(body: any): string | null {
+  if (!body || body.password === undefined || body.password_confirm === undefined) return null;
+  return normalizePasswordInput(body.password) === normalizePasswordInput(body.password_confirm)
+    ? null
+    : "رمز عبور و تکرار آن یکسان نیستند.";
+}

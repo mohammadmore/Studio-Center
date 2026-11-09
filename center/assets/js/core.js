@@ -452,6 +452,107 @@
   window.setupCharts = setupCharts;
   document.addEventListener("DOMContentLoaded", setupCharts);
 
+  // ---------- show / hide password ----------
+  // Every password field gets an eye button so people can check what they typed.
+  var EYE = '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var EYE_OFF = '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a17.6 17.6 0 0 1-2.16 3.19"/><path d="M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+  function setPasswordVisible(input, btn, show) {
+    input.type = show ? "text" : "password";
+    btn.innerHTML = show ? EYE_OFF : EYE;
+    btn.setAttribute("aria-pressed", show ? "true" : "false");
+    btn.setAttribute("aria-label", show ? "پنهان کردن رمز عبور" : "نمایش رمز عبور");
+    btn.title = show ? "پنهان کردن رمز" : "نمایش رمز";
+  }
+  function addPasswordEye(input) {
+    if (!input || input.getAttribute("data-pw-eye") || !input.parentNode) return;
+    input.setAttribute("data-pw-eye", "1");
+    var wrap = document.createElement("span");
+    wrap.className = "asva-pw-wrap";
+    wrap.style.cssText = "position:relative; display:block; width:100%;";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    var ltr = (input.getAttribute("dir") || getComputedStyle(input).direction) === "ltr";
+    var side = ltr ? "right" : "left";
+    input.style[ltr ? "paddingRight" : "paddingLeft"] = "46px";
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "asva-pw-eye";
+    btn.style.cssText = "position:absolute; top:50%; transform:translateY(-50%); " + side + ":4px; width:38px; height:38px; min-width:38px; min-height:38px; padding:0; margin:0; border:none; background:none; box-shadow:none; color:var(--text-gray, #64748b); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; z-index:2;";
+    setPasswordVisible(input, btn, false);
+    btn.addEventListener("click", function () {
+      var show = input.type === "password";
+      var start = input.selectionStart, end = input.selectionEnd;
+      setPasswordVisible(input, btn, show);
+      input.focus();
+      try { input.setSelectionRange(start, end); } catch (e) {}
+    });
+    wrap.appendChild(btn);
+    // A saved or cleared form never leaves a password on screen.
+    var form = input.form;
+    if (form && !form.getAttribute("data-pw-eye-form")) {
+      form.setAttribute("data-pw-eye-form", "1");
+      var hideAll = function () {
+        form.querySelectorAll(".asva-pw-wrap").forEach(function (w) {
+          var i = w.querySelector("input"), b = w.querySelector(".asva-pw-eye");
+          if (i && b && i.type === "text") setPasswordVisible(i, b, false);
+        });
+      };
+      form.addEventListener("submit", hideAll, true);
+      form.addEventListener("reset", hideAll);
+    }
+  }
+  function scanPasswords(root) {
+    if (!root || !root.querySelectorAll) return;
+    if (root.matches && root.matches('input[type="password"]')) addPasswordEye(root);
+    root.querySelectorAll('input[type="password"]').forEach(addPasswordEye);
+  }
+  window.asvaAddPasswordEye = addPasswordEye;
+
+  // ---------- "type it twice" for new passwords ----------
+  // Same comparison as the server: surrounding spaces ignored, Persian/Arabic digits = Latin digits.
+  function normalizePw(v) {
+    return String(v || "").trim()
+      .replace(/[۰-۹]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); })
+      .replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); });
+  }
+  /**
+   * Wires a password field to its "repeat" field and a hint element.
+   * Returns { problem() } → a message to show, or "" when the pair can be saved
+   * (both empty counts as "no change").
+   */
+  window.asvaPasswordPair = function (pw, confirm, hint) {
+    var update = function () {
+      if (!hint) return;
+      var a = normalizePw(pw.value), b = normalizePw(confirm.value);
+      if (!a && !b) { hint.textContent = ""; return; }
+      if (!b) { hint.textContent = "رمز را در خانه‌ی «تکرار» هم بنویسید."; hint.style.color = "var(--text-gray)"; return; }
+      var same = a === b;
+      hint.textContent = same ? "✓ دو رمز یکسان است" : "✗ با رمز بالا یکسان نیست";
+      hint.style.color = same ? "var(--success-color, #16a34a)" : "var(--error-color, #ef4444)";
+    };
+    pw.addEventListener("input", update);
+    confirm.addEventListener("input", update);
+    return {
+      update: update,
+      problem: function () {
+        var a = normalizePw(pw.value), b = normalizePw(confirm.value);
+        if (!a && !b) return "";
+        if (!b) return "رمز عبور را برای اطمینان یک بار دیگر در خانه‌ی «تکرار رمز عبور» بنویسید.";
+        if (a !== b) return "رمز عبور و تکرار آن یکسان نیستند؛ دوباره بنویسید (می‌توانید با آیکون چشم ببینیدشان).";
+        return "";
+      },
+      clear: function () { pw.value = ""; confirm.value = ""; update(); },
+    };
+  };
+  function startPasswordEyes() {
+    scanPasswords(document.body);
+    new MutationObserver(function (list) {
+      list.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) scanPasswords(n); }); });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", startPasswordEyes);
+  else startPasswordEyes();
+
   // ---------- live notifications ----------
   // One Socket.IO connection per page; new notifications refresh the badge and
   // show a short toast instead of waiting for the next poll.

@@ -154,8 +154,13 @@
                         <input type="text" id="username" class="form-control" required placeholder="ali_rezaei" dir="ltr" style="text-align: left;">
                     </div>
                     <div class="form-group">
-                        <label>رمز عبور:</label>
-                        <input type="password" id="password" class="form-control" placeholder="حداقل ۸ کاراکتر" dir="ltr" style="text-align: left;" minlength="6">
+                        <label for="password">رمز عبور:</label>
+                        <input type="password" id="password" class="form-control" placeholder="حداقل ۸ کاراکتر" dir="ltr" style="text-align: left;" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="passwordConfirm">تکرار رمز عبور:</label>
+                        <input type="password" id="passwordConfirm" class="form-control" placeholder="همان رمز را دوباره بنویسید" dir="ltr" style="text-align: left;" autocomplete="new-password">
+                        <small id="passwordMatchHint" aria-live="polite" style="display:block; margin-top:4px; font-size:0.8rem;"></small>
                     </div>
                 </div>
 
@@ -416,6 +421,7 @@
             document.getElementById('saveBtn').innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ایجاد حساب`;
             document.getElementById('password').required = true;
             document.getElementById('userForm').reset();
+            teamPasswordPair.clear();
             avatarDeleted = false;
             document.getElementById('currentAvatarPreview').style.display = 'none';
             if (typeof renderRoleOptions === 'function') renderRoleOptions(false);
@@ -478,6 +484,7 @@
                         document.getElementById('username').value = user.username || '';
                         document.getElementById('password').value = '';
                         document.getElementById('password').required = false;
+                        teamPasswordPair.clear();
 
                         document.getElementById('workType').value = user.work_type || 'تمام‌وقت (حضوری)';
                         document.getElementById('capacity').value = user.capacity || '';
@@ -540,8 +547,20 @@
             }
         }
 
+        const teamPasswordPair = window.asvaPasswordPair(
+            document.getElementById('password'),
+            document.getElementById('passwordConfirm'),
+            document.getElementById('passwordMatchHint')
+        );
+
         async function saveUser(e) {
             e.preventDefault();
+            const pwProblem = teamPasswordPair.problem();
+            if (pwProblem) {
+                showToast(pwProblem, 'error');
+                document.getElementById('passwordConfirm').focus();
+                return;
+            }
             const btn = document.getElementById('saveBtn');
             btn.innerHTML = editingUserId ? `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg> در حال ذخیره تغییرات...` : `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg> در حال ساخت اکانت...`;
             btn.disabled = true;
@@ -585,6 +604,7 @@
                 portfolio: document.getElementById('portfolio').value,
                 username: document.getElementById('username').value,
                 password: document.getElementById('password').value,
+                password_confirm: document.getElementById('passwordConfirm').value,
                 workType: document.getElementById('workType').value,
                 capacity: document.getElementById('capacity').value,
                 startDate: document.getElementById('startDate').value,
@@ -593,7 +613,7 @@
                 gender: document.getElementById('gender').value,
                 avatar_url: finalAvatarUrl
             };
-            if(editingUserId && !payload.password) delete payload.password;
+            if(editingUserId && !payload.password) { delete payload.password; delete payload.password_confirm; }
 
 
             try {

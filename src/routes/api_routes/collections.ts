@@ -9,7 +9,7 @@ import {
 } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
-import { hasPermission, normalizePasswordInput, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
+import { hasPermission, normalizePasswordInput, passwordConfirmProblem, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeColor, safeUrl, toInt } from "../../utils/helpers.js";
 import { findOrgByRef, moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
 import { isUsernameTaken } from "./users.js";
@@ -307,7 +307,7 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
     if (username && isUsernameTaken(String(username))) {
       return res.status(400).json({ status: "error", message: "این نام کاربری قبلا ثبت شده است." });
     }
-    const pwProblem = pw ? passwordProblem(pw, username) : null;
+    const pwProblem = pw ? passwordProblem(pw, username) || passwordConfirmProblem(req.body) : null;
     if (pwProblem) {
       return res.status(400).json({ status: "error", message: pwProblem });
     }
@@ -345,7 +345,7 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
       org.username = newUsername;
     }
     if (pw) {
-      const pwProblem = passwordProblem(pw, org.username);
+      const pwProblem = passwordProblem(pw, org.username) || passwordConfirmProblem(req.body);
       if (pwProblem) {
         return res.status(400).json({ status: "error", message: pwProblem });
       }

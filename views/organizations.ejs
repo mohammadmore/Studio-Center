@@ -119,7 +119,12 @@
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label style="color: var(--text-gray); display: flex; align-items: center; gap: 4px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> رمز عبور پورتال:</label>
-                        <input type="text" id="orgPassword" class="form-control" placeholder="حداقل ۸ کاراکتر (خالی = بدون تغییر)" style="direction: ltr; text-align: left;">
+                        <input type="password" id="orgPassword" class="form-control" placeholder="حداقل ۸ کاراکتر (خالی = بدون تغییر)" dir="ltr" style="direction: ltr; text-align: left;" autocomplete="new-password">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; grid-column: 2;">
+                        <label for="orgPasswordConfirm" style="color: var(--text-gray);">تکرار رمز عبور پورتال:</label>
+                        <input type="password" id="orgPasswordConfirm" class="form-control" placeholder="همان رمز را دوباره بنویسید" dir="ltr" style="direction: ltr; text-align: left;" autocomplete="new-password">
+                        <small id="orgPasswordMatchHint" aria-live="polite" style="display:block; margin-top:4px; font-size:0.8rem;"></small>
                     </div>
                 </div>
 
@@ -292,6 +297,7 @@
         function openModal(id = null, name = '', industry = '') {
             document.getElementById('addOrgModal').style.display = 'flex';
             document.getElementById('orgForm').reset();
+            orgPasswordPair.clear();
             document.getElementById('orgId').value = id || '';
             const modalTitle = document.getElementById('modalTitle');
             
@@ -346,8 +352,20 @@
         }
 
         // ثبت فرم (آپلود عکس کراپ شده -> دریافت لینک -> ذخیره کارفرما)
+        const orgPasswordPair = window.asvaPasswordPair(
+            document.getElementById('orgPassword'),
+            document.getElementById('orgPasswordConfirm'),
+            document.getElementById('orgPasswordMatchHint')
+        );
+
         async function saveOrganization(e) {
             e.preventDefault();
+            const pwProblem = orgPasswordPair.problem();
+            if (pwProblem) {
+                showToast(pwProblem, 'error');
+                document.getElementById('orgPasswordConfirm').focus();
+                return;
+            }
             const btn = document.getElementById('saveBtn');
             btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M5 22h14\"/><path d=\"M5 2h14\"/><path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\"/><path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\"/></svg> در حال ثبت اطلاعات...`;
             btn.disabled = true;
@@ -367,6 +385,7 @@
                 addresses: Array.from(document.querySelectorAll('input[name="addresses[]"]')).map(i => i.value).filter(v => v),
                 username: document.getElementById('orgUsername').value,
                 password: document.getElementById('orgPassword').value,
+                password_confirm: document.getElementById('orgPasswordConfirm').value,
                 logo_url: document.getElementById('logoUrl').value
             };
 
@@ -431,7 +450,7 @@
             toggleTelegram();
             document.getElementById('telegramNumber').value = org.telegram_number || '';
             document.getElementById('orgUsername').value = org.username || '';
-            document.getElementById('orgPassword').value = '';
+            orgPasswordPair.clear();
             document.getElementById('logoUrl').value = org.logo_url || '';
             
             if (org.logo_url) {

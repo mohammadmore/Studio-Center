@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { colleagues, organizations, roles } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
-import { effectiveAvatar, getRoleInfoForUser, hasPermission, isAdmin, normalizePasswordInput, passwordFingerprint, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
+import { effectiveAvatar, getRoleInfoForUser, hasPermission, isAdmin, normalizePasswordInput, passwordConfirmProblem, passwordFingerprint, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
 import { moveToRecycleBin } from "../../utils/contentUtils.js";
 
@@ -66,7 +66,7 @@ function createColleague(req: any, res: any) {
   const username = String(body.username || body.email || `user_${Date.now()}`).trim();
   if (isUsernameTaken(username)) return fail(res, 400, "این نام کاربری قبلا ثبت شده است.");
   if (password) {
-    const problem = passwordProblem(password, username);
+    const problem = passwordProblem(password, username) || passwordConfirmProblem(body);
     if (problem) return fail(res, 400, problem);
   }
   const roleId = toInt(body.role_id) ?? DEFAULT_ROLE_ID;
@@ -230,7 +230,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => 
     }
     if (password) {
       const pw = normalizePasswordInput(password);
-      const problem = passwordProblem(pw, target.username);
+      const problem = passwordProblem(pw, target.username) || passwordConfirmProblem(req.body);
       if (problem) return fail(res, 400, problem);
       target.passwordHash = bcrypt.hashSync(pw, 10);
       // Changing your own password keeps this browser signed in; other sessions of the account end.

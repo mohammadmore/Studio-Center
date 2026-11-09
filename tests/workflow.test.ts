@@ -763,3 +763,16 @@ describe("passwords and keyboard layouts", () => {
     state.colleagues.find((c: any) => c.id === 1).passwordHash = bcrypt.hashSync(PASSWORD, 4);
   });
 });
+
+describe("password repeat field", () => {
+  it("refuses a new password when its repeat does not match", async () => {
+    const admin = await login("admin");
+    const bad = await admin.post("/api/save_user").send({ username: "twice1", password: "Twice-Pass-11", password_confirm: "Twice-Pass-12", full_name: "تست", role_id: 3 });
+    assert.equal(bad.status, 400);
+    assert.match(bad.body.message, /تکرار/);
+    const good = await admin.post("/api/save_user").send({ username: "twice1", password: "Twice-Pass-۱۱", password_confirm: "Twice-Pass-11", full_name: "تست", role_id: 3 });
+    assert.equal(good.body.status, "success", JSON.stringify(good.body));
+    const orgBad = await admin.post("/api/manage_orgs").send({ action: "add", org_name: "برند تکرار", username: "twiceorg", password: "Brand-Pass-77", password_confirm: "Brand-Pass-78" });
+    assert.equal(orgBad.status, 400);
+  });
+});
