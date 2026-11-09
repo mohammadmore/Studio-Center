@@ -9,7 +9,7 @@ import {
 } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
-import { hasPermission, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
+import { hasPermission, normalizePasswordInput, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeColor, safeUrl, toInt } from "../../utils/helpers.js";
 import { findOrgByRef, moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
 import { isUsernameTaken } from "./users.js";
@@ -253,7 +253,7 @@ const ORG_FIELDS = [
 ];
 
 function buildOrg(input: any, id: number) {
-  const password = typeof input.password === "string" ? input.password.trim() : "";
+  const password = typeof input.password === "string" ? normalizePasswordInput(input.password) : "";
   return {
     id,
     org_name: input.org_name || "بدون نام",
@@ -275,7 +275,7 @@ function buildOrg(input: any, id: number) {
 
 subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res) => {
   const { action, id, username, password, orgs } = req.body;
-  const pw = typeof password === "string" ? password.trim() : "";
+  const pw = typeof password === "string" ? normalizePasswordInput(password) : "";
   if (action === "batch_add") {
     if (!Array.isArray(orgs)) {
       return res.status(400).json({ status: "error", message: "اطلاعات نامعتبر" });
@@ -284,7 +284,7 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
     let skipped = 0;
     const added: any[] = [];
     for (const org of orgs) {
-      const orgPw = typeof org?.password === "string" ? org.password.trim() : "";
+      const orgPw = typeof org?.password === "string" ? normalizePasswordInput(org.password) : "";
       const sameName = org?.org_name && organizations.some((o) => String(o.org_name).trim() === String(org.org_name).trim());
       if (!org || sameName || (org.username && isUsernameTaken(String(org.username))) || (orgPw && !!passwordProblem(orgPw, org?.username))) {
         skipped++;

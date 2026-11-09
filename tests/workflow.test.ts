@@ -729,3 +729,37 @@ describe("security hardening", () => {
     assert.equal((await ali.post("/api/backups").send({})).status, 403);
   });
 });
+
+describe("passwords and keyboard layouts", () => {
+  it("treats Persian and Latin digits in a password as the same", async () => {
+    resetLoginLockouts();
+    const admin = await login("admin");
+    const made = await admin.post("/api/save_user").send({ username: "layout1", password: "Asva-۱۴۰۵-pass", full_name: "تست", role_id: 3 });
+    assert.equal(made.body.status, "success", JSON.stringify(made.body));
+    for (const pw of ["Asva-1405-pass", "Asva-۱۴۰۵-pass", "  Asva-1405-pass  "]) {
+      const r = await request(app).post("/api/login").set("X-Forwarded-For", "10.60.0.1").send({ username: "layout1", password: pw });
+      assert.equal(r.status, 200, pw);
+    }
+  });
+
+  it("still accepts a password saved with Persian digits by an older version, and upgrades it", async () => {
+    resetLoginLockouts();
+    const bcrypt = (await import("bcrypt")).default;
+    state.colleagues.push({ id: 77, username: "legacy1", passwordHash: bcrypt.hashSync("Studio۱۲۳۴", 4), full_name: "قدیمی", role_id: 3, is_active: 1 });
+    const r = await request(app).post("/api/login").set("X-Forwarded-For", "10.61.0.1").send({ username: "legacy1", password: "Studio1234" });
+    assert.equal(r.status, 200);
+    const acc = state.colleagues.find((c: any) => c.id === 77);
+    assert.ok(bcrypt.compareSync("Studio1234", acc.passwordHash), "stored again in the normalized form");
+  });
+
+  it("changing your own password keeps you signed in", async () => {
+    resetLoginLockouts();
+    const admin = await login("admin");
+    const r = await admin.post("/api/manage_users").send({ action: "edit", id: 1, password: "Fresh-Admin-77" });
+    assert.equal(r.body.status, "success", JSON.stringify(r.body));
+    assert.equal((await admin.get("/api/get_colleagues")).status, 200, "same browser stays signed in");
+    assert.equal((await request(app).post("/api/login").set("X-Forwarded-For", "10.62.0.1").send({ username: "admin", password: "Fresh-Admin-77" })).status, 200);
+    const bcrypt = (await import("bcrypt")).default;
+    state.colleagues.find((c: any) => c.id === 1).passwordHash = bcrypt.hashSync(PASSWORD, 4);
+  });
+});

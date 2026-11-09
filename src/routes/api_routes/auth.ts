@@ -4,9 +4,11 @@ import { config } from "../../config.js";
 import bcrypt from "bcrypt";
 import { body, validationResult } from "express-validator";
 import { colleagues, organizations } from "../../store/state.js";
+import { saveDatabase } from "../../store/db.js";
 import {
   getRoleInfoForUser,
   landingPageFor,
+  normalizePasswordInput,
   passwordFingerprint,
   stripSecrets,
 } from "../../utils/authUtils.js";
@@ -150,8 +152,10 @@ subRouter.post(
       return res.status(400).json({ status: "error", message: errors.array()[0].msg });
     }
     const username = String(req.body.username).trim().toLowerCase();
-    // Existing hashes were created from the trimmed password.
-    const password = String(req.body.password).trim();
+    // Hashes are made from the trimmed password with Persian/Arabic digits turned into Latin ones;
+    // the password exactly as typed is also tried, for ones set before that rule.
+    const typed = String(req.body.password).trim();
+    const password = normalizePasswordInput(typed);
 
     // Locks are checked before the password (known and unknown names alike). A browser where this
     // user already logged in is only held back by its own failures, not by other people's attempts.
@@ -167,7 +171,25 @@ subRouter.post(
       : organizations.find((o) => sameUsername(o.username, username) && isActive(o));
     const account = user || orgUser;
     const hash = account?.passwordHash || DUMMY_HASH;
-    const valid = (await bcrypt.compare(password, hash)) && !!account?.passwordHash;
+    // Passwords set before that rule may hold Persian digits (typed with the Persian layout):
+    // also try the typed text as is and with its digits in Persian.
+    const persianDigits = password.replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+    const candidates = [...new Set([password, typed, persianDigits])];
+    let valid = false;
+    if (account?.passwordHash) {
+      for (const candidate of candidates) {
+        if (await bcrypt.compare(candidate, hash)) {
+          valid = true;
+          // Store it in the normalized form from now on.
+          if (candidate !== password) {
+            account.passwordHash = bcrypt.hashSync(password, 10);
+            saveDatabase();
+          }
+          break;
+        }
+      }
+    }
+    if (!account?.passwordHash) await bcrypt.compare(password, DUMMY_HASH);
     if (!account || !valid) {
       if (recordFailure(lockKey)) {
         if (account && !trusted) {

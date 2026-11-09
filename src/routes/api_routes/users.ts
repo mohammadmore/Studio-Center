@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { colleagues, organizations, roles } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
-import { effectiveAvatar, getRoleInfoForUser, hasPermission, isAdmin, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
+import { effectiveAvatar, getRoleInfoForUser, hasPermission, isAdmin, normalizePasswordInput, passwordFingerprint, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
 import { moveToRecycleBin } from "../../utils/contentUtils.js";
 
@@ -62,7 +62,7 @@ function profileFields(body: any) {
 /** Shared by "add" in /manage_users and /save_user. */
 function createColleague(req: any, res: any) {
   const body = req.body;
-  const password = typeof body.password === "string" ? body.password.trim() : "";
+  const password = typeof body.password === "string" ? normalizePasswordInput(body.password) : "";
   const username = String(body.username || body.email || `user_${Date.now()}`).trim();
   if (isUsernameTaken(username)) return fail(res, 400, "این نام کاربری قبلا ثبت شده است.");
   if (password) {
@@ -229,10 +229,14 @@ subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => 
       target.username = newUsername;
     }
     if (password) {
-      const pw = String(password).trim();
+      const pw = normalizePasswordInput(password);
       const problem = passwordProblem(pw, target.username);
       if (problem) return fail(res, 400, problem);
       target.passwordHash = bcrypt.hashSync(pw, 10);
+      // Changing your own password keeps this browser signed in; other sessions of the account end.
+      if (req.user && req.user.role_id !== "client" && req.user.id == target.id && req.session?.user) {
+        req.session.user = { ...req.session.user, pw: passwordFingerprint(target.passwordHash) };
+      }
     }
     if (role_id !== undefined && role_id !== "") {
       const newRole = toInt(role_id);

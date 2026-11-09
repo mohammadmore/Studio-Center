@@ -257,3 +257,15 @@ export function passwordProblem(password: string, username?: string): string | n
   if (/^(.)\1+$/.test(pw) || COMMON_PASSWORDS.has(lower)) return "این رمز عبور بیش از حد ساده و قابل حدس است؛ رمز دیگری انتخاب کنید.";
   return null;
 }
+
+/**
+ * Passwords are compared with Persian and Arabic digits turned into Latin ones: on a Persian
+ * keyboard the number row types ۱۲۳, so the same password typed with a different layout active
+ * would otherwise not match. Surrounding spaces were always ignored.
+ */
+export function normalizePasswordInput(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+}

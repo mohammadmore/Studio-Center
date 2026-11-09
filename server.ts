@@ -4,6 +4,7 @@ import { createApp } from "./src/app.js";
 import { closeDatabase, initDatabase } from "./src/store/db.js";
 import { startJobs } from "./src/jobs.js";
 import { initSocket } from "./src/utils/socket.js";
+import { startInstanceWatch } from "./src/utils/instances.js";
 
 /**
  * Behind a proxy that strips the sub-path, requests arrive as "/depot". Socket.IO
@@ -44,6 +45,7 @@ async function main() {
   initSocket(httpServer);
   addBasePathToRequests(httpServer);
   const stopJobs = startJobs();
+  const stopInstanceWatch = startInstanceWatch();
 
   // Passenger (cPanel) passes a socket path or port through PORT.
   const port = process.env.PORT && isNaN(Number(process.env.PORT)) ? process.env.PORT : config.port;
@@ -57,6 +59,7 @@ async function main() {
     shuttingDown = true;
     console.log(`${signal} received, saving data and shutting down...`);
     stopJobs();
+    stopInstanceWatch();
     httpServer.close();
     closeDatabase()
       .catch((e) => console.error("Error while saving on shutdown:", e))

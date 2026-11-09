@@ -18,6 +18,7 @@ import {
 } from "./state.js";
 import { sanitizeIcon, safeColor, safeUrl } from "../utils/helpers.js";
 import { encryptSecret, isEncrypted } from "../utils/secrets.js";
+import { normalizePasswordInput, passwordProblem } from "../utils/authUtils.js";
 import { tokens } from "./state.js";
 
 const SAVE_DELAY_MS = 500;
@@ -173,6 +174,39 @@ async function encryptSecretsInRollingCopies() {
 }
 
 /**
+ * Emergency access: with RESET_ADMIN_PASSWORD set in the host's environment, the admin account
+ * (RESET_ADMIN_USERNAME, default "admin") gets that password on startup and is re-enabled.
+ * Meant for a locked-out owner; remove the variable afterwards, or every restart resets it again.
+ */
+function applyEmergencyAdminReset() {
+  const newPassword = normalizePasswordInput(process.env.RESET_ADMIN_PASSWORD || "");
+  if (!newPassword) return false;
+  const username = String(process.env.RESET_ADMIN_USERNAME || "admin").trim().toLowerCase();
+  const account = colleagues.find((c) => String(c.username || "").trim().toLowerCase() === username);
+  if (!account) {
+    console.error(`RESET_ADMIN_PASSWORD: no colleague with username "${username}". Set RESET_ADMIN_USERNAME.`);
+    return false;
+  }
+  const problem = passwordProblem(newPassword, account.username);
+  if (problem) {
+    console.error(`RESET_ADMIN_PASSWORD was not applied: ${problem}`);
+    return false;
+  }
+  if (account.passwordHash && bcrypt.compareSync(newPassword, account.passwordHash) && account.is_active !== 0) {
+    console.warn("WARNING: RESET_ADMIN_PASSWORD is still set. Remove it from the environment now that you can log in.");
+    return false;
+  }
+  account.passwordHash = bcrypt.hashSync(newPassword, 10);
+  account.is_active = 1;
+  account.status = "active";
+  console.warn("=".repeat(60));
+  console.warn(`The password of "${account.username}" was reset from RESET_ADMIN_PASSWORD.`);
+  console.warn("Log in, then REMOVE RESET_ADMIN_PASSWORD from the environment and restart.");
+  console.warn("=".repeat(60));
+  return true;
+}
+
+/**
  * Loads the stored state. Must finish before the server accepts requests: if
  * loading fails we throw instead of running on an empty state that the next
  * save would write over the real data.
@@ -194,6 +228,7 @@ export async function initDatabase(customDriver?: StorageDriver) {
     return;
   }
   ready = true;
+  if (applyEmergencyAdminReset()) await flushDatabase(true);
   // Rewrite the file at once so no plain-text credential stays on disk.
   if (encryptStoredSecrets()) {
     await flushDatabase(true);
