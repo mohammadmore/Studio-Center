@@ -1,8 +1,6 @@
 import express from "express";
-import multer from "multer";
 import * as jalaali from "jalaali-js";
 import momentHijri from "moment-hijri";
-import xlsx from "xlsx";
 import {
   clientSelections,
   collections,
@@ -19,7 +17,6 @@ import { addAuditLog, addNotification } from "../../utils/logger.js";
 import { nextId, toInt } from "../../utils/helpers.js";
 import { findOrgByRef, moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const subRouter = express.Router();
 
 const latinDigits = (v: unknown) =>
@@ -29,35 +26,12 @@ const latinDigits = (v: unknown) =>
     .trim();
 const yes = (v: unknown) => ["1", "true", "yes", "بله", "بلی", "دارد", "✓"].includes(latinDigits(v).toLowerCase());
 
-/** Rows sent by the page (header-based) or read from an old position-based file. */
-function rowsFromFile(buffer: Buffer) {
-  const workbook = xlsx.read(buffer, { type: "buffer" });
-  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = xlsx.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
-  return data.slice(1).map((row) => ({
-    title: row[0],
-    calendar: row[1],
-    day: row[2],
-    month: row[3],
-    base_year: row[4],
-    holiday: row[5],
-    org: yes(row[6]) ? row[7] : "",
-  }));
-}
-
 subRouter.post(
   "/upload_smart_events",
   checkPermission("smart-events"),
-  upload.single("excelFile"),
+  // The page reads the Excel file in the browser (old position-based files too) and sends the rows.
   async (req: any, res) => {
-    let rows: any[] = [];
-    try {
-      if (req.file) rows = rowsFromFile(req.file.buffer);
-      else if (Array.isArray(req.body?.rows)) rows = req.body.rows;
-    } catch (e) {
-      console.error(e);
-      return res.status(400).json({ status: "error", message: "فایل اکسل خوانده نشد." });
-    }
+    const rows: any[] = Array.isArray(req.body?.rows) ? req.body.rows : [];
     if (!rows.length) {
       return res.status(400).json({ status: "error", message: "هیچ ردیفی برای ورود ارسال نشده است." });
     }

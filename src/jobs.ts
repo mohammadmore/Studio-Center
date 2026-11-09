@@ -10,6 +10,7 @@ import { organizations, roles, settings } from "./store/state.js";
 import { getBlobStore } from "./store/db.js";
 import { shrinkExistingImages, type ImagePurpose } from "./utils/images.js";
 import { mimeForFile } from "./utils/files.js";
+import { runDailyBackup } from "./utils/backups.js";
 
 const IMAGE_PASS = "v1";
 
@@ -101,6 +102,8 @@ export function startJobs() {
       ].some(Boolean);
       if (changed) saveDatabase();
       cleanupStaleUploads();
+      const backup = runDailyBackup();
+      if (backup) console.log(`Daily backup written: ${backup.name}`);
     } catch (e) {
       console.error("Scheduled job failed:", e);
     }

@@ -18,6 +18,8 @@ const { createApp } = await import("../src/app.js");
 const state = await import("../src/store/state.js");
 const { checkStageDeadlines } = await import("../src/utils/workflowUtils.js");
 const { plannedDeliveries, updateIntegrationConfig } = await import("../src/utils/notifiers.js");
+const { decryptSecret, encryptSecret } = await import("../src/utils/secrets.js");
+const { resetLoginLockouts } = await import("../src/routes/api_routes/auth.js");
 
 let app: any;
 
@@ -337,7 +339,10 @@ describe("external notifications, calendars and reports", () => {
     const cfg = await admin.get("/api/integrations");
     assert.equal(cfg.body.data.sms.api_key, "••••1234");
     await admin.post("/api/integrations").send({ config: { sms: { api_key: "••••1234" } } });
-    assert.equal(state.integrations[0].sms.api_key, "SECRET-KEY-1234");
+    // Stored encrypted, kept when the masked value comes back, and readable by the server.
+    assert.match(state.integrations[0].sms.api_key, /^enc:v1:/);
+    assert.doesNotMatch(JSON.stringify(state.integrations), /SECRET-KEY-1234/);
+    assert.equal(decryptSecret(state.integrations[0].sms.api_key), "SECRET-KEY-1234");
     state.organizations.find((o: any) => o.id === 1)!.phone_number = "۰۹۱۲۱۲۳۴۵۶۷";
     const planned = plannedDeliveries({ role_target: "client", user_id: 1, type: "client_review" });
     assert.deepEqual(planned, [{ channel: "sms", to: "09121234567" }]);
@@ -617,5 +622,74 @@ describe("collections as folders", () => {
     const admin = await login("admin");
     const res = await admin.post("/api/manage_collections").send({ action: "add", title: "یتیم", parent_id: 999999 });
     assert.equal(res.status, 400);
+  });
+});
+
+describe("security hardening", () => {
+  it("encrypts social tokens and never returns them", async () => {
+    const admin = await login("admin");
+    await admin.post("/api/save_token").send({ org_id: 1, platform_name: "instagram", account_username: "brand", access_token: "IGQVJ-very-secret-token-9876" }).expect(200);
+    const t = state.tokens[state.tokens.length - 1];
+    assert.match(t.access_token, /^enc:v1:/);
+    assert.equal(decryptSecret(t.access_token), "IGQVJ-very-secret-token-9876");
+    const list = await admin.get("/api/get_tokens");
+    assert.doesNotMatch(JSON.stringify(list.body), /very-secret|enc:v1/);
+    assert.match(JSON.stringify(list.body), /IGQV••••9876/);
+  });
+
+  it("an unreadable stored secret reads as empty instead of breaking", () => {
+    assert.equal(decryptSecret("enc:v1:AAAAinvalid"), "");
+    assert.equal(decryptSecret(encryptSecret("abc")), "abc");
+    assert.equal(decryptSecret("plain-old-value"), "plain-old-value");
+  });
+
+  it("refuses short, simple or username-equal passwords for new and changed accounts", async () => {
+    const admin = await login("admin");
+    for (const [password, why] of [["Ab12345", /۸ کاراکتر/], ["12345678", /ساده/], ["aaaaaaaaaa", /ساده/], ["newperson1", /نام کاربری/]]) {
+      const r = await admin.post("/api/save_user").send({ username: "newperson1", password, full_name: "تست", role_id: 3 });
+      assert.equal(r.status, 400, String(password));
+      assert.match(r.body.message, why as RegExp);
+    }
+    const ok = await admin.post("/api/save_user").send({ username: "newperson1", password: "Studio-Pass-2026", full_name: "تست", role_id: 3 });
+    assert.equal(ok.body.status, "success", JSON.stringify(ok.body));
+    const org = await admin.post("/api/manage_orgs").send({ action: "add", org_name: "برند رمز کوتاه", username: "shortpw", password: "abc123" });
+    assert.equal(org.status, 400);
+  });
+
+  it("locks an account for 15 minutes after 5 wrong passwords, even from different addresses", async () => {
+    resetLoginLockouts();
+    let last: any;
+    for (let i = 0; i < 5; i++) {
+      last = await request(app).post("/api/login").set("X-Forwarded-For", `10.20.0.${i}`).send({ username: "ali", password: "wrong-pass-" + i });
+    }
+    assert.equal(last.status, 429);
+    assert.match(last.body.message, /قفل/);
+    const right = await request(app).post("/api/login").set("X-Forwarded-For", "10.20.1.1").send({ username: "ali", password: PASSWORD });
+    assert.equal(right.status, 429, "the right password does not open a locked account");
+    assert.ok(state.notifications.some((n: any) => n.title === "قفل موقت حساب کاربری"), "admins are told");
+    // An unknown username behaves the same, so the lock does not reveal which names exist.
+    for (let i = 0; i < 5; i++) last = await request(app).post("/api/login").set("X-Forwarded-For", `10.21.0.${i}`).send({ username: "ghost-user", password: "wrong-pass" });
+    assert.equal(last.status, 429);
+    resetLoginLockouts();
+    assert.equal((await request(app).post("/api/login").set("X-Forwarded-For", "10.22.0.1").send({ username: "ali", password: PASSWORD })).status, 200);
+  });
+
+  it("makes backups that only admins can list and download", async () => {
+    const admin = await login("admin");
+    const made = await admin.post("/api/backups").send({});
+    assert.equal(made.body.status, "success", JSON.stringify(made.body));
+    const list = await admin.get("/api/backups");
+    assert.ok(list.body.data.some((b: any) => b.name === made.body.data.name));
+    const dl = await admin.get("/api/backups/download?name=" + made.body.data.name).buffer(true).parse((res, cb) => { const chunks: Buffer[] = []; res.on("data", (c: Buffer) => chunks.push(c)); res.on("end", () => cb(null, Buffer.concat(chunks))); });
+    assert.equal(dl.status, 200);
+    const zlib = await import("zlib");
+    const parsed = JSON.parse(zlib.gunzipSync(dl.body).toString("utf8"));
+    assert.equal(parsed.format, "asva-studio-backup");
+    assert.ok(parsed.data.contents.length > 0);
+    assert.doesNotMatch(JSON.stringify(parsed), /IGQVJ-very-secret/, "credentials stay encrypted inside backups");
+    assert.equal((await admin.get("/api/backups/download?name=../db.json")).status, 404);
+    const ali = await login("ali");
+    assert.equal((await ali.get("/api/backups")).status, 403);
+    assert.equal((await ali.post("/api/backups").send({})).status, 403);
   });
 });

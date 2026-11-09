@@ -1,3 +1,4 @@
+import { decryptSecret, encryptSecret } from "./secrets.js";
 import nodemailer from "nodemailer";
 import { colleagues, integrations, organizations, outbox } from "../store/state.js";
 import { isAdmin } from "./authUtils.js";
@@ -48,7 +49,7 @@ export const EVENT_LABELS: Record<string, string> = {
   monthly_report: "گزارش ماهانه کارفرما",
 };
 
-const SECRET_FIELDS = ["api_key", "pass", "bot_token"];
+export const SECRET_FIELDS = ["api_key", "pass", "bot_token"];
 const MAX_OUTBOX = 2000;
 const TIMEOUT_MS = 10_000;
 
@@ -76,7 +77,7 @@ function mask(value: unknown) {
 export function publicIntegrationConfig() {
   const cfg = JSON.parse(JSON.stringify(getIntegrationConfig()));
   for (const ch of CHANNELS) {
-    for (const f of SECRET_FIELDS) if (cfg[ch] && f in cfg[ch]) cfg[ch][f] = mask(cfg[ch][f]);
+    for (const f of SECRET_FIELDS) if (cfg[ch] && f in cfg[ch]) cfg[ch][f] = mask(decryptSecret(cfg[ch][f]));
   }
   return cfg;
 }
@@ -94,6 +95,7 @@ export function updateIntegrationConfig(input: any) {
       if (SECRET_FIELDS.includes(key) && typeof value === "string" && value.startsWith("••••")) continue;
       if (typeof cfg[ch][key] === "boolean") cfg[ch][key] = value === true || value === "true" || value === 1;
       else if (typeof cfg[ch][key] === "number") cfg[ch][key] = Number(value) || cfg[ch][key];
+      else if (SECRET_FIELDS.includes(key)) cfg[ch][key] = encryptSecret(String(value ?? "").trim());
       else cfg[ch][key] = String(value ?? "").trim();
     }
   }
@@ -181,11 +183,11 @@ async function sendSms(cfg: any, to: string, text: string) {
     await postJson(cfg.sms.webhook_url, { to, message: text, sender: cfg.sms.sender });
     return;
   }
-  if (!cfg.sms.api_key) throw new Error("کلید API پیامک تنظیم نشده است");
+  if (!decryptSecret(cfg.sms.api_key)) throw new Error("کلید API پیامک تنظیم نشده است");
   const params = new URLSearchParams({ receptor: to, message: text });
   if (cfg.sms.sender) params.set("sender", cfg.sms.sender);
   const res = await fetch(
-    `https://api.kavenegar.com/v1/${encodeURIComponent(cfg.sms.api_key)}/sms/send.json?${params}`,
+    `https://api.kavenegar.com/v1/${encodeURIComponent(decryptSecret(cfg.sms.api_key))}/sms/send.json?${params}`,
     { signal: AbortSignal.timeout(TIMEOUT_MS) },
   );
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -203,7 +205,7 @@ async function sendEmail(cfg: any, to: string, subject: string, text: string) {
     host: e.host,
     port: Number(e.port) || 465,
     secure: !!e.secure,
-    auth: e.user ? { user: e.user, pass: e.pass } : undefined,
+    auth: e.user ? { user: e.user, pass: decryptSecret(e.pass) } : undefined,
     connectionTimeout: TIMEOUT_MS,
   });
   await transport.sendMail({ from: e.from, to, subject, text });
@@ -219,8 +221,8 @@ export async function sendOne(channel: Channel, to: string, title: string, text:
   try {
     if (channel === "sms") await sendSms(cfg, to, `${title}\n${text}`);
     else if (channel === "email") await sendEmail(cfg, to, title, text);
-    else if (channel === "telegram") await sendBot("https://api.telegram.org", cfg.telegram.bot_token, to, `${title}\n${text}`);
-    else if (channel === "bale") await sendBot("https://tapi.bale.ai", cfg.bale.bot_token, to, `${title}\n${text}`);
+    else if (channel === "telegram") await sendBot("https://api.telegram.org", decryptSecret(cfg.telegram.bot_token), to, `${title}\n${text}`);
+    else if (channel === "bale") await sendBot("https://tapi.bale.ai", decryptSecret(cfg.bale.bot_token), to, `${title}\n${text}`);
     record({ channel, to, title, status: "sent" });
     return { ok: true as const };
   } catch (e: any) {

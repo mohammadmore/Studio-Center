@@ -1,4 +1,8 @@
 import express from "express";
+import { decryptSecret, encryptSecret } from "../../utils/secrets.js";
+import { backupPath, createBackup, listBackups } from "../../utils/backups.js";
+import { isAdmin } from "../../utils/authUtils.js";
+import { addAuditLog } from "../../utils/logger.js";
 import { colleagues, contents, organizations, roles, settings, tokens } from "../../store/state.js";
 import { getIntegrationConfig } from "../../utils/notifiers.js";
 import { getBlobStore, saveDatabase } from "../../store/db.js";
@@ -196,7 +200,7 @@ subRouter.post("/save_token", checkPermission("tokens"), (req, res) => {
     org_name: org_name || org.org_name,
     platform_name,
     account_username,
-    access_token,
+    access_token: encryptSecret(String(access_token).trim()),
     status: "active",
     expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1e3).toISOString(),
   });
@@ -208,7 +212,7 @@ subRouter.get("/get_tokens", checkPermission("tokens"), (req, res) => {
   // The raw access tokens never leave the server.
   res.json({
     status: "success",
-    tokens: tokens.map((t) => ({ ...t, access_token: maskToken(t.access_token) })),
+    tokens: tokens.map((t) => ({ ...t, access_token: maskToken(decryptSecret(t.access_token)) })),
   });
 });
 
@@ -350,6 +354,33 @@ subRouter.get("/setup_status", checkPermission("settings"), (req, res) => {
     { id: "first_content", title: "ساخت اولین محتوا", hint: "اولین کارت تولید را در میز کار بسازید.", href: "depot", done: contents.some((c) => !c.is_deleted) },
   ];
   res.json({ status: "success", data: { steps, done: steps.filter((s) => s.done).length, total: steps.length, dismissed: !!info.setup_dismissed } });
+});
+
+// ───── Database backups (admins only) ─────
+const adminOnly = (req: any, res: any, next: any) =>
+  isAdmin(req.user) ? next() : res.status(403).json({ status: "error", message: "فقط مدیر کل به پشتیبان‌ها دسترسی دارد." });
+
+subRouter.get("/backups", adminOnly, (req, res) => {
+  res.json({ status: "success", data: listBackups() });
+});
+
+subRouter.post("/backups", adminOnly, (req: any, res) => {
+  try {
+    const made = createBackup(true);
+    addAuditLog(req.user.username, "ایجاد پشتیبان دستی از داده‌ها", req.ip);
+    res.json({ status: "success", message: "پشتیبان ساخته شد", data: made });
+  } catch (e) {
+    console.error("Backup failed:", e);
+    res.status(500).json({ status: "error", message: "ساخت پشتیبان انجام نشد؛ فضای هاست یا دسترسی پوشه را بررسی کنید." });
+  }
+});
+
+subRouter.get("/backups/download", adminOnly, (req: any, res) => {
+  const file = backupPath(String(req.query.name || ""));
+  if (!file) return res.status(404).json({ status: "error", message: "پشتیبان پیدا نشد" });
+  addAuditLog(req.user.username, `دانلود پشتیبان ${req.query.name}`, req.ip);
+  res.setHeader("Cache-Control", "no-store");
+  res.download(file, String(req.query.name));
 });
 
 subRouter.get("/get_studio_info", (req, res) => {

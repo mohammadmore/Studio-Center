@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { colleagues, organizations, roles } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
-import { effectiveAvatar, getRoleInfoForUser, hasPermission, isAdmin, stripSecrets } from "../../utils/authUtils.js";
+import { effectiveAvatar, getRoleInfoForUser, hasPermission, isAdmin, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
 import { moveToRecycleBin } from "../../utils/contentUtils.js";
 
@@ -65,7 +65,10 @@ function createColleague(req: any, res: any) {
   const password = typeof body.password === "string" ? body.password.trim() : "";
   const username = String(body.username || body.email || `user_${Date.now()}`).trim();
   if (isUsernameTaken(username)) return fail(res, 400, "این نام کاربری قبلا ثبت شده است.");
-  if (password && password.length < 6) return fail(res, 400, "رمز عبور باید حداقل ۶ کاراکتر باشد.");
+  if (password) {
+    const problem = passwordProblem(password, username);
+    if (problem) return fail(res, 400, problem);
+  }
   const roleId = toInt(body.role_id) ?? DEFAULT_ROLE_ID;
   if (roleGrantsAdmin(roleId) && !isAdmin(req.user)) {
     return fail(res, 403, "فقط مدیر کل می‌تواند نقش مدیریتی اختصاص دهد.");
@@ -227,7 +230,8 @@ subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => 
     }
     if (password) {
       const pw = String(password).trim();
-      if (pw.length < 6) return fail(res, 400, "رمز عبور باید حداقل ۶ کاراکتر باشد.");
+      const problem = passwordProblem(pw, target.username);
+      if (problem) return fail(res, 400, problem);
       target.passwordHash = bcrypt.hashSync(pw, 10);
     }
     if (role_id !== undefined && role_id !== "") {

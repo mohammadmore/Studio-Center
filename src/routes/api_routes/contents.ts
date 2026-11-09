@@ -1,6 +1,4 @@
 import express from "express";
-import multer from "multer";
-import xlsx from "xlsx";
 import {
   batch_operations,
   colleagues,
@@ -46,7 +44,6 @@ function blockedForClient(req: any, card: any, status: unknown) {
   return CLIENT_REVIEW_STATUSES.includes(String(status)) && card.status !== status && !canSendToClient(card, req.user);
 }
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const subRouter = express.Router();
 
 export const CONTENT_PERMS = ["depot", "calendar", "collections", "archive"];
@@ -373,16 +370,11 @@ export function importStatus(input: unknown) {
 subRouter.post(
   "/bulk_import_contents",
   checkPermission("depot"),
-  upload.single("excel_file"),
+  // The page reads the Excel file in the browser and sends the rows; the server never parses spreadsheets.
   (req, res) => {
     try {
       let rawItems = [];
-      if (req.file && req.file.buffer) {
-        const wb = xlsx.read(req.file.buffer, { type: "buffer" });
-        const firstSheetName = wb.SheetNames[0];
-        const ws = wb.Sheets[firstSheetName];
-        rawItems = xlsx.utils.sheet_to_json(ws);
-      } else if (req.body && req.body.items) {
+      if (req.body && req.body.items) {
         try {
           rawItems =
             typeof req.body.items === "string" ? JSON.parse(req.body.items) : req.body.items;

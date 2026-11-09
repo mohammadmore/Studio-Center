@@ -1,4 +1,5 @@
 import { contents, tokens } from "../store/state.js";
+import { decryptSecret } from "./secrets.js";
 
 /**
  * Fetches real performance numbers for a published post. Supported:
@@ -50,9 +51,10 @@ function instagramShortcode(link: string) {
 async function instagramStats(link: string, token: any): Promise<PostStats> {
   const code = instagramShortcode(link);
   if (!code) throw new Error("لینک پست اینستاگرام نامعتبر است");
-  const access = encodeURIComponent(token.access_token);
+  const plainToken = decryptSecret(token.access_token);
+  const access = encodeURIComponent(plainToken);
   // Tokens from "Instagram Login" use graph.instagram.com; Facebook Login tokens use graph.facebook.com.
-  const base = String(token.access_token).startsWith("IG") ? "https://graph.instagram.com/v21.0" : "https://graph.facebook.com/v21.0";
+  const base = plainToken.startsWith("IG") ? "https://graph.instagram.com/v21.0" : "https://graph.facebook.com/v21.0";
   let userId = /^\d+$/.test(String(token.account_id || token.account_username || "")) ? String(token.account_id || token.account_username) : "";
   if (!userId) {
     if (base.includes("graph.instagram.com")) userId = "me";
@@ -101,7 +103,7 @@ async function youtubeStats(link: string, token: any): Promise<PostStats> {
   const id = youtubeId(link);
   if (!id) throw new Error("لینک ویدیوی یوتیوب نامعتبر است");
   const body = await getJson(
-    `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${id}&key=${encodeURIComponent(token.access_token)}`,
+    `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${id}&key=${encodeURIComponent(decryptSecret(token.access_token))}`,
   );
   const s = body.items?.[0]?.statistics;
   if (!s) throw new Error("ویدیو پیدا نشد");

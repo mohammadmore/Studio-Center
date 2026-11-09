@@ -236,3 +236,24 @@ export function stripSecrets<T extends Record<string, any>>(record: T) {
   const { passwordHash, password, ics_token, ...safe } = record as any;
   return safe as Omit<T, "passwordHash" | "password" | "ics_token">;
 }
+
+export const MIN_PASSWORD_LENGTH = 8;
+const COMMON_PASSWORDS = new Set([
+  "12345678", "123456789", "1234567890", "87654321", "11111111", "00000000", "12341234", "11223344",
+  "password", "password1", "passw0rd", "qwertyui", "qwerty123", "asdfghjk", "iloveyou", "admin123", "administrator",
+  "abcd1234", "1q2w3e4r", "zxcvbnm1", "letmein1", "welcome1", "changeme",
+]);
+
+/**
+ * Why a new password is not acceptable, or null when it is fine. Only new and changed
+ * passwords are checked; existing ones keep working at login.
+ */
+export function passwordProblem(password: string, username?: string): string | null {
+  const pw = String(password || "");
+  if (pw.length < MIN_PASSWORD_LENGTH) return `رمز عبور باید حداقل ${MIN_PASSWORD_LENGTH.toLocaleString("fa-IR")} کاراکتر باشد.`;
+  if (pw.length > 200) return "رمز عبور بیش از حد طولانی است.";
+  const lower = pw.toLowerCase();
+  if (username && lower === String(username).trim().toLowerCase()) return "رمز عبور نباید با نام کاربری یکی باشد.";
+  if (/^(.)\1+$/.test(pw) || COMMON_PASSWORDS.has(lower)) return "این رمز عبور بیش از حد ساده و قابل حدس است؛ رمز دیگری انتخاب کنید.";
+  return null;
+}

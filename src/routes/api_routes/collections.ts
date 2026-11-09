@@ -9,7 +9,7 @@ import {
 } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
 import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js";
-import { hasPermission, stripSecrets } from "../../utils/authUtils.js";
+import { hasPermission, passwordProblem, stripSecrets } from "../../utils/authUtils.js";
 import { nextId, safeColor, safeUrl, toInt } from "../../utils/helpers.js";
 import { findOrgByRef, moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
 import { isUsernameTaken } from "./users.js";
@@ -286,7 +286,7 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
     for (const org of orgs) {
       const orgPw = typeof org?.password === "string" ? org.password.trim() : "";
       const sameName = org?.org_name && organizations.some((o) => String(o.org_name).trim() === String(org.org_name).trim());
-      if (!org || sameName || (org.username && isUsernameTaken(String(org.username))) || (orgPw && orgPw.length < 6)) {
+      if (!org || sameName || (org.username && isUsernameTaken(String(org.username))) || (orgPw && !!passwordProblem(orgPw, org?.username))) {
         skipped++;
         continue;
       }
@@ -299,7 +299,7 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
     return res.json({
       status: "success",
       message: skipped
-        ? `سازمان‌ها اضافه شدند (${skipped} ردیف به دلیل نام یا نام کاربری تکراری یا رمز نامعتبر رد شد)`
+        ? `سازمان‌ها اضافه شدند (${skipped} ردیف به دلیل نام یا نام کاربری تکراری یا رمز ضعیف — کمتر از ۸ کاراکتر یا بیش از حد ساده — رد شد)`
         : "سازمان‌ها با موفقیت اضافه شدند",
     });
   }
@@ -307,8 +307,9 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
     if (username && isUsernameTaken(String(username))) {
       return res.status(400).json({ status: "error", message: "این نام کاربری قبلا ثبت شده است." });
     }
-    if (pw && pw.length < 6) {
-      return res.status(400).json({ status: "error", message: "رمز عبور باید حداقل ۶ کاراکتر باشد." });
+    const pwProblem = pw ? passwordProblem(pw, username) : null;
+    if (pwProblem) {
+      return res.status(400).json({ status: "error", message: pwProblem });
     }
     organizations.unshift(buildOrg(req.body, nextId(organizations)));
     saveDatabase();
@@ -344,8 +345,9 @@ subRouter.post("/manage_orgs", checkPermission("organizations"), (req: any, res)
       org.username = newUsername;
     }
     if (pw) {
-      if (pw.length < 6) {
-        return res.status(400).json({ status: "error", message: "رمز عبور باید حداقل ۶ کاراکتر باشد." });
+      const pwProblem = passwordProblem(pw, org.username);
+      if (pwProblem) {
+        return res.status(400).json({ status: "error", message: pwProblem });
       }
       org.passwordHash = bcrypt.hashSync(pw, 10);
     }

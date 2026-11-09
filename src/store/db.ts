@@ -1,5 +1,7 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import { config } from "../config.js";
 import { createDriver } from "./drivers/index.js";
 import type { BlobStore, StorageDriver } from "./drivers/types.js";
@@ -7,6 +9,7 @@ import {
   applySnapshot,
   colleagues,
   contents,
+  integrations,
   mediaAssets,
   organizations,
   roles,
@@ -14,6 +17,8 @@ import {
   snapshotState,
 } from "./state.js";
 import { sanitizeIcon, safeColor, safeUrl } from "../utils/helpers.js";
+import { encryptSecret, isEncrypted } from "../utils/secrets.js";
+import { tokens } from "./state.js";
 
 const SAVE_DELAY_MS = 500;
 
@@ -108,6 +113,65 @@ function normalizeLoadedData() {
   }
 }
 
+const INTEGRATION_SECRET_FIELDS = ["api_key", "pass", "bot_token"];
+
+/** Encrypts plain-text credentials inside a database object (live state or a backup copy). */
+function encryptSecretsIn(cfgList: any[], tokenList: any[]) {
+  let changed = false;
+  const cfg = Array.isArray(cfgList) ? cfgList[0] : null;
+  if (cfg && typeof cfg === "object") {
+    for (const ch of ["sms", "email", "telegram", "bale"]) {
+      const section = cfg[ch];
+      if (!section || typeof section !== "object") continue;
+      for (const f of INTEGRATION_SECRET_FIELDS) {
+        if (typeof section[f] === "string" && section[f] && !isEncrypted(section[f])) {
+          section[f] = encryptSecret(section[f]);
+          changed = true;
+        }
+      }
+    }
+  }
+  for (const t of Array.isArray(tokenList) ? tokenList : []) {
+    if (t && typeof t.access_token === "string" && t.access_token && !isEncrypted(t.access_token)) {
+      t.access_token = encryptSecret(t.access_token);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/** Credentials saved by older versions in plain text are encrypted on startup. Returns true if any changed. */
+function encryptStoredSecrets() {
+  return encryptSecretsIn(integrations, tokens);
+}
+
+/**
+ * The JSON driver keeps rolling copies of db.json (data/backups/db-*.json). Copies made before
+ * credentials were encrypted would still hold them in plain text, so they are encrypted too.
+ */
+async function encryptSecretsInRollingCopies() {
+  const dir = path.join(path.dirname(config.jsonDbPath), "backups");
+  let names: string[] = [];
+  try {
+    names = (await fs.promises.readdir(dir)).filter((n) => /^db-\d+\.json$/.test(n));
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    const file = path.join(dir, name);
+    try {
+      const data = JSON.parse(await fs.promises.readFile(file, "utf8"));
+      if (encryptSecretsIn(data.integrations, data.tokens)) {
+        const tmp = file + ".tmp";
+        await fs.promises.writeFile(tmp, JSON.stringify(data), { mode: 0o600 });
+        await fs.promises.rename(tmp, file);
+      }
+    } catch (e) {
+      console.warn(`Could not check ${name} for plain-text credentials:`, (e as Error).message);
+    }
+  }
+}
+
 /**
  * Loads the stored state. Must finish before the server accepts requests: if
  * loading fails we throw instead of running on an empty state that the next
@@ -130,6 +194,11 @@ export async function initDatabase(customDriver?: StorageDriver) {
     return;
   }
   ready = true;
+  // Rewrite the file at once so no plain-text credential stays on disk.
+  if (encryptStoredSecrets()) {
+    await flushDatabase(true);
+    await encryptSecretsInRollingCopies();
+  }
   if (colleagues.length === 0) {
     // Without any staff account nobody could ever log in again.
     seedInitialData();

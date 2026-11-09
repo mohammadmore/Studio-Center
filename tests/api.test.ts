@@ -133,7 +133,7 @@ describe("permissions", () => {
     state.roles.push({ id: 5, name: "مدیر کاربران", permissions: ["add-user"] });
     state.colleagues.push({ id: 9, username: "hrman", passwordHash: state.colleagues[0].passwordHash, full_name: "HR", role_id: 5, is_active: 1 });
     const agent = await login("hrman");
-    const create = await agent.post("/api/save_user").send({ username: "evil", password: "123456", role_id: 1 });
+    const create = await agent.post("/api/save_user").send({ username: "evil", password: "Strong-pass-937", role_id: 1 });
     assert.equal(create.status, 403);
     const self = await agent.post("/api/manage_users").send({ action: "edit", id: "9", role_id: 1 });
     assert.equal(self.status, 400);
