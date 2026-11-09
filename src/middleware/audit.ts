@@ -11,6 +11,7 @@ const ENDPOINT_NAMES: Record<string, string> = {
   manage_content_template: "قالب محتوا",
   upload_smart_events: "آپلود اکسل مناسبت‌ها",
   backups: "پشتیبان‌گیری از داده‌ها",
+  unlock_login: "باز کردن قفل ورود حساب",
   bulk_import_contents: "ورود گروهی محتوا",
   client_review: "بررسی کارفرما",
   add_client_events: "انتخاب مناسبت‌های کارفرما",

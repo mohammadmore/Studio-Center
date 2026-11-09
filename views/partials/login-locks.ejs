@@ -1,0 +1,39 @@
+<%# Locked logins banner: shown on the team and organisations pages when an account is locked. %>
+<script>
+(function () {
+    var KIND = <%- JSON.stringify(typeof lockKind !== 'undefined' ? lockKind : 'colleague') %>;
+    function esc(v) { return (window.escapeHtml ? window.escapeHtml(v) : String(v)); }
+    function fa(n) { return window.toPersianDigits ? window.toPersianDigits(String(n)) : String(n); }
+    async function render() {
+        var res = await fetch('/api/login_locks', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+        var list = ((res && res.data) || []).filter(function (x) { return x.kind === KIND; });
+        var box = document.getElementById('loginLocksBanner');
+        if (!list.length) { if (box) box.remove(); return; }
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'loginLocksBanner';
+            box.setAttribute('role', 'status');
+            box.style.cssText = 'background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.35); border-radius: 12px; padding: 12px 16px; margin: 0 0 16px; display: flex; flex-direction: column; gap: 8px;';
+            var anchor = document.querySelector('.main-content .page-header-container') || document.querySelector('.main-content > *');
+            if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor.nextSibling); else document.body.prepend(box);
+        }
+        box.innerHTML = '<b style="color: var(--error-color);">🔒 ورود از دستگاه‌های ناشناس قفل شده است</b>' +
+            '<span style="font-size: 0.85rem; color: var(--text-gray); line-height: 1.7;">به دلیل چند رمز اشتباه پشت سر هم. صاحب حساب از دستگاه‌هایی که قبلاً با آن‌ها وارد شده هنوز می‌تواند وارد شود. اگر خودش رمز را فراموش کرده، قفل را باز کنید (و در صورت لزوم رمزش را عوض کنید).</span>' +
+            list.map(function (x) {
+                return '<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; background: var(--card-bg); border:1px solid var(--border-color); border-radius:10px; padding:8px 12px;">' +
+                    '<span><b>' + esc(x.name) + '</b> <span dir="ltr" style="color:var(--text-gray)">(' + esc(x.username) + ')</span> — ' + fa(x.minutes) + ' دقیقه‌ی دیگر خودکار باز می‌شود</span>' +
+                    '<button type="button" class="btn-outline" data-unlock="' + esc(x.username) + '" style="padding:6px 14px;">🔓 باز کردن قفل</button></div>';
+            }).join('');
+        box.querySelectorAll('[data-unlock]').forEach(function (b) {
+            b.onclick = async function () {
+                b.disabled = true;
+                var r = await fetch('/api/unlock_login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: b.getAttribute('data-unlock') }) }).then(function (x) { return x.json(); }).catch(function () { return null; });
+                if (r && r.status === 'success') { if (window.showToast) window.showToast(r.message, 'success'); render(); }
+                else { b.disabled = false; if (window.showToast) window.showToast((r && r.message) || 'باز نشد', 'error'); }
+            };
+        });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render); else render();
+    window.addEventListener('asva:notification', function (e) { if (e.detail && e.detail.type === 'security') render(); });
+})();
+</script>

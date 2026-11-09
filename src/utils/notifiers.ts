@@ -235,7 +235,8 @@ export async function sendOne(channel: Channel, to: string, title: string, text:
 /** Which channel/address pairs a notification would go to (also used by tests). */
 export function plannedDeliveries(n: any) {
   const cfg = getIntegrationConfig();
-  if (!(cfg.events || []).includes(n.type)) return [];
+  // Security alerts always go out on the enabled channels; other events only when chosen in the settings.
+  if (n.type !== "security" && !(cfg.events || []).includes(n.type)) return [];
   const out: { channel: Channel; to: string }[] = [];
   for (const r of recipientsFor(n)) {
     const add = (channel: Channel, to: unknown) => {

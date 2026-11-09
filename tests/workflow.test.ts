@@ -656,22 +656,58 @@ describe("security hardening", () => {
     assert.equal(org.status, 400);
   });
 
-  it("locks an account for 15 minutes after 5 wrong passwords, even from different addresses", async () => {
+  it("locks unknown devices after 5 wrong passwords, but the owner's own devices keep working", async () => {
     resetLoginLockouts();
+    // Ali logged in from his laptop before: that browser is a trusted device for "ali".
+    const laptop = request.agent(app);
+    assert.equal((await laptop.post("/api/login").set("X-Forwarded-For", "10.30.0.1").send({ username: "ali", password: PASSWORD })).status, 200);
+    // Someone else, knowing only the username, tries 5 wrong passwords from several addresses.
     let last: any;
     for (let i = 0; i < 5; i++) {
       last = await request(app).post("/api/login").set("X-Forwarded-For", `10.20.0.${i}`).send({ username: "ali", password: "wrong-pass-" + i });
     }
     assert.equal(last.status, 429);
-    assert.match(last.body.message, /قفل/);
-    const right = await request(app).post("/api/login").set("X-Forwarded-For", "10.20.1.1").send({ username: "ali", password: PASSWORD });
-    assert.equal(right.status, 429, "the right password does not open a locked account");
-    assert.ok(state.notifications.some((n: any) => n.title === "قفل موقت حساب کاربری"), "admins are told");
+    assert.match(last.body.message, /بسته شده/);
+    // Unknown devices stay locked even with the right password...
+    assert.equal((await request(app).post("/api/login").set("X-Forwarded-For", "10.20.1.1").send({ username: "ali", password: PASSWORD })).status, 429);
+    // ...but Ali's laptop still gets in.
+    assert.equal((await laptop.post("/api/login").set("X-Forwarded-For", "10.30.0.1").send({ username: "ali", password: PASSWORD })).status, 200);
+    // A forged or edited device cookie is ignored.
+    const forged = await request(app).post("/api/login").set("X-Forwarded-For", "10.20.2.1").set("Cookie", "asva_td=eyJkIjoieCIsInUiOlsiYWxpIl19.fake").send({ username: "ali", password: PASSWORD });
+    assert.equal(forged.status, 429);
+    // Admins and Ali himself are told.
+    assert.ok(state.notifications.some((n: any) => n.title === "قفل موقت حساب کاربری" && n.role_target === "admin"));
+    assert.ok(state.notifications.some((n: any) => n.type === "security" && n.role_target === "colleague" && n.user_id === 2));
+    // A trusted device that keeps getting the password wrong is limited on its own.
+    for (let i = 0; i < 5; i++) last = await laptop.post("/api/login").set("X-Forwarded-For", "10.30.0.1").send({ username: "ali", password: "typo-" + i });
+    assert.equal(last.status, 429);
     // An unknown username behaves the same, so the lock does not reveal which names exist.
     for (let i = 0; i < 5; i++) last = await request(app).post("/api/login").set("X-Forwarded-For", `10.21.0.${i}`).send({ username: "ghost-user", password: "wrong-pass" });
     assert.equal(last.status, 429);
+  });
+
+  it("typos by others on a shared office IP do not block a colleague's trusted browser", async () => {
     resetLoginLockouts();
-    assert.equal((await request(app).post("/api/login").set("X-Forwarded-For", "10.22.0.1").send({ username: "ali", password: PASSWORD })).status, 200);
+    const office = "10.50.0.1";
+    const laptop = request.agent(app);
+    assert.equal((await laptop.post("/api/login").set("X-Forwarded-For", office).send({ username: "artdir", password: PASSWORD })).status, 200);
+    let last: any;
+    for (let i = 0; i < 12; i++) last = await request(app).post("/api/login").set("X-Forwarded-For", office).send({ username: "someone" + (i % 3), password: "typo-" + i });
+    assert.equal(last.status, 429, "the office IP is limited for unknown browsers");
+    assert.equal((await laptop.post("/api/login").set("X-Forwarded-For", office).send({ username: "artdir", password: PASSWORD })).status, 200);
+  });
+
+  it("lets user managers see and lift login locks, nobody else", async () => {
+    resetLoginLockouts();
+    for (let i = 0; i < 5; i++) await request(app).post("/api/login").set("X-Forwarded-For", `10.40.0.${i}`).send({ username: "ali", password: "wrong-" + i });
+    const admin = await login("admin");
+    const locks = await admin.get("/api/login_locks");
+    assert.deepEqual(locks.body.data.map((x: any) => [x.username, x.kind]), [["ali", "colleague"]]);
+    const artdir = await login("artdir");
+    assert.equal((await artdir.post("/api/unlock_login").send({ username: "ali" })).status, 403);
+    assert.equal((await admin.post("/api/unlock_login").send({ username: "ali" })).status, 200);
+    assert.equal((await admin.get("/api/login_locks")).body.data.length, 0);
+    assert.equal((await request(app).post("/api/login").set("X-Forwarded-For", "10.40.1.1").send({ username: "ali", password: PASSWORD })).status, 200);
   });
 
   it("makes backups that only admins can list and download", async () => {

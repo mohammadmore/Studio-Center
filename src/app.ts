@@ -20,6 +20,7 @@ import { isDatabaseReady, saveDatabase } from "./store/db.js";
 import { settings } from "./store/state.js";
 import { isSafeFileName } from "./utils/files.js";
 import { emitCacheBust } from "./utils/socket.js";
+import { isTrustedLogin } from "./routes/api_routes/auth.js";
 
 /** Changes whenever a file under center/assets changes, so browsers can cache assets for long. */
 function computeAssetVersion() {
@@ -220,6 +221,9 @@ export function createApp() {
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
+    // A colleague's own trusted browser is not held back by other people's typos on the same
+    // office IP; it still has its own limit of 5 failures (see auth.ts).
+    skip: (req: any) => isTrustedLogin(req),
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true,
@@ -241,7 +245,6 @@ export function createApp() {
     message: { status: "error", message: "درخواست‌های آپلود بیش از حد مجاز است. لطفا بعدا تلاش کنید." },
   });
   app.use("/api", apiLimiter);
-  app.use("/api/login", loginLimiter);
   for (const p of [
     "/api/upload_image",
     "/api/upload_file",
@@ -264,6 +267,8 @@ export function createApp() {
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ limit: "10mb", extended: true }));
   app.use(hpp());
+  // After the body parser: the limit needs the username to recognise a trusted browser.
+  app.use("/api/login", loginLimiter);
 
   app.use(sessionMiddleware());
   app.use(loadSessionUser);
