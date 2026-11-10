@@ -694,7 +694,7 @@
                 <label style="font-weight: bold;">ساعت انتشار (اختیاری)</label>
                 <input type="time" id="newScheduleTime" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
                 <label style="font-weight: bold;">نام سازمان (کارفرما)</label>
-                <select id="scheduleOrg" onchange="loadOrgContents()" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
+                <select id="scheduleOrg" onchange="loadOrgContents(); window.__scheduleFields && window.__scheduleFields.refreshCollections()" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
                     <option value="">-- انتخاب سازمان --</option>
                 </select>
 
@@ -731,6 +731,9 @@
                 <label style="font-weight: bold; margin-top: 10px; display: block;">مراحل لازم تولید</label>
                 <div id="newScheduleStages" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);"></div>
                 
+                <!-- مجموعه، پلتفرم‌ها، کپشن و لینک‌ها (assets/js/new-content-fields.js) -->
+                <div id="newScheduleExtras"></div>
+
                 <label style="font-weight: bold; margin-top: 10px; display: block;">تعداد اجزای محتوا (اختیاری)</label>
                 <div id="newScheduleComponentsCount" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
                     <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="ویدئو" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> ویدئو</div>
@@ -1696,6 +1699,14 @@
             document.getElementById('orgContentsList').innerHTML = '';
             document.getElementById('newScheduleTitle').value = '';
             document.getElementById('newContentSection').style.display = 'none';
+            if (!window.__scheduleFields) {
+                window.__scheduleFields = window.newContentFields(document.getElementById('newScheduleExtras'), {
+                    prefix: 'sc', withSchedule: false,
+                    getOrgId: () => document.getElementById('scheduleOrg').value,
+                });
+            } else {
+                window.__scheduleFields.reset();
+            }
             if (document.getElementById('toggleNewContentWrapper')) {
                 document.getElementById('toggleNewContentWrapper').style.display = 'block';
             }
@@ -1919,29 +1930,40 @@ function selectContent(element, id) {
                     if (val > 0) components_count[input.dataset.name] = val;
                 });
 
+                // «تعداد ایجاد»: the same card is created that many times on this day.
+                const count = Math.min(30, Math.max(1, parseInt(window.toEnglishDigits(document.getElementById('newScheduleCount').value)) || 1));
+                const extras = window.__scheduleFields ? window.__scheduleFields.read() : {};
                 try {
-                    const res = await fetch('/api/add_content', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            title: newTitle, 
-                            type, 
-                            org_id: orgId,
-                            publish_date: selectedDayStr,
-                            publish_time: publishTime,
-                            status: customStatus,
-                            project_manager,
-                            assigned_colleagues,
-                            stages,
-                            components_count,
-                            ...recurrenceData
-                        })
-                    });
-                    const result = await res.json();
-                    if (result.status === 'success') {
+                    let created = 0, lastError = '';
+                    for (let i = 0; i < count; i++) {
+                        const res = await fetch('/api/add_content', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                title: count > 1 ? `${newTitle} (${toPersianDigits(i + 1)})` : newTitle,
+                                type,
+                                org_id: orgId,
+                                publish_date: selectedDayStr,
+                                publish_time: publishTime,
+                                status: customStatus,
+                                project_manager,
+                                assigned_colleagues,
+                                stages,
+                                components_count,
+                                ...extras,
+                                ...recurrenceData
+                            })
+                        });
+                        const result = await res.json();
+                        if (result.status === 'success') created++;
+                        else { lastError = result.message || 'ذخیره نشد'; break; }
+                    }
+                    if (created) {
                         closeScheduleModal(true);
                         renderCalendar(); // آپدیت تقویم
-                    } else showToast('خطا: ' + result.message);
+                        if (count > 1) showToast(`${toPersianDigits(created)} محتوا ساخته شد`, 'success');
+                    }
+                    if (lastError) showToast('خطا: ' + lastError, 'error');
                 } catch(e) { console.error(e); showToast('خطا در ارتباط با سرور', 'error'); }
             } else {
                 showToast('لطفاً یک محتوا از لیست انتخاب کنید یا عنوان محتوای جدید را وارد نمایید.');
@@ -1983,6 +2005,7 @@ function selectContent(element, id) {
         setTimeout( () => { applyViewMode(); initCalendar(); });
     </script>
 <script src="assets/js/app.js?v=4"></script>
+<script src="assets/js/new-content-fields.js?v=1"></script>
 <script src="assets/js/excel-import.js?v=1"></script>
 <script src="assets/js/excel-specs.js?v=1"></script>
     <%- include('partials/content-identity') %>

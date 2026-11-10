@@ -258,18 +258,28 @@ subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) =
   if (action) return res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
 
   const orgId = org_id ? toInt(org_id) : null;
+  const validOrgId = orgId && organizations.some((o) => o.id == orgId) ? orgId : null;
+  // The "new content" form carries every field of the card, so nothing needs a second edit.
+  const strList = (v: unknown) =>
+    Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 50) : [];
+  const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+  const wantedStatus = typeof status === "string" && IMPORT_STATUSES.some(([code]) => code === status) ? status : "raw";
   const newContent: any = {
     batch_id: "batch_" + Date.now(),
     id: nextId(contents),
     title: String(title || "").trim() || "محتوای بدون عنوان",
-    org_id: orgId && organizations.some((o) => o.id == orgId) ? orgId : null,
+    org_id: validOrgId,
     content_type: type || "پوستر گرافیکی",
     project_manager: req.body.project_manager || null,
     assigned_colleagues: Array.isArray(req.body.assigned_colleagues) ? req.body.assigned_colleagues : [],
     stages: Array.isArray(req.body.stages) ? req.body.stages : [],
-    status: req.body.status || "raw",
+    status: "raw",
     publish_date: normalizeJalaliDate(req.body.publish_date),
-    publish_time: req.body.publish_time || "",
+    publish_time: text(req.body.publish_time, 10),
+    publish_platforms: strList(req.body.publish_platforms),
+    caption: text(req.body.caption, 20000),
+    video_link: text(req.body.video_link, 2000),
+    cover_link: text(req.body.cover_link, 2000),
     components_count: req.body.components_count || {},
     is_recurring: !!is_recurring,
     recurrence_interval_days,
@@ -277,6 +287,19 @@ subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) =
     count_in_stats,
     created_at: new Date().toISOString(),
   };
+  // Sending straight to the client follows the same rule as moving a card there later.
+  if (blockedForClient(req, newContent, wantedStatus)) {
+    return res.status(400).json({ status: "error", message: SEND_TO_CLIENT_BLOCKED });
+  }
+  newContent.status = wantedStatus;
+  // A collection is chosen by id, or typed as a new title (created for the card's brand).
+  const col = req.body.collection_id;
+  if (typeof col === "string" && col.trim() && toInt(col) === null) {
+    newContent.collection_id = findOrCreateCollection(col.trim().slice(0, 200), validOrgId).id;
+  } else if (col) {
+    const colId = toInt(col);
+    if (colId && collections.some((c) => c.id === colId)) newContent.collection_id = colId;
+  }
   logContentActivity(newContent, req, "محتوا را ایجاد کرد");
   contents.unshift(newContent);
   if (is_recurring) addRecurrences(newContent, recurrence_interval_days, recurrence_count);

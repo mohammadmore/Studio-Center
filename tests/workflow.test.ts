@@ -776,3 +776,38 @@ describe("password repeat field", () => {
     assert.equal(orgBad.status, 400);
   });
 });
+
+describe("creating a complete card in one step", () => {
+  it("stores collection, platforms, status, date, caption and links on create", async () => {
+    const admin = await login("admin");
+    const r = await admin.post("/api/add_content").send({
+      title: "کارت کامل", org_id: 1, type: "پوستر", status: "todo", publish_date: "۱۴۰۵/۹/۳", publish_time: "18:30",
+      publish_platforms: ["Instagram"], caption: "متن کپشن", video_link: "https://example.com/v.mp4", cover_link: "https://example.com/c.jpg",
+      collection_id: "کمپین پاییز",
+    });
+    assert.equal(r.body.status, "success", JSON.stringify(r.body));
+    const c = state.contents.find((x: any) => x.id === r.body.data.id);
+    assert.equal(c.status, "todo");
+    assert.equal(c.publish_date, "1405/09/03");
+    assert.equal(c.publish_time, "18:30");
+    assert.deepEqual(c.publish_platforms, ["Instagram"]);
+    assert.equal(c.caption, "متن کپشن");
+    assert.equal(c.video_link, "https://example.com/v.mp4");
+    const col = state.collections.find((x: any) => x.id === c.collection_id);
+    assert.equal(col.title, "کمپین پاییز");
+    assert.equal(col.org_id, 1);
+    // An existing collection by id; an unknown status falls back to «ورودی خام».
+    const r2 = await admin.post("/api/add_content").send({ title: "کارت دوم", org_id: 1, collection_id: col.id, status: "nonsense" });
+    const c2 = state.contents.find((x: any) => x.id === r2.body.data.id);
+    assert.equal(c2.collection_id, col.id);
+    assert.equal(c2.status, "raw");
+  });
+
+  it("does not let a new card skip internal approval by being created in client review", async () => {
+    state.settings.workflow = { ...(state.settings.workflow || {}), internal_approval_required: true };
+    const art = await login("ali");
+    const r = await art.post("/api/add_content").send({ title: "مستقیم برای کارفرما", org_id: 1, status: "client_review" });
+    assert.ok(r.status === 400 || r.status === 403, String(r.status));
+    state.settings.workflow.internal_approval_required = false;
+  });
+});

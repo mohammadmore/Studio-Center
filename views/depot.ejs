@@ -143,7 +143,16 @@ async function openAddContentModal() {
         ? stages.map(s => `<label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" value="${escapeHtml(s.setting_key)}"> ${escapeHtml(s.setting_key)}</label>`).join('')
         : '<span style="color: var(--text-gray); font-size: 0.85rem;">مرحله‌ای در تنظیمات ← مراحل تولید تعریف نشده است.</span>';
     document.querySelectorAll('#newComponentsCount .comp-count').forEach(i => i.value = '');
+    if (!window.__newContentFields) {
+        window.__newContentFields = window.newContentFields(document.getElementById('newContentExtras'), {
+            prefix: 'nc', withSchedule: true,
+            getOrgId: () => document.getElementById('newOrg').value,
+        });
+    } else {
+        window.__newContentFields.reset();
+    }
     document.getElementById('addModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('newTitle').focus(), 50);
 }
 // Team checkboxes; the chosen project manager is left out (already on the card).
 window.updateTeamCheckboxes = function () {
@@ -184,6 +193,11 @@ async function saveNewContent() {
         }
     });
 
+    const extras = window.__newContentFields ? window.__newContentFields.read() : {};
+    if (extras.publish_date && !/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(extras.publish_date)) {
+        showToast('تاریخ انتشار را به شکل سال/ماه/روز بنویسید (مثلاً 1405/08/20) یا از تقویم انتخاب کنید.', 'error');
+        return;
+    }
     const res = await fetch('/api/add_content', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -194,16 +208,17 @@ async function saveNewContent() {
             project_manager,
             assigned_colleagues,
             stages,
-            components_count
+            components_count,
+            ...extras
         })
     });
     const result = await res.json();
     if (result.status === 'success') {
         closeModal();
         if (typeof showToast === 'function') showToast(result.message);
-        if (typeof loadDepot === 'function') loadDepot();
+        if (typeof loadDepot === 'function') loadDepot(true);
     } else {
-        showToast(result.message);
+        showToast(result.message || 'ذخیره نشد', 'error');
     }
 }
 let selectedBatchIds = [];
@@ -881,12 +896,15 @@ async function submitBatchEdit() {
         <input type="text" id="newTitle" placeholder="مثال: ویدیوی معرفی محصول" style="width:100%; padding:14px; margin:8px 0 16px; border:1px solid #ddd; border-radius:8px;">
             
         <label style="font-weight: bold; margin-top: 10px; display: block;">نام سازمان (کارفرما)</label>
-        <select id="newOrg" style="width:100%; padding:14px; margin:8px 0 16px; border:1px solid #ddd; border-radius:8px;">
+        <select id="newOrg" onchange="window.__newContentFields && window.__newContentFields.refreshCollections()" style="width:100%; padding:14px; margin:8px 0 16px; border:1px solid #ddd; border-radius:8px;">
             <option value="">-- انتخاب سازمان --</option>
         </select>
             
         <label style="font-weight: bold; margin-top: 10px; display: block;">نوع محتوا</label>
         <select id="newType" style="width:100%; padding:14px; margin:8px 0 16px; border:1px solid #ddd; border-radius:8px;"></select>
+
+        <!-- مجموعه، وضعیت، تاریخ و ساعت، پلتفرم‌ها، کپشن و لینک‌ها (assets/js/new-content-fields.js) -->
+        <div id="newContentExtras" style="margin-bottom:16px;"></div>
 
         <label style="font-weight: bold; margin-top: 10px; display: block;">تعداد اجزای محتوا (اختیاری)</label>
         <div id="newComponentsCount" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
@@ -2006,6 +2024,7 @@ function autoFillPmDate() {
 
 
 <script src="assets/js/app.js?v=4"></script>
+<script src="assets/js/new-content-fields.js?v=1"></script>
 <script src="assets/js/excel-import.js?v=1"></script>
 <script src="assets/js/excel-specs.js?v=1"></script>
     <%- include('partials/content-identity') %>
