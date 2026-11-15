@@ -54,7 +54,7 @@ function actorName(req: any) {
 }
 
 /** Content managers may edit any card; other colleagues only cards assigned to them. */
-function canEditCard(req: any, card: any) {
+export function canEditCard(req: any, card: any) {
   return hasPermission(req.user, CONTENT_PERMS) || cardColleagueIds(card).includes(Number(req.user?.id));
 }
 
@@ -308,7 +308,7 @@ subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) =
   res.json({ status: "success", message: "محتوای جدید اضافه شد", data: newContent });
 });
 
-function notifyNewAssignees(card: any, previous: unknown[]) {
+export function notifyNewAssignees(card: any, previous: unknown[]) {
   const before = new Set(resolveColleagueIds(previous));
   for (const colleagueId of resolveColleagueIds(card.assigned_colleagues)) {
     if (before.has(colleagueId)) continue;
@@ -836,7 +836,7 @@ subRouter.post("/toggle_stage", (req, res) => {
   return res.json({ status: "success", message: "مرحله به‌روزرسانی شد" });
 });
 
-function findOrCreateCollection(title: string, orgId: any) {
+export function findOrCreateCollection(title: string, orgId: any) {
   let col = collections.find((c) => c.title === title && c.org_id == orgId);
   if (!col) {
     col = {

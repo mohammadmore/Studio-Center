@@ -18,6 +18,7 @@ import contractsRouter from "./api_routes/contracts.js";
 import teamopsRouter from "./api_routes/teamops.js";
 import productionRouter from "./api_routes/production.js";
 import integrationsRouter from "./api_routes/integrations.js";
+import quickFillRouter from "./api_routes/quickfill.js";
 
 const apiRouter = express.Router();
 apiRouter.use(apiAuthGuard);
@@ -40,5 +41,6 @@ apiRouter.use("/", contractsRouter);
 apiRouter.use("/", teamopsRouter);
 apiRouter.use("/", productionRouter);
 apiRouter.use("/", integrationsRouter);
+apiRouter.use("/", quickFillRouter);
 
 export default apiRouter;

@@ -19,10 +19,13 @@ export function resolveColleagueIds(refs: unknown): number[] {
   for (const ref of list) {
     const value = String(ref ?? "").trim();
     if (!value) continue;
+    // Names are compared without stray spaces and with Arabic/Persian letter forms unified.
+    const norm = (s: unknown) => String(s ?? "").replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/\s+/g, " ").trim();
+    const wanted = norm(value);
     const found = colleagues.find(
       (c) =>
         String(c.id) === value ||
-        c.full_name === value ||
+        norm(c.full_name) === wanted ||
         (typeof c.username === "string" && c.username.toLowerCase() === value.toLowerCase()),
     );
     if (found) ids.add(found.id);

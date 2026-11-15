@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= STUDIO_NAME %> | تکمیل سریع</title>
+    <link href="assets/css/style.css?v=6" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/jalalidatepicker.min.css">
+    <script src="assets/js/jalalidatepicker.min.js" defer></script>
+    <style>
+        .qf-top { display: flex; flex-direction: column; gap: 10px; margin: 6px auto 16px; max-width: 760px; }
+        .qf-progress { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 10px 14px; }
+        .qf-progress .txt { display: flex; justify-content: space-between; gap: 8px; font-size: 0.88rem; margin-bottom: 6px; flex-wrap: wrap; }
+        .qf-progress .bar { height: 8px; border-radius: 8px; background: rgba(128,128,128,0.15); overflow: hidden; }
+        .qf-progress .bar > span { display: block; height: 100%; width: 0; border-radius: 8px; background: linear-gradient(90deg, var(--primary-color), #ec4899); transition: width .5s ease; }
+        .qf-filters { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; }
+        .qf-filters select { min-width: 0; }
+        @media (max-width: 600px) { .qf-filters { grid-template-columns: 1fr 1fr; } .qf-filters label.toggle { grid-column: 1 / -1; justify-content: center; } }
+        .qf-filters label.toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg); min-height: 42px; }
+
+        .qf-stage { position: relative; max-width: 640px; margin: 54px auto 30px; min-height: 420px; }
+        .qf-ghost { position: absolute; inset: 0; border-radius: 22px; background: var(--card-bg); border: 1px solid var(--border-color); pointer-events: none; }
+        .qf-ghost.g1 { transform: translateY(14px) scale(.96); opacity: .7; }
+        .qf-ghost.g2 { transform: translateY(28px) scale(.92); opacity: .4; }
+        .qf-card { position: relative; z-index: 2; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 22px; box-shadow: 0 18px 50px rgba(15,23,42,0.12); padding: 52px 22px 18px; transition: transform .28s ease, opacity .28s ease; touch-action: pan-y; }
+        .qf-card.enter { transform: scale(.94) translateY(16px); opacity: 0; }
+        .qf-card.leave-left { transform: translateX(-120%) rotate(-12deg); opacity: 0; }
+        .qf-card.leave-right { transform: translateX(120%) rotate(12deg); opacity: 0; }
+        .qf-card.leave-done { transform: translateY(-40px) scale(.96); opacity: 0; }
+        .qf-card.dragging { transition: none; }
+        .qf-card:focus { outline: none; }
+        .qf-card:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 35%, transparent), 0 18px 50px rgba(15,23,42,0.12); }
+        /* The project manager's picture sits on the top edge: half on the card, half above it. */
+        .qf-avatar { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 80px; height: 80px; border-radius: 50%; border: 4px solid var(--card-bg); background: var(--primary-color); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; overflow: hidden; box-shadow: 0 8px 20px rgba(15,23,42,0.18); }
+        .qf-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .qf-avatar.none { background: rgba(128,128,128,0.25); color: var(--text-gray); }
+        .qf-manager-name { text-align: center; font-size: 0.8rem; color: var(--text-gray); margin: -6px 0 10px; }
+        .qf-head { text-align: center; margin-bottom: 14px; }
+        .qf-org { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: bold; padding: 3px 10px; border-radius: 999px; background: rgba(128,128,128,0.08); }
+        .qf-org img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+        .qf-org .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .qf-title { font-size: 1.3rem; font-weight: 800; margin: 8px 0 6px; line-height: 1.5; color: var(--text-dark); }
+        .qf-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+        .qf-chip { font-size: 0.78rem; padding: 2px 10px; border-radius: 999px; background: rgba(128,128,128,0.08); color: var(--text-gray); border: 1px solid var(--border-color); display: inline-flex; align-items: center; gap: 4px; }
+        .qf-chip.mine { background: color-mix(in srgb, var(--primary-color) 14%, transparent); color: var(--primary-color); border-color: color-mix(in srgb, var(--primary-color) 35%, transparent); font-weight: bold; }
+        .qf-chip.late { color: var(--error-color); border-color: color-mix(in srgb, var(--error-color) 40%, transparent); background: color-mix(in srgb, var(--error-color) 8%, transparent); }
+        .qf-gaps { font-size: 0.82rem; color: var(--text-gray); text-align: center; margin: 4px 0 12px; }
+        .qf-field { border-top: 1px dashed var(--border-color); padding: 12px 0; }
+        .qf-field > .lbl { font-weight: bold; font-size: 0.92rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: var(--text-dark); }
+        .qf-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+        .qf-opt { border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-dark); border-radius: 999px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 0.86rem; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+        .qf-opt:hover { border-color: var(--primary-color); }
+        .qf-opt.on { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+        .qf-opt .av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: rgba(128,128,128,0.2); display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; }
+        .qf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .qf-owner { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 0.88rem; }
+        .qf-hint { font-size: 0.78rem; color: var(--text-gray); margin-top: 4px; }
+        .qf-actions { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 8px; margin-top: 14px; }
+        .qf-actions button { min-height: 46px; border-radius: 12px; font: inherit; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .qf-actions .skip, .qf-actions .later { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-dark); }
+        .qf-actions .save { background: linear-gradient(135deg, var(--primary-color), #8b5cf6); color: #fff; border: none; }
+        .qf-actions .save:disabled { opacity: .5; cursor: default; }
+        .qf-keys { text-align: center; font-size: 0.75rem; color: var(--text-gray); margin-top: 8px; }
+        .qf-keys kbd { border: 1px solid var(--border-color); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; font-family: inherit; font-size: 0.72rem; }
+        .qf-batch { max-width: 640px; margin: 0 auto 14px; background: color-mix(in srgb, var(--primary-color) 8%, var(--card-bg)); border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent); border-radius: 14px; padding: 10px 14px; display: none; }
+        .qf-batch.open { display: block; }
+        .qf-batch .t { font-size: 0.88rem; font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+        .qf-batch .t button { background: none; border: none; color: var(--text-gray); cursor: pointer; font: inherit; }
+        .qf-done { text-align: center; padding: 60px 20px; }
+        .qf-done .big { width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 14px; background: color-mix(in srgb, var(--success-color, #16a34a) 15%, transparent); color: var(--success-color, #16a34a); display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+        .qf-done h2 { margin: 0 0 6px; }
+        .qf-done p { color: var(--text-gray); margin: 0; }
+        @media (max-width: 600px) {
+            .qf-card { padding: 50px 14px 14px; border-radius: 18px; }
+            .qf-row { grid-template-columns: 1fr; }
+            .qf-actions { grid-template-columns: 1fr 1fr; }
+            .qf-actions .save { grid-column: 1 / -1; order: -1; }
+            .qf-keys { display: none; }
+        }
+    </style>
+</head>
+<body>
+<%- include('sidebar') %>
+
+<main class="main-content">
+    <div class="page-header-container flex-responsive">
+        <div>
+            <h1 class="page-title"><i class=ai data-ic=sparkles style="color: var(--primary-color)"></i> <span>تکمیل سریع</span></h1>
+            <p class="page-subtitle">کارت‌های ناقص یکی‌یکی می‌آیند و فقط جاهای خالی‌شان را می‌بینید؛ هر چند تا خواستید پر کنید، بقیه را رد کنید.</p>
+        </div>
+    </div>
+
+    <div class="qf-top">
+        <div class="qf-progress" aria-live="polite">
+            <div class="txt"><span id="qfDoneTxt">—</span><span id="qfLeftTxt"></span></div>
+            <div class="bar"><span id="qfBar"></span></div>
+        </div>
+        <div class="qf-filters">
+            <select id="qfOrg" class="form-control" aria-label="برند"><option value="">همه‌ی برندها</option></select>
+            <select id="qfField" class="form-control" aria-label="نوع جای خالی"><option value="">همه‌ی جاهای خالی</option></select>
+            <label class="toggle"><input type="checkbox" id="qfMine"> فقط کارهای من</label>
+        </div>
+    </div>
+
+    <div class="qf-batch" id="qfBatch" role="region" aria-label="پرکردن گروهی"></div>
+
+    <div class="qf-stage" id="qfStage">
+        <div class="qf-done"><p>در حال بارگذاری…</p></div>
+    </div>
+</main>
+
+<script>
+(function () {
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+    const fa = (v) => window.toPersianDigits ? window.toPersianDigits(String(v)) : String(v);
+    const esc = (v) => window.escapeHtml(v == null ? '' : String(v));
+    const STATUS = { raw: 'ورودی خام', todo: 'در صف انتظار', doing: 'در حال تولید', in_progress: 'در حال تولید', review: 'ارزیابی استودیو', client_review: 'ارزیابی کارفرما', needs_revision: 'نیاز به اصلاح', done: 'تکمیل شده', approved_by_client: 'تایید کارفرما', ready_to_publish: 'آماده انتشار', scheduled: 'زمان‌بندی شده', published: 'منتشر شده' };
+    const ICON = { content_type: 'tag', collection: 'folder', project_manager: 'user', stages: 'list-checks', team: 'users', stage_owners: 'user', publish_date: 'calendar-days', platforms: 'smartphone', caption: 'notebook-pen', media: 'link' };
+    // Values that make sense to repeat on the next cards of the same brand.
+    const SHAREABLE = ['content_type', 'collection', 'project_manager', 'stages', 'team', 'platforms'];
+
+    let queue = [], idx = 0, fields = [], doneToday = 0, startTotal = 0;
+    let settingsData = {}, people = [], colsByOrg = {}, draft = {};
+
+    const active = (list) => (list || []).filter(x => x && x.is_active !== 0);
+    const personName = (p) => p.full_name || p.username;
+    const initials = (n) => String(n || '?').trim().charAt(0) || '?';
+
+    async function loadOptions() {
+        const [s, c] = await Promise.all([
+            fetch('/api/manage_settings', { cache: 'no-store' }).then(r => r.json()).catch(() => ({})),
+            fetch('/api/get_colleagues', { cache: 'no-store' }).then(r => r.json()).catch(() => ({})),
+        ]);
+        settingsData = (s && s.data) || {};
+        people = (c && (c.data || c.users)) || [];
+        const orgs = await fetch('/api/get_orgs', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+        $('qfOrg').insertAdjacentHTML('beforeend', ((orgs && orgs.data) || []).map(o => `<option value="${esc(o.id)}">${esc(o.org_name)}</option>`).join(''));
+    }
+    async function collectionsOf(orgId) {
+        const key = String(orgId || '');
+        if (!colsByOrg[key]) {
+            const r = await fetch('/api/get_collections' + (orgId ? '?org_id=' + encodeURIComponent(orgId) : ''), { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+            colsByOrg[key] = ((r && r.data) || []).filter(c => c.status !== 'archived');
+        }
+        return colsByOrg[key];
+    }
+
+    async function loadQueue(keepId) {
+        const p = new URLSearchParams();
+        if ($('qfOrg').value) p.set('org', $('qfOrg').value);
+        if ($('qfField').value) p.set('field', $('qfField').value);
+        if ($('qfMine').checked) p.set('mine', '1');
+        const r = await fetch('/api/quick_fill?' + p, { cache: 'no-store' }).then(r => r.json());
+        if (r.status !== 'success') { $('qfStage').innerHTML = `<div class="qf-done"><p>${esc(r.message || 'بارگذاری نشد')}</p></div>`; return; }
+        if (!fields.length) {
+            fields = r.fields;
+            $('qfField').insertAdjacentHTML('beforeend', fields.map(f => `<option value="${f.key}">${esc(f.label)}</option>`).join(''));
+        }
+        queue = r.items;
+        doneToday = r.done_today || 0;
+        startTotal = queue.length;
+        idx = 0;
+        if (keepId) { const i = queue.findIndex(x => x.id === keepId); if (i > 0) idx = i; }
+        renderProgress();
+        await renderCard();
+    }
+
+    function renderProgress() {
+        const left = queue.length;
+        $('qfDoneTxt').textContent = doneToday ? `امروز ${fa(doneToday)} کارت کامل شد` : 'امروز هنوز کارتی کامل نشده';
+        $('qfLeftTxt').textContent = left ? `${fa(left)} کارت ناقص مانده` : '';
+        const pct = doneToday + left ? Math.round(doneToday / (doneToday + left) * 100) : 100;
+        $('qfBar').style.width = pct + '%';
+        if (window.updateQuickFillBadge) window.updateQuickFillBadge(left);
+    }
+
+    // ───────── Card ─────────
+    function avatarHtml(m) {
+        if (!m) return '<div class="qf-avatar none" title="بدون مدیر پروژه"><i class=ai data-ic=user></i></div>';
+        const url = m.avatar_url && window.safeUrl ? window.safeUrl(m.avatar_url) : '';
+        return `<div class="qf-avatar" title="مدیر پروژه: ${esc(m.name)}">${url ? `<img src="${esc(url)}" alt="" data-fallback-icon="user">` : esc(initials(m.name))}</div>`;
+    }
+    function personOpt(p, on, attrs) {
+        const url = p.avatar_url && window.safeUrl ? window.safeUrl(p.avatar_url) : '';
+        return `<button type="button" class="qf-opt${on ? ' on' : ''}" ${attrs}>${url ? `<img class="av" src="${esc(url)}" alt="">` : `<span class="av">${esc(initials(personName(p)))}</span>`}${esc(personName(p))}</button>`;
+    }
+    async function fieldHtml(key, item) {
+        const label = (fields.find(f => f.key === key) || {}).label || key;
+        let body = '';
+        if (key === 'content_type') {
+            const list = active(settingsData.content_type);
+            body = list.length ? `<div class="qf-opts" data-single="content_type">${list.map(t => `<button type="button" class="qf-opt" data-v="${esc(t.setting_key)}">${esc(t.setting_key)}</button>`).join('')}</div>` : `<div class="qf-hint">نوع محتوایی در «تنظیمات پایه ← نوع محتوا و تعرفه» تعریف نشده است.</div>`;
+        } else if (key === 'collection') {
+            const cols = await collectionsOf(item.org && item.org.id);
+            body = `<input class="form-control" id="qfCol" list="qfColList" placeholder="یک مجموعه را انتخاب کنید یا نام تازه بنویسید" autocomplete="off">
+                <datalist id="qfColList">${cols.map(c => `<option value="${esc(c.title)}"></option>`).join('')}</datalist>
+                <div class="qf-hint" id="qfColHint"></div>`;
+        } else if (key === 'project_manager') {
+            body = `<div class="qf-opts" data-single="project_manager">${people.map(p => personOpt(p, false, `data-v="${esc(personName(p))}"`)).join('')}</div>`;
+        } else if (key === 'stages') {
+            const list = active(settingsData.stages);
+            body = list.length ? `<div class="qf-opts" data-multi="stages">${list.map(s => `<button type="button" class="qf-opt" data-v="${esc(s.setting_key)}">${esc(s.setting_key)}</button>`).join('')}</div>` : `<div class="qf-hint">مرحله‌ای در «تنظیمات پایه ← مراحل تولید» تعریف نشده است.</div>`;
+        } else if (key === 'team') {
+            body = `<div class="qf-opts" data-multi="team">${people.map(p => personOpt(p, false, `data-v="${esc(personName(p))}"`)).join('')}</div>`;
+        } else if (key === 'stage_owners') {
+            body = item.stage_owners_missing.map(st => `<div class="qf-owner"><span>${esc(st)}</span><select class="form-control" data-owner="${esc(st)}"><option value="">— انتخاب مسئول —</option>${people.map(p => `<option value="${esc(p.id)}">${esc(personName(p))}</option>`).join('')}</select></div>`).join('');
+        } else if (key === 'publish_date') {
+            body = `<div class="qf-row"><input class="form-control" id="qfDate" data-jdp placeholder="تاریخ انتشار، مثلاً ۱۴۰۵/۰۹/۰۱" value="${esc(fa(item.publish_date || ''))}" autocomplete="off"><input class="form-control" type="time" id="qfTime" value="${esc(item.publish_time || '')}"></div>`;
+        } else if (key === 'platforms') {
+            const list = active(settingsData.platform);
+            body = list.length ? `<div class="qf-opts" data-multi="platforms">${list.map(s => `<button type="button" class="qf-opt" data-v="${esc(s.setting_key)}">${esc(s.setting_key)}</button>`).join('')}</div>` : `<div class="qf-hint">پلتفرمی در «تنظیمات پایه ← پلتفرم‌های انتشار» تعریف نشده است.</div>`;
+        } else if (key === 'caption') {
+            body = `<textarea class="form-control" id="qfCaption" rows="3" placeholder="متن کپشن…" style="resize:vertical"></textarea>`;
+        } else if (key === 'media') {
+            body = `<div class="qf-row"><input class="form-control" id="qfVideo" dir="ltr" placeholder="لینک ویدیو https://…"><input class="form-control" id="qfCover" dir="ltr" placeholder="لینک کاور https://…"></div>`;
+        }
+        return `<div class="qf-field" data-key="${key}"><div class="lbl"><i class=ai data-ic=${ICON[key] || 'circle'}></i> ${esc(label)}</div>${body}</div>`;
+    }
+
+    async function renderCard(direction) {
+        const stage = $('qfStage');
+        if (!queue.length) {
+            stage.innerHTML = `<div class="qf-done"><div class="big"><i class=ai data-ic=circle-check></i></div><h2>همه‌چیز کامل است</h2><p>${doneToday ? `امروز ${fa(doneToday)} کارت را کامل کردید. ` : ''}کارت ناقصی ${$('qfOrg').value || $('qfField').value || $('qfMine').checked ? 'با این فیلترها ' : ''}باقی نمانده است.</p></div>`;
+            return;
+        }
+        if (idx >= queue.length) idx = 0;
+        const item = queue[idx];
+        draft = {};
+        // Filtering by one kind of gap shows only that field, so the user can stay on one task.
+        const focus = $('qfField').value;
+        const shown = focus && item.missing.includes(focus) ? [focus] : item.missing;
+        const parts = await Promise.all(shown.map(k => fieldHtml(k, item)));
+        const org = item.org;
+        const orgHtml = org ? `<span class="qf-org">${org.logo ? `<img src="${esc(window.safeUrl ? window.safeUrl(org.logo) : org.logo)}" alt="">` : `<span class="dot" style="background:${esc(window.safeColor ? (window.safeColor(org.color) || 'var(--primary-color)') : 'var(--primary-color)')}"></span>`}${esc(org.name)}</span>` : '<span class="qf-org">بدون برند</span>';
+        const chips = [
+            item.mine ? '<span class="qf-chip mine"><i class=ai data-ic=user></i> کار شما</span>' : '',
+            `<span class="qf-chip">${esc(STATUS[item.status] || item.status)}</span>`,
+            item.content_type ? `<span class="qf-chip">${esc(item.content_type)}</span>` : '',
+            item.collection ? `<span class="qf-chip"><i class=ai data-ic=folder></i> ${esc(item.collection.title)}</span>` : '',
+            item.publish_date ? `<span class="qf-chip${item.overdue ? ' late' : ''}"><i class=ai data-ic=calendar></i> ${esc(fa(item.publish_date))}${item.overdue ? ' — گذشته' : ''}</span>` : '',
+        ].join('');
+        const html = `<div class="qf-ghost g2"></div><div class="qf-ghost g1"></div>
+            <article class="qf-card enter" id="qfCard" tabindex="-1" aria-label="${esc(item.title)}">
+                ${avatarHtml(item.manager)}
+                <div class="qf-manager-name">${item.manager ? 'مدیر پروژه: ' + esc(item.manager.name) : 'هنوز مدیر پروژه ندارد'}</div>
+                <div class="qf-head">${orgHtml}<div class="qf-title">${esc(item.title)}</div><div class="qf-chips">${chips}</div></div>
+                <div class="qf-gaps">${fa(item.missing.length)} جای خالی${shown.length < item.missing.length ? ' (فقط «' + esc((fields.find(f => f.key === focus) || {}).label || '') + '» نمایش داده شده)' : ''} — کارت ${fa(idx + 1)} از ${fa(queue.length)}</div>
+                ${parts.join('')}
+                <div class="qf-actions">
+                    <button type="button" class="skip" id="qfSkip" title="رد کن (Esc)"><i class=ai data-ic=arrow-left></i> رد کن</button>
+                    <button type="button" class="later" id="qfLater" title="تا فردا نشان نده"><i class=ai data-ic=clock></i> بعداً</button>
+                    <button type="button" class="save" id="qfSave" disabled><i class=ai data-ic=check></i> ذخیره و بعدی</button>
+                </div>
+                <div class="qf-keys"><kbd>Enter</kbd> ذخیره و بعدی (در کپشن <kbd>Ctrl</kbd>+<kbd>Enter</kbd>) · <kbd>Esc</kbd> رد کن · روی گوشی: کارت را به کنار بکشید</div>
+            </article>`;
+        stage.innerHTML = html;
+        const card = $('qfCard');
+        requestAnimationFrame(() => requestAnimationFrame(() => card.classList.remove('enter')));
+        if (window.jalaliDatepicker && $('qfDate')) { try { jalaliDatepicker.startWatch({ persianDigits: true, time: false, hideAfterChange: true, autoHide: true }); } catch (e) {} }
+        wireCard(card, item);
+        // Typing fields get the focus; with only choice buttons the card itself does (keys still work).
+        const firstField = card.querySelector('.qf-field');
+        const first = firstField && firstField.querySelector('input:not([type=time])');
+        if (window.matchMedia('(min-width: 700px)').matches) (first || card).focus({ preventScroll: true });
+    }
+
+    function wireCard(card, item) {
+        card.addEventListener('click', (e) => {
+            const opt = e.target.closest('.qf-opt');
+            if (!opt) return;
+            const single = opt.parentElement.dataset.single, multi = opt.parentElement.dataset.multi;
+            if (single) {
+                const was = opt.classList.contains('on');
+                opt.parentElement.querySelectorAll('.qf-opt').forEach(o => o.classList.remove('on'));
+                if (!was) opt.classList.add('on');
+            } else if (multi) opt.classList.toggle('on');
+            readDraft(card);
+        });
+        card.addEventListener('input', () => readDraft(card));
+        card.addEventListener('change', () => readDraft(card));
+        $('qfSave').onclick = () => save(item);
+        $('qfSkip').onclick = () => skip('left');
+        $('qfLater').onclick = () => later(item);
+        // Swipe (touch / mouse): far enough sideways means "skip".
+        let startX = null, dx = 0;
+        card.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'mouse' || e.target.closest('input, textarea, select, button, datalist')) return;
+            startX = e.clientX; dx = 0; card.classList.add('dragging');
+        });
+        card.addEventListener('pointermove', (e) => {
+            if (startX === null) return;
+            dx = e.clientX - startX;
+            card.style.transform = `translateX(${dx}px) rotate(${dx / 25}deg)`;
+        });
+        const end = () => {
+            if (startX === null) return;
+            card.classList.remove('dragging');
+            startX = null;
+            if (Math.abs(dx) > 110) { card.style.transform = ''; skip(dx < 0 ? 'left' : 'right'); }
+            else card.style.transform = '';
+        };
+        card.addEventListener('pointerup', end);
+        card.addEventListener('pointercancel', end);
+    }
+
+    function readDraft(card) {
+        const d = {};
+        card.querySelectorAll('[data-single]').forEach(box => { const on = box.querySelector('.qf-opt.on'); if (on) d[box.dataset.single] = on.dataset.v; });
+        card.querySelectorAll('[data-multi]').forEach(box => { const on = [...box.querySelectorAll('.qf-opt.on')].map(o => o.dataset.v); if (on.length) d[box.dataset.multi] = on; });
+        const col = $('qfCol');
+        if (col && col.value.trim()) {
+            const item = queue[idx];
+            const cols = colsByOrg[String((item.org && item.org.id) || '')] || [];
+            const match = cols.find(c => c.title === col.value.trim());
+            d.collection = match ? match.id : col.value.trim();
+            $('qfColHint').textContent = match ? '✓ در همین مجموعه قرار می‌گیرد.' : 'مجموعه‌ی تازه‌ای با این نام برای همین برند ساخته می‌شود.';
+        } else if ($('qfColHint')) $('qfColHint').textContent = '';
+        const owners = {};
+        card.querySelectorAll('[data-owner]').forEach(s => { if (s.value) owners[s.dataset.owner] = s.value; });
+        if (Object.keys(owners).length) d.stage_owners = owners;
+        const date = $('qfDate'), time = $('qfTime');
+        if (date && date.value.trim()) d.publish_date = window.toEnglishDigits ? window.toEnglishDigits(date.value.trim()) : date.value.trim();
+        if (time && time.value) d.publish_time = time.value;
+        const cap = $('qfCaption'); if (cap && cap.value.trim()) d.caption = cap.value.trim();
+        const v = $('qfVideo'), c = $('qfCover');
+        if (v && v.value.trim()) d.video_link = v.value.trim();
+        if (c && c.value.trim()) d.cover_link = c.value.trim();
+        draft = d;
+        $('qfSave').disabled = !Object.keys(d).length;
+        return d;
+    }
+
+    function leave(cls) {
+        return new Promise((resolve) => {
+            const card = $('qfCard');
+            if (!card) return resolve();
+            card.classList.add(cls);
+            setTimeout(resolve, 260);
+        });
+    }
+
+    async function skip(dir) {
+        if (!queue.length) return;
+        await leave(dir === 'right' ? 'leave-right' : 'leave-left');
+        const [it] = queue.splice(idx, 1);
+        queue.push(it);
+        if (idx >= queue.length) idx = 0;
+        renderCard();
+    }
+
+    async function later(item) {
+        await fetch('/api/quick_fill_snooze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id }) }).catch(() => {});
+        await leave('leave-left');
+        queue.splice(idx, 1);
+        renderProgress();
+        renderCard();
+        if (window.showToast) window.showToast('این کارت تا فردا نشان داده نمی‌شود', 'info');
+    }
+
+    async function save(item) {
+        const values = Object.keys(draft).length ? draft : readDraft($('qfCard'));
+        if (!Object.keys(values).length) return;
+        $('qfSave').disabled = true;
+        let r;
+        try {
+            r = await fetch('/api/quick_fill_save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, values }) }).then(x => x.json());
+        } catch (e) { r = { status: 'error', message: 'خطا در ارتباط با سرور' }; }
+        if (r.status !== 'success') { $('qfSave').disabled = false; if (window.showToast) window.showToast(r.message || 'ذخیره نشد', 'error'); return; }
+        doneToday = r.done_today || doneToday;
+        const res = r.data[0] || { missing: [] };
+        offerBatch(item, values);
+        await leave('leave-done');
+        if (res.missing.length) {
+            // Still has gaps (filled only some): it goes to the back of the line.
+            const [it] = queue.splice(idx, 1);
+            it.missing = res.missing;
+            queue.push(it);
+        } else queue.splice(idx, 1);
+        if (idx >= queue.length) idx = 0;
+        renderProgress();
+        renderCard();
+    }
+
+    // ───────── Same value for the next cards of the same brand ─────────
+    function valueLabel(key, v) {
+        if (key === 'collection') { const cols = Object.values(colsByOrg).flat(); const c = cols.find(x => x.id === v); return c ? c.title : v; }
+        return Array.isArray(v) ? v.join('، ') : v;
+    }
+    function offerBatch(item, values) {
+        const box = $('qfBatch');
+        const orgId = item.org && item.org.id;
+        const offers = SHAREABLE.filter(k => values[k] !== undefined).map(k => {
+            const ids = queue.filter(x => x.id !== item.id && (x.org && x.org.id) === orgId && x.missing.includes(k)).slice(0, 10).map(x => x.id);
+            return { key: k, value: values[k], ids };
+        }).filter(o => o.ids.length);
+        if (!offers.length) { box.classList.remove('open'); return; }
+        const label = (k) => (fields.find(f => f.key === k) || {}).label || k;
+        box.innerHTML = `<div class="t"><span><i class=ai data-ic=sparkles></i> همین را برای کارت‌های بعدیِ ${esc(item.org ? item.org.name : 'بدون برند')} هم بگذارم؟</span><button type="button" data-close aria-label="بستن">✕</button></div>
+            <div class="qf-opts">${offers.map((o, i) => `<button type="button" class="qf-opt" data-batch="${i}">${esc(label(o.key))}: ${esc(valueLabel(o.key, o.value))} — برای ${fa(o.ids.length)} کارت</button>`).join('')}</div>`;
+        box.classList.add('open');
+        box.onclick = async (e) => {
+            if (e.target.closest('[data-close]')) { box.classList.remove('open'); return; }
+            const b = e.target.closest('[data-batch]');
+            if (!b) return;
+            const o = offers[Number(b.dataset.batch)];
+            b.disabled = true;
+            const r = await fetch('/api/quick_fill_save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: o.ids, values: { [o.key]: o.value } }) }).then(x => x.json()).catch(() => ({}));
+            if (r.status === 'success') {
+                b.remove();
+                if (window.showToast) window.showToast(`${fa(r.data.length)} کارت دیگر هم به‌روز شد`, 'success');
+                const current = queue[idx] && queue[idx].id;
+                await loadQueue(current);
+                if (!box.querySelector('[data-batch]')) box.classList.remove('open');
+            } else if (window.showToast) window.showToast(r.message || 'انجام نشد', 'error');
+        };
+    }
+
+    // Keyboard: Enter saves (Ctrl+Enter inside the caption), Esc skips.
+    document.addEventListener('keydown', (e) => {
+        if (!$('qfCard')) return;
+        if (document.querySelector('.jdp-container') && getComputedStyle(document.querySelector('.jdp-container')).display !== 'none' && e.key === 'Escape') return;
+        if (e.key === 'Escape') { e.preventDefault(); skip('left'); }
+        else if (e.key === 'Enter') {
+            const inArea = e.target.tagName === 'TEXTAREA';
+            if (inArea && !(e.ctrlKey || e.metaKey)) return;
+            // On a choice button Space picks it; Enter always means "save and next".
+            e.preventDefault();
+            if (!$('qfSave').disabled) $('qfSave').click();
+        }
+    });
+
+    ['qfOrg', 'qfField', 'qfMine'].forEach(id => $(id).addEventListener('change', () => loadQueue()));
+    window.addEventListener('DOMContentLoaded', async () => {
+        const q = new URLSearchParams(location.search);
+        await loadOptions();
+        if (q.get('org')) $('qfOrg').value = q.get('org');
+        if (q.get('mine') === '1') $('qfMine').checked = true;
+        await loadQueue();
+        if (q.get('field')) { $('qfField').value = q.get('field'); loadQueue(); }
+    });
+})();
+</script>
+</body>
+</html>

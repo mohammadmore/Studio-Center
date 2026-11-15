@@ -577,9 +577,10 @@ document.addEventListener('DOMContentLoaded', function () {
 </svg>
                         <span>کارخانه محتوا</span>
                     </div>
-                    <span class="asva-arrow <%= ['depot', 'collections', 'archive', 'media', 'templates'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
+                    <span class="asva-arrow <%= ['depot', 'collections', 'archive', 'media', 'templates', 'quick-fill'].includes(current) ? 'open' : '' %>" style="font-size:12px;">◀</span>
                 </div>
-                <ul id="content-menu" class="asva-submenu <%= ['depot', 'collections', 'archive', 'media', 'templates'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                <ul id="content-menu" class="asva-submenu <%= ['depot', 'collections', 'archive', 'media', 'templates', 'quick-fill'].includes(current) ? 'open' : '' %>" style="padding-right: 20px; list-style: none;">
+                    <li><a href="quick-fill" class="<%= current === 'quick-fill' ? 'active' : '' %> asva-menu-link" ><span aria-hidden="true" style="width:24px;display:inline-flex;justify-content:center"><i class=ai data-ic=sparkles style="width:20px;height:20px"></i></span> تکمیل سریع <span id="qf-badge" class="qf-menu-badge" hidden></span></a></li>
                     <% if (userPermissions.includes('depot')) { %><li><a href="depot" class="<%= current === 'depot' ? 'active' : '' %> asva-menu-link" ><!-- @license lucide-static v1.28.0 - ISC -->
 <svg
   class="lucide lucide-inbox"
@@ -2107,6 +2108,31 @@ window.resetShortcuts = async function() {
     if (window.showToast) window.showToast('کلید‌های میانبر به حالت پیشفرض بازگشتند.', 'success');
 };
 </script>
-
-
-
+<style>
+    .qf-menu-badge { margin-right: auto; background: var(--error-color); color: #fff; font-size: 0.7rem; font-weight: bold; border-radius: 999px; padding: 1px 7px; min-width: 18px; text-align: center; line-height: 1.6; }
+    .qf-menu-badge[hidden] { display: none; }
+</style>
+<script>
+(function () {
+    // Number of incomplete cards next to "Quick fill" (cached for a minute across pages).
+    function show(n) {
+        var b = document.getElementById('qf-badge');
+        if (!b) return;
+        b.hidden = !n;
+        b.textContent = n > 99 ? '۹۹+' : (window.toPersianDigits ? window.toPersianDigits(String(n)) : String(n));
+    }
+    window.updateQuickFillBadge = function (n) {
+        show(n);
+        try { sessionStorage.setItem('asva-qf-count', JSON.stringify({ n: n, at: Date.now() })); } catch (e) {}
+    };
+    var cached = null;
+    try { cached = JSON.parse(sessionStorage.getItem('asva-qf-count') || 'null'); } catch (e) {}
+    if (cached && Date.now() - cached.at < 60000) { show(cached.n); return; }
+    if (!document.getElementById('qf-badge')) return;
+    setTimeout(function () {
+        fetch('/api/quick_fill_count', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+            if (d && d.status === 'success') window.updateQuickFillBadge(d.total);
+        }).catch(function () {});
+    }, 600);
+})();
+</script>

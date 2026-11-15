@@ -36,7 +36,7 @@ function roleGrantsAdmin(roleId: any) {
 
 function withRoleName(c: any) {
   const role = roles.find((r) => r.id == c?.role_id);
-  const { saved_views, running_timer, hourly_cost, ...safe } = stripSecrets(c) as any;
+  const { saved_views, running_timer, hourly_cost, quick_fill, ...safe } = stripSecrets(c) as any;
   return { ...safe, avatar_url: effectiveAvatar(c), role_name: role ? role.name : "کارشناس" };
 }
 

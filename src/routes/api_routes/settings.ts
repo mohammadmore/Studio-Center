@@ -41,7 +41,7 @@ subRouter.get("/manage_settings", (req, res) => {
   const activeSettings: Record<string, any> = {};
   for (const key of Object.keys(settings)) {
     // Internal bookkeeping never leaves the server.
-    if (key === "admin_reset_applied") continue;
+    if (key === "admin_reset_applied" || key === "invoice_send_rule") continue;
     // Clients only need the lists used to label content (types, platforms, ...).
     if (isClient(req) && !Array.isArray(settings[key])) continue;
     if (Array.isArray(settings[key])) {

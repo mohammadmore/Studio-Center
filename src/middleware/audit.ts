@@ -129,6 +129,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/finance": "امور مالی",
   "/collections": "مجموعه‌ها",
   "/my-projects": "پروژه‌های من",
+  "/quick-fill": "تکمیل سریع کارت‌ها",
   "/media": "کتابخانه دارایی‌ها",
   "/templates": "قالب‌ها",
   "/client-portal": "پورتال کارفرما",

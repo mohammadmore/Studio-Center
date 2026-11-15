@@ -943,3 +943,71 @@ describe("creating a complete card in one step", () => {
     state.settings.workflow.internal_approval_required = false;
   });
 });
+
+describe("quick fill", () => {
+  it("queues incomplete cards (own work first) with only their empty parts, and fills them", async () => {
+    state.contents.push(
+      { id: 901, title: "کارت خام بی‌نوع", org_id: 1, status: "raw" },
+      { id: 902, title: "کارت در تولید", org_id: 1, status: "in_progress", content_type: "ریلز", project_manager: "مدیر", stages: ["سناریو", "تدوین"], publish_date: "1405/09/01" },
+      { id: 903, title: "کارت منتشرشده", org_id: 2, status: "published", content_type: "پوستر", collection_id: null, caption: "متن", publish_platforms: ["اینستاگرام"] },
+    );
+    const admin = await login("admin");
+    const q = await admin.get("/api/quick_fill");
+    assert.equal(q.body.status, "success");
+    const byId = (id: number) => q.body.items.find((x: any) => x.id === id);
+    // A raw card is not asked for a video link; a published one is.
+    assert.deepEqual(byId(901).missing, ["content_type", "collection"]);
+    assert.ok(!byId(901).missing.includes("media"));
+    assert.ok(byId(903).missing.includes("media"));
+    assert.ok(byId(902).missing.includes("team") && byId(902).missing.includes("stage_owners") && byId(902).missing.includes("publish_date"));
+    // Own cards (admin manages 902) come before the others.
+    const firstOther = q.body.items.findIndex((x: any) => !x.mine);
+    const lastMine = q.body.items.map((x: any) => x.mine).lastIndexOf(true);
+    assert.ok(lastMine < firstOther || firstOther === -1);
+    assert.equal(byId(902).manager.name, "مدیر");
+
+    // Only empty fields are written; a filled field is left alone.
+    const save = await admin.post("/api/quick_fill_save").send({ id: 901, values: { content_type: "پوستر", collection: "کمپین زمستان", caption: "نباید نوشته شود" } });
+    assert.equal(save.body.status, "success");
+    const c901 = card(901);
+    assert.equal(c901.content_type, "پوستر");
+    assert.ok(c901.collection_id);
+    assert.equal(c901.caption, undefined);
+    assert.equal(save.body.completed, 1);
+    assert.equal(state.batch_operations[0].title, "تکمیل سریع");
+
+    // Same value for several cards at once; stage owners and time.
+    await admin.post("/api/quick_fill_save").send({ id: 902, values: { team: ["علی"], stage_owners: { "سناریو": 2, "تدوین": 2 }, publish_time: "18:30" } });
+    assert.deepEqual(card(902).assigned_colleagues, ["علی"]);
+    assert.equal(card(902).stage_plan["تدوین"].owner_id, 2);
+    assert.equal(card(902).publish_time, "18:30");
+
+    // "Later" hides a card until tomorrow, for this user only.
+    await admin.post("/api/quick_fill_snooze").send({ id: 903 });
+    assert.ok(!(await admin.get("/api/quick_fill")).body.items.some((x: any) => x.id === 903));
+    const ali = await login("ali");
+    assert.ok((await ali.get("/api/quick_fill")).body.items.some((x: any) => x.id === 903));
+  });
+
+  it("follows the rules from settings and keeps managers' fields from other colleagues", async () => {
+    const admin = await login("admin");
+    await admin.post("/api/quick_fill_rules").send({ rules: { collection: "off", media: "raw" } });
+    const rules = await admin.get("/api/quick_fill_rules");
+    assert.equal(rules.body.data.collection, "off");
+    assert.equal(rules.body.data.media, "raw");
+    state.contents.push({ id: 904, title: "کارت نویسنده", org_id: 1, status: "raw", assigned_colleagues: ["نویسنده"] });
+    state.roles.push({ id: 9, name: "نویسنده", permissions: ["timesheet"] });
+    state.colleagues.push({ id: 9, username: "writer", passwordHash: state.colleagues[0].passwordHash, full_name: "نویسنده", role_id: 9, is_active: 1 });
+    const writer = await login("writer");
+    const q = await writer.get("/api/quick_fill");
+    const it = q.body.items.find((x: any) => x.id === 904);
+    assert.ok(it, "assigned card is in the writer's queue");
+    assert.ok(!q.body.items.some((x: any) => x.id === 901), "cards of others are not");
+    assert.ok(!it.missing.includes("project_manager") && !it.missing.includes("collection"));
+    assert.ok(it.missing.includes("media"));
+    assert.equal((await writer.post("/api/quick_fill_rules").send({ rules: {} })).status, 403);
+    await admin.post("/api/quick_fill_rules").send({ rules: {} });
+    const client = await login("brand1");
+    assert.equal((await client.get("/api/quick_fill")).status, 403);
+  });
+});

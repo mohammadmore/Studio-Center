@@ -2065,5 +2065,37 @@ function autoFillPmDate() {
 }
 </style>
 
+<style>
+    .qf-nudge { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 12%, var(--card-bg)), var(--card-bg)); border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent); border-radius: 14px; padding: 12px 16px; margin: 0 0 16px; }
+    .qf-nudge .t { display: flex; align-items: center; gap: 10px; font-weight: bold; }
+    .qf-nudge .t i.ai { color: var(--primary-color); font-size: 1.3rem; }
+    .qf-nudge small { display: block; font-weight: normal; color: var(--text-gray); }
+    .qf-nudge .a { display: flex; gap: 8px; align-items: center; }
+    .qf-nudge .x { background: none; border: none; color: var(--text-gray); cursor: pointer; font: inherit; font-size: 0.85rem; }
+</style>
+<script>
+// "N incomplete cards — start" on the desk, until dismissed for this session.
+document.addEventListener('DOMContentLoaded', function () {
+    try { if (sessionStorage.getItem('asva-qf-nudge-off')) return; } catch (e) {}
+    setTimeout(function () {
+        fetch('/api/quick_fill_count', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || d.status !== 'success' || !d.total) return;
+            if (window.updateQuickFillBadge) window.updateQuickFillBadge(d.total);
+            var main = document.querySelector('.main-content');
+            if (!main || document.querySelector('.qf-nudge')) return;
+            var box = document.createElement('section');
+            box.className = 'qf-nudge';
+            box.setAttribute('aria-label', 'کارت‌های ناقص');
+            var fa = window.toPersianDigits || String;
+            box.innerHTML = '<div class="t"><i class=ai data-ic=sparkles></i><span>' + fa(String(d.total)) + ' کارت جای خالی دارد' +
+                '<small>' + (d.mine ? fa(String(d.mine)) + ' تا از آن‌ها کار خود شماست. ' : '') + 'در «تکمیل سریع» یکی‌یکی می‌آیند و فقط جاهای خالی‌شان را پر می‌کنید.</small></span></div>' +
+                '<div class="a"><button type="button" class="x">بعداً</button><a class="btn-primary" href="quick-fill" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">شروع تکمیل سریع <i class=ai data-ic=arrow-left></i></a></div>';
+            var anchor = main.querySelector('.asva-setup') || main.querySelector('.page-header-container');
+            if (anchor && anchor.parentNode === main) anchor.insertAdjacentElement('afterend', box); else main.insertBefore(box, main.firstChild);
+            box.querySelector('.x').onclick = function () { box.remove(); try { sessionStorage.setItem('asva-qf-nudge-off', '1'); } catch (e) {} };
+        }).catch(function () {});
+    }, 900);
+});
+</script>
 </body>
 </html>

@@ -36,6 +36,7 @@ const STAFF_PAGES: [string, string, string | string[] | undefined][] = [
   ["/collections", "collections", "collections"],
   ["/archive", "archive", "archive"],
   ["/my-projects", "my-projects", undefined],
+  ["/quick-fill", "quick-fill", undefined],
   ["/dashboard", "dashboard", "dashboard"],
   ["/calendar", "calendar", "calendar"],
   ["/smart-events", "smart-events", "smart-events"],

@@ -139,7 +139,11 @@
             flex: none !important;
         }
     }
-        .bank-accounts { display: flex; flex-direction: column; gap: 10px; }
+        .qf-rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+    .qf-rule { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(128,128,128,0.04); }
+    .qf-rule b { font-size: 0.9rem; }
+    .qf-rule select { width: 100%; }
+    .bank-accounts { display: flex; flex-direction: column; gap: 10px; }
     .bank-row { display: grid; grid-template-columns: 1.1fr 1.2fr 1.2fr 1.6fr auto; gap: 8px; align-items: end; padding: 12px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(128,128,128,0.04); }
     .bank-row.is-default { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 6%, transparent); }
     .bank-row label { font-size: 0.78rem; color: var(--text-gray); display: flex; flex-direction: column; gap: 4px; }
@@ -191,6 +195,7 @@
                     <button class="s-tab" onclick="switchTab('roles', this)">سطح دسترسی</button>
                     <button class="s-tab" onclick="switchTab('routine_holidays', this)">روز‌های تعطیل</button>
                                     <button class="s-tab" onclick="switchTab('fonts', this)">فونت‌ها</button>
+                    <button class="s-tab" onclick="switchTab('quick_fill', this)">تکمیل سریع</button>
                 </div>
 
                 
@@ -297,6 +302,15 @@
                     <div id="holidays-list" class="flex-responsive" style="display: flex; gap: 15px; flex-wrap: wrap;"></div>
                 </div>
 
+                <div id="quickfill-container" style="display: none;">
+                    <div class="card-title"><span><i class=ai data-ic=sparkles></i></span> چه چیزی «جای خالی» حساب شود</div>
+                    <p style="color: var(--text-gray); font-size: 0.88rem; margin: 0 0 14px;">هر مشخصه از مرحله‌ای که اینجا انتخاب می‌کنید به بعد، اگر خالی باشد، کارت در «تکمیل سریع» نشان داده می‌شود. «غیرفعال» یعنی این مشخصه هیچ‌وقت جای خالی حساب نشود.</p>
+                    <div id="qfRules" class="qf-rules"></div>
+                    <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+                        <button type="button" class="btn-primary" onclick="saveQuickFillRules()"><i class=ai data-ic=save></i> ذخیره قوانین</button>
+                        <button type="button" class="btn-outline" onclick="resetQuickFillRules()">بازگشت به پیش‌فرض</button>
+                    </div>
+                </div>
                 <div id="fonts-container" style="display: none;">
                     <!-- بخش 1: کتابخانه فونت‌ها -->
             
@@ -644,6 +658,37 @@
                 showToast('خطا در ارتباط با سرور', 'error');
             } } 
             
+        // ───────── Quick-fill rules ─────────
+        const QF_STATUS_NAMES = { raw: 'ورودی خام', todo: 'در صف انتظار', in_progress: 'در حال تولید', review: 'ارزیابی استودیو', client_review: 'ارزیابی کارفرما', needs_revision: 'نیاز به اصلاح', done: 'تکمیل شده', approved_by_client: 'تایید کارفرما', ready_to_publish: 'آماده انتشار', scheduled: 'زمان‌بندی شده', published: 'منتشر شده' };
+        let qfRuleInfo = null;
+        async function loadQuickFillRules() {
+            const r = await fetch('/api/quick_fill_rules', { cache: 'no-store' }).then(x => x.json()).catch(() => null);
+            if (!r || r.status !== 'success') return;
+            qfRuleInfo = r;
+            renderQuickFillRules(r.data);
+        }
+        function renderQuickFillRules(rules) {
+            const r = qfRuleInfo;
+            document.getElementById('qfRules').innerHTML = r.fields.map(f => `<label class="qf-rule"><b>${escapeHtml(f.label)}</b>
+                <select class="form-control" data-rule="${f.key}">
+                    <option value="off"${rules[f.key] === 'off' ? ' selected' : ''}>غیرفعال</option>
+                    ${r.statuses.map(s => `<option value="${s}"${rules[f.key] === s ? ' selected' : ''}>از «${escapeHtml(QF_STATUS_NAMES[s] || s)}»${s === f.default ? ' (پیش‌فرض)' : ''}</option>`).join('')}
+                </select></label>`).join('');
+        }
+        window.saveQuickFillRules = async function () {
+            const rules = {};
+            document.querySelectorAll('#qfRules [data-rule]').forEach(s => { rules[s.dataset.rule] = s.value; });
+            const r = await fetch('/api/quick_fill_rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rules }) }).then(x => x.json()).catch(() => ({}));
+            showToast(r.message || 'ذخیره نشد', r.status === 'success' ? 'success' : 'error');
+            try { sessionStorage.removeItem('asva-qf-count'); } catch (e) {}
+        };
+        window.resetQuickFillRules = function () {
+            if (!qfRuleInfo) return;
+            const def = {}; qfRuleInfo.fields.forEach(f => { def[f.key] = f.default; });
+            renderQuickFillRules(def);
+            showToast('پیش‌فرض‌ها جایگزین شد؛ برای ماندگاری «ذخیره قوانین» را بزنید.', 'info');
+        };
+
         function switchTab(group, btnElement) {
             localStorage.setItem('activeSettingsTab', group);
             document.querySelectorAll('.s-tab').forEach(b => b.classList.remove('active'));
@@ -660,6 +705,8 @@
             const studioContainer = document.getElementById('studio-settings-container');
             const holidaysContainer = document.getElementById('holidays-container');
             const fontsContainer = document.getElementById('fonts-container');
+            const qfContainer = document.getElementById('quickfill-container');
+            if (qfContainer) qfContainer.style.display = 'none';
             
             stdContainer.style.display = 'none';
             if (rolesContainer) rolesContainer.style.display = 'none';
@@ -674,6 +721,10 @@
             } else if (group === 'studio_info') {
                 if (studioContainer) studioContainer.style.display = 'block';
                 loadStudioInfo();
+                return;
+            } else if (group === 'quick_fill') {
+                if (qfContainer) qfContainer.style.display = 'block';
+                loadQuickFillRules();
                 return;
             } else if (group === 'fonts') {
                 if (fontsContainer) fontsContainer.style.display = 'block';
