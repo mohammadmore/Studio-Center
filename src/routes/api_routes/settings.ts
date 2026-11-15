@@ -385,8 +385,33 @@ subRouter.get("/backups/download", adminOnly, (req: any, res) => {
   res.download(file, String(req.query.name));
 });
 
+/** The studio's bank accounts; a single account saved the old way counts as the default one. */
+export function bankAccounts(info: any = settings.studio_info || {}) {
+  if (Array.isArray(info.bank_accounts) && info.bank_accounts.length) return info.bank_accounts;
+  if (info.shaba || info.card_number || info.account_holder) {
+    return [{ id: "main", title: "حساب اصلی", holder: info.account_holder || info.manager_name || "", card: info.card_number || "", shaba: info.shaba || "", is_default: true }];
+  }
+  return [];
+}
+
+function cleanBankAccounts(list: unknown) {
+  if (!Array.isArray(list)) return [];
+  const str = (v: unknown, max = 120) => (typeof v === "string" || typeof v === "number" ? String(v).trim().slice(0, max) : "");
+  const seen = new Set<string>();
+  const out = list.slice(0, 20).map((a: any, i: number) => {
+    let id = str(a?.id, 40).replace(/[^a-z0-9_-]/gi, "") || `acc${i + 1}`;
+    while (seen.has(id)) id += "x";
+    seen.add(id);
+    return { id, title: str(a?.title), holder: str(a?.holder), card: str(a?.card, 40), shaba: str(a?.shaba, 40), is_default: a?.is_default === true };
+  }).filter((a) => a.title || a.holder || a.card || a.shaba);
+  if (out.length && !out.some((a) => a.is_default)) out[0].is_default = true;
+  let found = false;
+  for (const a of out) { if (a.is_default && found) a.is_default = false; if (a.is_default) found = true; }
+  return out;
+}
+
 subRouter.get("/get_studio_info", (req, res) => {
-  res.json({ status: "success", data: settings.studio_info || {} });
+  res.json({ status: "success", data: { ...(settings.studio_info || {}), bank_accounts: bankAccounts() } });
 });
 
 subRouter.post(
@@ -399,6 +424,15 @@ subRouter.post(
         if (/^[a-z][a-z0-9_]{0,40}$/i.test(k) && (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null)) {
           updates[k] = /^logo/.test(k) ? safeUrl(v) : v;
         }
+      }
+      if (Array.isArray(req.body.bank_accounts)) {
+        const accounts = cleanBankAccounts(req.body.bank_accounts);
+        updates.bank_accounts = accounts;
+        // Older screens read the single-account fields: keep them equal to the default account.
+        const def = accounts.find((a) => a.is_default);
+        updates.shaba = def?.shaba || "";
+        updates.card_number = def?.card || "";
+        updates.account_holder = def?.holder || "";
       }
       settings.studio_info = { ...settings.studio_info, ...updates };
       saveDatabase();

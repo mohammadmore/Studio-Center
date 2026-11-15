@@ -327,6 +327,56 @@ describe("invoices reach the client only when sent", () => {
     assert.equal((await client.get("/api/invoice_item_suggestions")).status, 403);
   });
 
+  it("keeps every version when saving over an invoice, or issues a new number", async () => {
+    const admin = await login("admin");
+    const base = { action: "save", org_id: 1, doc_type: "invoice", status: "issued", issue_date: "1405/08/01", currency: "toman" };
+    const first = await admin.post("/api/invoices").send({ ...base, items: [{ type: "پوستر", qty: 1, unit_price: 100, row_total: 100 }], subtotal: 100, total: 100 });
+    const id = first.body.data.id;
+    assert.equal(first.body.data.version, 1);
+    const same = await admin.post("/api/invoices").send({ ...base, id, items: [{ type: "پوستر", qty: 1, unit_price: 100, row_total: 100 }], subtotal: 100, total: 100 });
+    assert.equal(same.body.data.version, 1, "no change, no new version");
+    const second = await admin.post("/api/invoices").send({ ...base, id, items: [{ type: "پوستر", qty: 2, unit_price: 100, row_total: 200 }], subtotal: 200, total: 200 });
+    assert.equal(second.body.data.version, 2);
+    assert.equal(second.body.data.invoice_number, first.body.data.invoice_number);
+    const vers = await admin.get(`/api/invoice_versions?id=${id}`);
+    assert.equal(vers.body.current.no, 2);
+    assert.equal(vers.body.data.length, 1);
+    assert.equal(vers.body.data[0].no, 1);
+    assert.equal(vers.body.data[0].data.total, 100);
+    const old = await admin.get(`/api/invoice_print_data?id=${id}&version=1`);
+    assert.equal(old.body.data.total, 100);
+    assert.equal(old.body.viewing_version.latest, 2);
+    assert.equal((await admin.get(`/api/invoice_print_data?id=${id}`)).body.data.total, 200);
+
+    const copy = await admin.post("/api/invoices").send({ ...base, id, as_new: true, items: [{ type: "پوستر", qty: 3, unit_price: 100, row_total: 300 }], subtotal: 300, total: 300 });
+    assert.notEqual(copy.body.data.id, id);
+    assert.notEqual(copy.body.data.invoice_number, first.body.data.invoice_number);
+    assert.equal(copy.body.data.based_on, id);
+    assert.equal(state.invoices.find((i: any) => i.id === id).total, 200, "the original is untouched");
+
+    // Clients never get earlier versions.
+    await admin.post("/api/invoices").send({ action: "send_invoice", id });
+    const client = await login("brand1");
+    assert.equal((await client.get(`/api/invoice_print_data?id=${id}&version=1`)).body.data.total, 200);
+  });
+
+  it("stores several bank accounts and lets an invoice pick one", async () => {
+    const admin = await login("admin");
+    const saved = await admin.post("/api/save_studio_info").send({ bank_accounts: [
+      { id: "mellat", title: "ملت", holder: "الف", card: "6104", shaba: "IR01", is_default: false },
+      { id: "saman", title: "سامان", holder: "ب", card: "6219", shaba: "IR02", is_default: true },
+      { id: "x<y", title: "", holder: "", card: "", shaba: "" },
+    ] });
+    assert.equal(saved.body.data.bank_accounts.length, 2);
+    assert.equal(saved.body.data.card_number, "6219", "the default account fills the old single fields");
+    const info = await admin.get("/api/get_studio_info");
+    assert.deepEqual(info.body.data.bank_accounts.map((a: any) => a.id), ["mellat", "saman"]);
+    const inv = await admin.post("/api/invoices").send({ action: "save", org_id: 1, items: [], total: 0, bank_account_id: "mellat" });
+    assert.equal(inv.body.data.bank_account_id, "mellat");
+    await admin.post("/api/invoices").send({ action: "set_bank_account", id: inv.body.data.id, bank_account_id: "saman" });
+    assert.equal((await admin.get(`/api/invoice_print_data?id=${inv.body.data.id}`)).body.data.bank_account_id, "saman");
+  });
+
   it("does not show an invoice made from an accepted quote until it is sent", async () => {
     const admin = await login("admin");
     const q = await admin.post("/api/invoices").send({ action: "save", org_id: 1, doc_type: "quote", items: [{ type: "پکیج", qty: 1, unit_price: 100, row_total: 100 }], subtotal: 100, total: 100 });

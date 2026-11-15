@@ -139,7 +139,16 @@
             flex: none !important;
         }
     }
-    </style>
+        .bank-accounts { display: flex; flex-direction: column; gap: 10px; }
+    .bank-row { display: grid; grid-template-columns: 1.1fr 1.2fr 1.2fr 1.6fr auto; gap: 8px; align-items: end; padding: 12px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(128,128,128,0.04); }
+    .bank-row.is-default { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 6%, transparent); }
+    .bank-row label { font-size: 0.78rem; color: var(--text-gray); display: flex; flex-direction: column; gap: 4px; }
+    .bank-row .bank-actions { display: flex; gap: 6px; align-items: center; }
+    .bank-row .bank-actions label { flex-direction: row; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; font-size: 0.82rem; }
+    .bank-empty { color: var(--text-gray); font-size: 0.85rem; padding: 10px; border: 1px dashed var(--border-color); border-radius: 10px; text-align: center; }
+    @media (max-width: 900px) { .bank-row { grid-template-columns: 1fr 1fr; } .bank-row .bank-actions { grid-column: 1 / -1; justify-content: space-between; } }
+    @media (max-width: 600px) { .bank-row { grid-template-columns: 1fr; } }
+</style>
 </head>
 
 <body>
@@ -257,17 +266,13 @@
                                 <label style="display:block; margin-bottom:5px; color:var(--text-gray);">وبسایت</label>
                                 <input type="text" id="studio_website" name="website" class="form-control" dir="ltr">
                             </div>
-                            <div>
-                                <label style="display:block; margin-bottom:5px; color:var(--text-gray);">شماره شبا <span class="tooltip-icon" tabindex="0" data-tooltip="شماره ۲۴ رقمی شبا بدون IR وارد شود">?</span></label>
-                                <input type="text" id="studio_shaba" name="shaba" class="form-control" dir="ltr" placeholder="IR...">
-                            </div>
-                            <div>
-                                <label style="display:block; margin-bottom:5px; color:var(--text-gray);">شماره کارت</label>
-                                <input type="text" id="studio_card_number" name="card_number" class="form-control" dir="ltr">
-                            </div>
-                            <div>
-                                <label style="display:block; margin-bottom:5px; color:var(--text-gray);">صاحب حساب</label>
-                                <input type="text" id="studio_account_holder" name="account_holder" class="form-control" placeholder="نام صاحب حساب">
+                            <div style="grid-column: 1 / -1;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px;">
+                                    <label style="color:var(--text-gray); margin:0;">حساب‌های بانکی (برای پایین فاکتور)</label>
+                                    <button type="button" class="btn-outline" style="padding:6px 12px; display:inline-flex; align-items:center; gap:6px;" onclick="addBankAccount()"><i class=ai data-ic=plus></i> افزودن حساب</button>
+                                </div>
+                                <small style="display:block; color:var(--text-gray); margin-bottom:8px;">هر تعداد حساب که بخواهید تعریف کنید؛ در فاکتور با یک کلیک بین آن‌ها جابه‌جا می‌شوید. حساب «پیش‌فرض» برای فاکتورهای تازه انتخاب می‌شود.</small>
+                                <div id="bankAccounts" class="bank-accounts"></div>
                             </div>
                             <div>
                                 <label style="display:block; margin-bottom:5px; color:var(--text-gray);">اینستاگرام</label>
@@ -481,13 +486,57 @@
             loadFonts();
         });
 
+        // ───────── Bank accounts (several; one is the default for new invoices) ─────────
+        function bankRowHtml(a) {
+            const v = (x) => escapeHtml(x || '');
+            return `<div class="bank-row${a.is_default ? ' is-default' : ''}" data-id="${v(a.id)}">
+                <label>عنوان / بانک<input type="text" class="form-control" data-f="title" value="${v(a.title)}" placeholder="مثلاً: ملت — حساب شرکت"></label>
+                <label>صاحب حساب<input type="text" class="form-control" data-f="holder" value="${v(a.holder)}"></label>
+                <label>شماره کارت<input type="text" class="form-control" data-f="card" value="${v(a.card)}" dir="ltr" inputmode="numeric"></label>
+                <label>شماره شبا<input type="text" class="form-control" data-f="shaba" value="${v(a.shaba)}" dir="ltr" placeholder="IR..."></label>
+                <div class="bank-actions">
+                    <label title="برای فاکتورهای تازه"><input type="radio" name="bankDefault" ${a.is_default ? 'checked' : ''} onchange="markDefaultBank(this)"> پیش‌فرض</label>
+                    <button type="button" class="btn-outline" style="padding:6px 10px; color:var(--error-color); border-color:var(--error-color);" onclick="removeBankAccount(this)" aria-label="حذف حساب"><i class=ai data-ic=trash-2></i></button>
+                </div>
+            </div>`;
+        }
+        function renderBankAccounts(list) {
+            const box = document.getElementById('bankAccounts');
+            if (!box) return;
+            box.innerHTML = list.length ? list.map(bankRowHtml).join('') : '<div class="bank-empty">هنوز حسابی تعریف نشده است.</div>';
+        }
+        function collectBankAccounts() {
+            return Array.from(document.querySelectorAll('#bankAccounts .bank-row')).map(row => {
+                const get = (f) => (row.querySelector(`[data-f="${f}"]`).value || '').trim();
+                return { id: row.dataset.id, title: get('title'), holder: get('holder'), card: get('card'), shaba: get('shaba'), is_default: row.querySelector('input[type=radio]').checked };
+            }).filter(a => a.title || a.holder || a.card || a.shaba);
+        }
+        window.addBankAccount = function () {
+            const list = collectBankAccounts();
+            list.push({ id: 'acc' + Date.now().toString(36), title: '', holder: '', card: '', shaba: '', is_default: !list.length });
+            renderBankAccounts(list);
+            const rows = document.querySelectorAll('#bankAccounts .bank-row');
+            rows[rows.length - 1].querySelector('input').focus();
+        };
+        window.removeBankAccount = function (btn) {
+            btn.closest('.bank-row').remove();
+            const rows = document.querySelectorAll('#bankAccounts .bank-row');
+            if (rows.length && !document.querySelector('#bankAccounts input[type=radio]:checked')) { rows[0].querySelector('input[type=radio]').checked = true; rows[0].classList.add('is-default'); }
+            if (!rows.length) renderBankAccounts([]);
+        };
+        window.markDefaultBank = function (radio) {
+            document.querySelectorAll('#bankAccounts .bank-row').forEach(r => r.classList.toggle('is-default', r.contains(radio)));
+        };
+
         async function loadStudioInfo() {
             try {
                 const res = await fetch('/api/get_studio_info');
                 const result = await res.json();
                 if (result.status === 'success' && result.data) {
                     const data = result.data;
-                    const fields = ['name', 'logo', 'logo_light', 'logo_dark', 'manager_name', 'phone', 'email', 'website', 'shaba', 'card_number', 'account_holder', 'instagram', 'whatsapp', 'address'];
+                    renderBankAccounts(Array.isArray(data.bank_accounts) && data.bank_accounts.length ? data.bank_accounts
+                        : (data.shaba || data.card_number || data.account_holder ? [{ id: 'main', title: 'حساب اصلی', holder: data.account_holder || data.manager_name || '', card: data.card_number || '', shaba: data.shaba || '', is_default: true }] : []));
+                    const fields = ['name', 'logo', 'logo_light', 'logo_dark', 'manager_name', 'phone', 'email', 'website', 'instagram', 'whatsapp', 'address'];
                     fields.forEach(f => {
                         const el = document.getElementById('studio_' + f);
                         if (el) el.value = data[f] || '';
@@ -503,11 +552,12 @@
             if (event) event.preventDefault();
             if (window.showLoading) window.showLoading('در حال ذخیره...');
             const data = {};
-            const fields = ['name', 'logo', 'logo_light', 'logo_dark', 'manager_name', 'phone', 'email', 'website', 'shaba', 'card_number', 'account_holder', 'instagram', 'whatsapp', 'address'];
+            const fields = ['name', 'logo', 'logo_light', 'logo_dark', 'manager_name', 'phone', 'email', 'website', 'instagram', 'whatsapp', 'address'];
             fields.forEach(f => {
                 const el = document.getElementById('studio_' + f);
                 if (el) data[f] = el.value || '';
             });
+            data.bank_accounts = collectBankAccounts();
             try {
                 const res = await fetch('/api/save_studio_info', {
                     method: 'POST',

@@ -44,6 +44,13 @@ html[data-paper="A5"] body { font-size: 8.6pt; }
 .toolbar button[aria-pressed="true"] { background: #fff; color: #0f172a; border-color: #fff; font-weight: 700; }
 .toolbar .primary { background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899); border: none; font-weight: 700; }
 .toolbar .send { background: #16a34a; border-color: #16a34a; font-weight: 700; }
+.toolbar .bank-label { font-size: .8rem; color: #cbd5e1; }
+.toolbar #bankSwitch button { min-height: 34px; padding: 5px 10px; font-size: .82rem; }
+.old-version { max-width: 960px; margin: 14px auto 0; background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; border-radius: 12px; padding: 10px 14px; font-size: .9rem; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+.old-version a { color: #92400e; font-weight: 700; }
+.old-version[hidden], .toolbar [hidden] { display: none !important; }
+.chip.ver { color: #92400e; border-color: #fcd34d; background: #fffbeb; }
+@media print { .old-version { display: none !important; } }
 .toolbar .hint { font-size: 0.78rem; color: #cbd5e1; }
 .panel { display: none; background: #fff; color: #0f172a; max-width: 960px; margin: 14px auto 0; border-radius: 14px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(15,23,42,.15); }
 .panel.open { display: block; }
@@ -201,6 +208,7 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
         <span class="sep" aria-hidden="true"></span>
         <button type="button" id="paperA4" aria-pressed="true" onclick="setOpt('paper','A4')">A4</button>
         <button type="button" id="paperA5" aria-pressed="false" onclick="setOpt('paper','A5')">A5</button>
+        <% if (!isClient) { %><span class="group" id="bankSwitch" hidden></span><% } %>
         <% if (!isClient) { %><button type="button" onclick="togglePanel()" aria-expanded="false" id="panelBtn"><i class=ai data-ic=settings></i> تنظیمات چاپ</button><% } %>
     </div>
     <div class="group">
@@ -250,6 +258,7 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
 </div>
 <% } %>
 
+<div class="old-version" id="oldVersion" hidden></div>
 <div class="page-bg" aria-hidden="true"></div>
 <main class="sheet" id="sheet"><div class="state">در حال آماده‌سازی فاکتور…</div></main>
 
@@ -260,7 +269,9 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
     var CAN_EDIT = <%- JSON.stringify(!!canEdit) %>;
     var q = new URLSearchParams(location.search);
     var docId = q.get("id");
-    var doc = null, org = null, studio = {}, opts = {};
+    var doc = null, org = null, studio = {}, opts = {}, viewing = null;
+    var VERSION = q.get("version");
+    var dataUrl = function () { return "/api/invoice_print_data?id=" + encodeURIComponent(docId) + (VERSION ? "&version=" + encodeURIComponent(VERSION) : ""); };
     var $ = function (id) { return document.getElementById(id); };
     var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
     var fa = function (n) { return String(n == null ? "" : n).replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; }); };
@@ -395,6 +406,41 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
         window.print();
     };
 
+    // ───────── Bank accounts (several in basic settings; one click switches) ─────────
+    function accounts() {
+        if (Array.isArray(studio.bank_accounts) && studio.bank_accounts.length) return studio.bank_accounts;
+        if (studio.shaba || studio.card_number || studio.account_holder) return [{ id: "main", title: "", holder: studio.account_holder || studio.manager_name || "", card: studio.card_number || "", shaba: studio.shaba || "", is_default: true }];
+        return [];
+    }
+    function currentAccount() {
+        var list = accounts();
+        return list.find(function (a) { return doc && a.id === doc.bank_account_id; }) || list.find(function (a) { return a.is_default; }) || list[0] || null;
+    }
+    function renderBankSwitch() {
+        var box = $("bankSwitch");
+        if (!box) return;
+        var list = accounts(), cur = currentAccount();
+        box.hidden = !CAN_EDIT || viewing || list.length < 2 || !doc || doc.doc_type === "quote";
+        if (box.hidden) return;
+        box.innerHTML = '<span class="bank-label">حساب پرداخت:</span>' + list.map(function (a) {
+            return '<button type="button" aria-pressed="' + String(cur && a.id === cur.id) + '" data-acc="' + esc(a.id) + '" title="' + esc([a.holder, a.card].filter(Boolean).join(" — ")) + '">' + esc(a.title || a.holder || "حساب") + "</button>";
+        }).join("");
+    }
+    document.addEventListener("click", async function (e) {
+        var b = e.target.closest && e.target.closest("#bankSwitch [data-acc]");
+        if (!b || !doc) return;
+        var id = b.getAttribute("data-acc");
+        doc.bank_account_id = id;
+        render();
+        try {
+            await fetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set_bank_account", id: doc.id, bank_account_id: id }) });
+        } catch (err) {}
+    });
+    function when(iso) {
+        if (!iso) return "—";
+        try { return new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(iso)); } catch (e) { return String(iso); }
+    }
+
     // ───────── Render ─────────
     function docName() {
         return opts.title || (doc.doc_type === "quote" ? "پیش‌فاکتور" : "فاکتور");
@@ -446,7 +492,7 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
             "</header>";
 
         h += '<section class="doc-head"><h1 class="doc-title">' + esc(docName()) + "<small>" + (quote ? "پیش‌فاکتور" : "فاکتور") + " شماره " + fa(doc.invoice_number) + "</small></h1>" +
-            '<div class="chips">' + (doc.status === "draft" ? '<span class="chip">پیش‌نویس</span>' : "") + dueChip() + "</div></section>";
+            '<div class="chips">' + (viewing ? '<span class="chip ver">نسخه‌ی ' + fa(viewing.no) + " — " + esc(when(viewing.saved_at)) + "</span>" : "") + (doc.status === "draft" ? '<span class="chip">پیش‌نویس</span>' : "") + dueChip() + "</div></section>";
 
         h += '<section class="parties"><div class="box"><div class="label">' + (quote ? "پیشنهاد برای" : "صورتحساب برای") + '</div><div class="client">' +
             (org ? (orgLogo ? '<img src="' + esc(orgLogo) + '" alt="" data-fallback-icon="building-2">' : '<span class="avatar" style="' + (plain ? "" : "background:" + (safeColor(org.color) || "var(--accent)")) + '">' + esc((org.org_name || "؟").charAt(0)) + "</span>") : "") +
@@ -468,7 +514,8 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
             }).join("") : '<tr><td colspan="' + (showPlat ? 6 : 5) + '" style="text-align:center; color:var(--muted); padding:18px;">قلمی ثبت نشده است.</td></tr>') +
             "</tbody></table></div>";
 
-        var bank = { holder: studio.account_holder || studio.manager_name || "", card: studio.card_number || "", shaba: studio.shaba || "" };
+        var acc = currentAccount() || {};
+        var bank = { holder: acc.holder || "", card: acc.card || "", shaba: acc.shaba || "", title: acc.title || "" };
         var hasBank = bank.holder || bank.card || bank.shaba;
         var groupCard = function (c) { return fa(latin(c).replace(/\D/g, "").replace(/(\d{4})(?=\d)/g, "$1 ")); };
         var shaba = latin(bank.shaba).replace(/\s+/g, "").toUpperCase();
@@ -487,6 +534,7 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
         if (opts.show_notes && String(doc.notes || "").trim()) left += '<div class="box"><h4><i class=ai data-ic=notebook-pen></i> توضیحات</h4><div class="notes">' + esc(doc.notes) + "</div></div>";
         if (opts.show_payment && hasBank && !quote) {
             left += '<div class="box pay"><h4><i class=ai data-ic=credit-card></i> اطلاعات پرداخت</h4>' +
+                (bank.title ? '<div class="kv"><span>بانک</span><b>' + esc(bank.title) + "</b></div>" : "") +
                 (bank.holder ? '<div class="kv"><span>صاحب حساب</span><b>' + esc(bank.holder) + "</b></div>" : "") +
                 (bank.card ? '<div class="kv"><span>شماره کارت</span><b class="ltr">' + esc(groupCard(bank.card)) + "</b></div>" : "") +
                 (shaba ? '<div class="kv"><span>شبا</span><b class="ltr">' + esc(fa(shaba)) + "</b></div>" : "") + "</div>";
@@ -499,20 +547,22 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
         h += '<footer class="thanks"><span>از اعتماد شما به ' + esc(lh.report_name || "ما") + " سپاسگزاریم.</span>" + stamp + "</footer>";
 
         $("sheet").innerHTML = h;
-        document.title = docName() + " " + fa(doc.invoice_number) + (org && org.org_name ? " — " + org.org_name : "");
+        document.title = docName() + " " + fa(doc.invoice_number) + (viewing ? " — نسخه " + fa(viewing.no) : "") + (org && org.org_name ? " — " + org.org_name : "");
+        renderBankSwitch();
         var sb = $("sendBtn");
         if (sb) {
-            sb.hidden = !CAN_EDIT || !org || doc.status === "cancelled" || (quote && ["accepted", "converted", "rejected"].indexOf(doc.status) !== -1);
+            sb.hidden = !CAN_EDIT || !!viewing || !org || doc.status === "cancelled" || (quote && ["accepted", "converted", "rejected"].indexOf(doc.status) !== -1);
             var sent = quote ? doc.status !== "draft" : !!doc.sent_at;
             sb.querySelector("span").textContent = sent ? "ارسال دوباره برای کارفرما" : "ارسال برای کارفرما";
         }
     }
 
     async function load() {
-        var res = await fetch("/api/invoice_print_data?id=" + encodeURIComponent(docId), { cache: "no-store" }).then(function (r) { return r.json(); });
+        var res = await fetch(dataUrl(), { cache: "no-store" }).then(function (r) { return r.json(); });
         if (res.status !== "success") throw new Error(res.message || "load");
         doc = res.data; org = res.organization;
         doc.org_id = org && org.id;
+        viewing = res.viewing_version || null;
         render();
     }
 
@@ -524,9 +574,16 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
             studio = (info && info.data) || {};
             lh = letterheadFromStudio();
             if ($("lhName")) Object.keys(LH).forEach(function (id) { $(id).value = lh[LH[id]] || ($(id).type === "color" ? "#6366f1" : ""); });
-            var res = await fetch("/api/invoice_print_data?id=" + encodeURIComponent(docId), { cache: "no-store" }).then(function (r) { return r.json(); });
+            var res = await fetch(dataUrl(), { cache: "no-store" }).then(function (r) { return r.json(); });
             if (res.status !== "success") { $("sheet").innerHTML = '<div class="state">' + esc(res.message || "سند پیدا نشد.") + "</div>"; return; }
             doc = res.data; org = res.organization; doc.org_id = org && org.id;
+            viewing = res.viewing_version || null;
+            if (viewing) {
+                var ov = $("oldVersion");
+                ov.hidden = false;
+                ov.innerHTML = "<span><b>نسخه‌ی قدیمی:</b> نسخه‌ی " + fa(viewing.no) + " از " + fa(viewing.latest) + " — ذخیره‌شده در " + esc(when(viewing.saved_at)) + (viewing.saved_by ? " توسط " + esc(viewing.saved_by) : "") + '</span><a href="invoice-print?id=' + encodeURIComponent(docId) + '">نمایش آخرین نسخه</a>';
+                if ($("panelBtn")) $("panelBtn").hidden = true;
+            }
             opts = Object.assign(defaultOptions(), doc.print_options || {});
             if (q.get("theme") === "glass" || q.get("theme") === "plain") opts.theme = q.get("theme");
             if (q.get("paper") === "A4" || q.get("paper") === "A5") opts.paper = q.get("paper");

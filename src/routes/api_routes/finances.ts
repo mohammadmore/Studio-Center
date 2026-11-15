@@ -43,6 +43,10 @@ export function convertQuote(quote: any, actor: string) {
   delete inv.client_decision;
   // The quote's "sent" time must not carry over: the invoice reaches the client only when sent.
   delete inv.sent_at;
+  delete inv.versions;
+  delete inv.updated_at;
+  delete inv.updated_by;
+  inv.version = 1;
   invoices.push(inv);
   quote.status = "converted";
   quote.invoice_id = id;
@@ -67,6 +71,16 @@ export function cleanPrintOptions(v: any) {
   for (const k of PRINT_FLAGS) if (typeof v[k] === "boolean") o[k] = v[k];
   return o;
 }
+
+/** The parts of an invoice that make up one "version" of it. */
+const VERSION_FIELDS = ["org_id", "issue_date", "due_date", "status", "items", "subtotal", "tax", "discount", "total", "notes", "paid_amount", "doc_type", "currency", "free", "bank_account_id"];
+export function invoiceSnapshot(inv: any) {
+  const s: Record<string, any> = {};
+  for (const k of VERSION_FIELDS) if (inv[k] !== undefined) s[k] = inv[k];
+  return JSON.parse(JSON.stringify(s));
+}
+const MAX_VERSIONS = 50;
+const cleanAccountId = (v: unknown) => (typeof v === "string" ? v.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) : "");
 
 const subRouter = express.Router();
 
@@ -149,7 +163,12 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
     }
     if (id) {
       const inv2 = invoices.find((i) => i.id == id);
+      if (inv2 && req.body.as_new) {
+        // "Issue as a new invoice": the original stays as it is; the copy gets its own number.
+        return createInvoice(inv2);
+      }
       if (inv2) {
+        const before = invoiceSnapshot(inv2);
         inv2.org_id = org_id;
         inv2.issue_date = issue_date;
         inv2.due_date = normalizeJalaliDate(due_date) || due_date;
@@ -165,18 +184,32 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
         if (req.body.currency === "rial" || req.body.currency === "toman") inv2.currency = req.body.currency;
         if (typeof req.body.free === "boolean") inv2.free = req.body.free;
         if (req.body.print_options !== undefined) inv2.print_options = cleanPrintOptions(req.body.print_options);
+        if (req.body.bank_account_id !== undefined) inv2.bank_account_id = cleanAccountId(req.body.bank_account_id);
+        // Saving over the same invoice keeps the previous content as an earlier version.
+        const changed = JSON.stringify(before) !== JSON.stringify(invoiceSnapshot(inv2));
+        if (changed) {
+          inv2.versions = [
+            ...(Array.isArray(inv2.versions) ? inv2.versions : []),
+            { no: inv2.version || 1, saved_at: inv2.updated_at || inv2.created_at || null, saved_by: inv2.updated_by || inv2.created_by || "", data: before },
+          ].slice(-MAX_VERSIONS);
+          inv2.version = (inv2.version || 1) + 1;
+          inv2.updated_at = new Date().toISOString();
+          inv2.updated_by = (req as any).user?.full_name || (req as any).user?.username || "";
+        }
         saveDatabase();
         return res.json({
           status: "success",
-          message:
-            "فاکتور ویرایش شد",
+          message: changed ? `فاکتور ذخیره شد (نسخه‌ی ${(inv2.version || 1).toLocaleString("fa-IR", { useGrouping: false })})` : "تغییری برای ذخیره نبود",
           data: inv2,
         });
       }
     }
+    return createInvoice(null);
+  }
+  function createInvoice(source: any) {
     const newId =
       nextId(invoices);
-    const inv = {
+    const inv: any = {
       id: newId,
       invoice_number: 1e3 + newId,
       org_id,
@@ -192,19 +225,23 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       paid_amount: toNumber(paid_amount),
       doc_type: kind,
       currency: req.body.currency === "rial" ? "rial" : "toman",
-      free: req.body.free === true,
-      print_options: cleanPrintOptions(req.body.print_options),
+      free: req.body.free === true || !!source?.free,
+      print_options: req.body.print_options !== undefined ? cleanPrintOptions(req.body.print_options) : cleanPrintOptions(source?.print_options),
+      bank_account_id: cleanAccountId(req.body.bank_account_id ?? source?.bank_account_id),
+      version: 1,
       created_at: new Date().toISOString(),
+      created_by: (req as any).user?.full_name || (req as any).user?.username || "",
     };
+    if (source) inv.based_on = source.id;
     invoices.push(inv);
     saveDatabase();
     return res.json({
       status: "success",
-      message:
-        "فاکتور ذخیره شد",
+      message: source ? `${kind === "quote" ? "پیش‌فاکتور" : "فاکتور"} جدید با شماره ${inv.invoice_number.toLocaleString("fa-IR", { useGrouping: false })} صادر شد` : "فاکتور ذخیره شد",
       data: inv,
     });
   }
+
   if (action === "delete") {
     const idx = invoices.findIndex((i) => i.id == id);
     if (idx === -1) return res.status(404).json({ status: "error", message: "فاکتور یافت نشد" });
@@ -263,6 +300,13 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
     );
     saveDatabase();
     return res.json({ status: "success", message: again ? "فاکتور دوباره برای کارفرما ارسال شد" : "فاکتور برای کارفرما ارسال شد", data: inv });
+  }
+  if (action === "set_bank_account") {
+    const inv = invoices.find((i) => i.id == id);
+    if (!inv) return res.status(404).json({ status: "error", message: "سند یافت نشد" });
+    inv.bank_account_id = cleanAccountId(req.body.bank_account_id);
+    saveDatabase();
+    return res.json({ status: "success", message: "حساب بانکی این سند تغییر کرد", data: { bank_account_id: inv.bank_account_id } });
   }
   if (action === "save_print_options") {
     const inv = invoices.find((i) => i.id == id);
@@ -340,6 +384,12 @@ subRouter.get(
         print_options: inv.print_options || {},
         sent_at: inv.sent_at || null,
         free: !!inv.free,
+        bank_account_id: inv.bank_account_id || "",
+        version: inv.version || 1,
+        updated_at: inv.updated_at || inv.created_at || null,
+        updated_by: inv.updated_by || inv.created_by || "",
+        based_on: inv.based_on || null,
+        versions: (Array.isArray(inv.versions) ? inv.versions : []).map((v: any) => ({ no: v.no, saved_at: v.saved_at, saved_by: v.saved_by, total: toNumber(v.data?.total), items: Array.isArray(v.data?.items) ? v.data.items.length : 0 })),
       });
     }
     if (!org_id)
@@ -471,6 +521,17 @@ subRouter.get("/invoice_item_suggestions", checkPermission("invoice"), (req, res
   res.json({ status: "success", data });
 });
 
+/** Earlier versions of an invoice (each saved over the same invoice), newest first. */
+subRouter.get("/invoice_versions", checkPermission("invoice"), (req, res) => {
+  const inv = invoices.find((i) => i.id == req.query.id);
+  if (!inv) return res.status(404).json({ status: "error", message: "سند یافت نشد" });
+  res.json({
+    status: "success",
+    current: { no: inv.version || 1, saved_at: inv.updated_at || inv.created_at || null, saved_by: inv.updated_by || inv.created_by || "", data: invoiceSnapshot(inv) },
+    data: (Array.isArray(inv.versions) ? inv.versions : []).slice().reverse(),
+  });
+});
+
 /** Everything the printable invoice needs. Clients get only their own, sent documents. */
 subRouter.get("/invoice_print_data", (req: any, res) => {
   const inv = invoices.find((i) => i.id == req.query.id);
@@ -483,26 +544,38 @@ subRouter.get("/invoice_print_data", (req: any, res) => {
   } else if (!inv) {
     return res.status(404).json({ status: "error", message: "سند یافت نشد" });
   }
-  const org = organizations.find((o) => o.id == inv.org_id);
+  // Staff may open an earlier version (read-only); clients always get the latest one.
+  let src: any = inv;
+  let viewing: any = null;
+  if (req.query.version && user.role_id !== "client") {
+    const v = (Array.isArray(inv.versions) ? inv.versions : []).find((x: any) => String(x.no) === String(req.query.version));
+    if (!v) return res.status(404).json({ status: "error", message: "این نسخه پیدا نشد" });
+    src = { ...inv, ...v.data };
+    viewing = { no: v.no, saved_at: v.saved_at, saved_by: v.saved_by, latest: inv.version || 1 };
+  }
+  const org = organizations.find((o) => o.id == src.org_id);
   res.json({
     status: "success",
+    viewing_version: viewing,
     data: {
       id: inv.id,
       invoice_number: inv.invoice_number,
-      doc_type: docType(inv),
-      status: inv.status,
-      issue_date: inv.issue_date || "",
-      due_date: inv.due_date || "",
-      items: Array.isArray(inv.items) ? inv.items : [],
-      subtotal: toNumber(inv.subtotal),
-      tax: toNumber(inv.tax),
-      discount: toNumber(inv.discount),
-      total: toNumber(inv.total),
-      paid_amount: toNumber(inv.paid_amount),
-      notes: inv.notes || "",
-      currency: inv.currency === "rial" ? "rial" : "toman",
-      print_options: inv.print_options || {},
-      sent_at: inv.sent_at || null,
+      doc_type: docType(src),
+      status: src.status,
+      issue_date: src.issue_date || "",
+      due_date: src.due_date || "",
+      items: Array.isArray(src.items) ? src.items : [],
+      subtotal: toNumber(src.subtotal),
+      tax: toNumber(src.tax),
+      discount: toNumber(src.discount),
+      total: toNumber(src.total),
+      paid_amount: toNumber(src.paid_amount),
+      notes: src.notes || "",
+      currency: src.currency === "rial" ? "rial" : "toman",
+      print_options: src.print_options || {},
+      sent_at: src.sent_at || null,
+      bank_account_id: src.bank_account_id || "",
+      version: inv.version || 1,
     },
     organization: org
       ? { id: org.id, org_name: org.org_name, contact_name: org.contact_name || "", phone: org.phone_number || "", logo_url: org.logo_url || "", color: org.color || "" }
