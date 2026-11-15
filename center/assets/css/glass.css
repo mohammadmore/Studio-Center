@@ -1,5 +1,5 @@
 /*
- * Glass layer (subtle). Loaded on every page after the page's own styles.
+ * Glass layer (bold: lively colours behind clear glass). Loaded on every page after the page's own styles.
  *
  * 1. A soft, fixed backdrop of colour blobs made from the studio's main colour
  *    (--studio-accent, written by the server from the letterhead colour).
@@ -17,16 +17,20 @@
   --studio-accent: #6366f1;
   --studio-accent-2: color-mix(in oklch, var(--studio-accent) 55%, #ec4899);
   --surface-solid: #ffffff;
-  --glass-1: rgba(255, 255, 255, 0.58);
-  --glass-2: rgba(255, 255, 255, 0.74);
-  --glass-3: rgba(255, 255, 255, 0.90);
-  --glass-line: rgba(255, 255, 255, 0.65);
+  --glass-1: rgba(255, 255, 255, 0.42);
+  --glass-2: rgba(255, 255, 255, 0.56);
+  --glass-3: rgba(255, 255, 255, 0.84);
+  --glass-line: rgba(255, 255, 255, 0.72);
   --glass-line-soft: rgba(15, 23, 42, 0.07);
   --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.75);
   --glass-drop: 0 10px 30px -12px rgba(30, 27, 75, 0.18);
-  --glass-blur-1: blur(20px) saturate(160%);
-  --glass-blur-2: blur(12px) saturate(140%);
-  --glass-blur-3: blur(24px) saturate(160%);
+  --glass-blur-1: blur(24px) saturate(170%);
+  --glass-blur-2: blur(16px) saturate(160%);
+  --glass-blur-3: blur(28px) saturate(170%);
+  /* Bold backdrop: the studio colour turned into a pastel blue-pink-lavender sweep. */
+  --bd-1: color-mix(in oklch, color-mix(in oklch, var(--studio-accent) 40%, #a1c4fd) 78%, white);
+  --bd-2: color-mix(in oklch, color-mix(in oklch, var(--studio-accent-2) 35%, #fbc2eb) 80%, white);
+  --bd-3: color-mix(in oklch, color-mix(in oklch, var(--studio-accent) 45%, #d4a5ff) 80%, white);
   --card-bg: var(--glass-2);
   --glass-bg: var(--glass-1);
   --glass-active: var(--glass-3);
@@ -35,10 +39,13 @@
 }
 [data-theme="dark"] {
   --surface-solid: #0f172a;
-  --glass-1: rgba(15, 23, 42, 0.55);
-  --glass-2: rgba(17, 24, 39, 0.66);
-  --glass-3: rgba(15, 23, 42, 0.92);
-  --glass-line: rgba(255, 255, 255, 0.09);
+  --glass-1: rgba(15, 23, 42, 0.42);
+  --glass-2: rgba(17, 24, 39, 0.52);
+  --glass-3: rgba(15, 23, 42, 0.88);
+  --glass-line: rgba(255, 255, 255, 0.12);
+  --bd-1: color-mix(in oklch, color-mix(in oklch, var(--studio-accent) 55%, #3b5bdb) 42%, #070b1a);
+  --bd-2: color-mix(in oklch, color-mix(in oklch, var(--studio-accent-2) 55%, #c2255c) 38%, #070b1a);
+  --bd-3: color-mix(in oklch, color-mix(in oklch, var(--studio-accent) 55%, #7048e8) 42%, #070b1a);
   --glass-line-soft: rgba(255, 255, 255, 0.06);
   --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.07);
   --glass-drop: 0 12px 34px -14px rgba(0, 0, 0, 0.6);
@@ -56,17 +63,19 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* Like the old invoice maker: a full-page pastel sweep, with light pools for depth. */
   background:
-    radial-gradient(42% 38% at 88% 6%, color-mix(in srgb, var(--studio-accent) 20%, transparent), transparent 70%),
-    radial-gradient(36% 32% at 6% 38%, color-mix(in srgb, var(--studio-accent-2) 14%, transparent), transparent 70%),
-    radial-gradient(48% 40% at 62% 98%, color-mix(in srgb, var(--studio-accent) 13%, transparent), transparent 72%),
-    radial-gradient(30% 26% at 34% 10%, color-mix(in srgb, var(--studio-accent-2) 9%, transparent), transparent 70%);
+    radial-gradient(38% 34% at 86% 8%, rgba(255, 255, 255, 0.55), transparent 70%),
+    radial-gradient(34% 30% at 8% 42%, color-mix(in srgb, var(--studio-accent) 28%, transparent), transparent 70%),
+    radial-gradient(40% 36% at 64% 96%, color-mix(in srgb, var(--studio-accent-2) 26%, transparent), transparent 72%),
+    linear-gradient(135deg, var(--bd-1) 0%, var(--bd-2) 50%, var(--bd-3) 100%);
 }
 [data-theme="dark"] body::before {
   background:
-    radial-gradient(42% 38% at 88% 6%, color-mix(in srgb, var(--studio-accent) 18%, transparent), transparent 70%),
-    radial-gradient(36% 32% at 6% 38%, color-mix(in srgb, var(--studio-accent-2) 11%, transparent), transparent 70%),
-    radial-gradient(48% 40% at 62% 98%, color-mix(in srgb, var(--studio-accent) 10%, transparent), transparent 72%);
+    radial-gradient(38% 34% at 86% 8%, color-mix(in srgb, var(--studio-accent) 34%, transparent), transparent 70%),
+    radial-gradient(34% 30% at 8% 42%, color-mix(in srgb, var(--studio-accent-2) 26%, transparent), transparent 70%),
+    radial-gradient(40% 36% at 64% 96%, color-mix(in srgb, var(--studio-accent) 24%, transparent), transparent 72%),
+    linear-gradient(135deg, var(--bd-1) 0%, var(--bd-2) 50%, var(--bd-3) 100%);
 }
 /* The old fixed corner tints are replaced by the backdrop above. */
 body { background-image: none !important; }
