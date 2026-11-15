@@ -163,6 +163,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
         inv2.paid_amount = toNumber(paid_amount);
         inv2.doc_type = kind;
         if (req.body.currency === "rial" || req.body.currency === "toman") inv2.currency = req.body.currency;
+        if (typeof req.body.free === "boolean") inv2.free = req.body.free;
         if (req.body.print_options !== undefined) inv2.print_options = cleanPrintOptions(req.body.print_options);
         saveDatabase();
         return res.json({
@@ -191,6 +192,7 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       paid_amount: toNumber(paid_amount),
       doc_type: kind,
       currency: req.body.currency === "rial" ? "rial" : "toman",
+      free: req.body.free === true,
       print_options: cleanPrintOptions(req.body.print_options),
       created_at: new Date().toISOString(),
     };
@@ -337,6 +339,7 @@ subRouter.get(
         currency: inv.currency === "rial" ? "rial" : "toman",
         print_options: inv.print_options || {},
         sent_at: inv.sent_at || null,
+        free: !!inv.free,
       });
     }
     if (!org_id)
@@ -435,6 +438,38 @@ subRouter.get(
     });
   },
 );
+
+/**
+ * Item descriptions used on earlier invoices, for suggestions while typing: each with how
+ * often it was used and its latest unit price. Items of free invoices (events, promotional
+ * gifts...) come first.
+ */
+subRouter.get("/invoice_item_suggestions", checkPermission("invoice"), (req, res) => {
+  const map = new Map<string, any>();
+  for (const inv of invoices) {
+    const at = String(inv.created_at || "");
+    for (const it of Array.isArray(inv.items) ? inv.items : []) {
+      const text = String(it?.type ?? it?.title ?? "").trim();
+      if (!text || text === "آیتم سفارشی جدید" || text.length > 300) continue;
+      const key = text.replace(/\s+/g, " ").replace(/ي/g, "ی").replace(/ك/g, "ک").toLowerCase();
+      const e = map.get(key) || { type: text, count: 0, free: false, at: "", unit_price: 0, currency: "toman" };
+      e.count++;
+      if (inv.free) e.free = true;
+      if (at >= e.at) {
+        e.at = at;
+        e.type = text;
+        e.unit_price = toNumber(it.unit_price);
+        e.currency = inv.currency === "rial" ? "rial" : "toman";
+      }
+      map.set(key, e);
+    }
+  }
+  const data = [...map.values()]
+    .sort((a, b) => Number(b.free) - Number(a.free) || b.count - a.count || (b.at > a.at ? 1 : b.at < a.at ? -1 : 0))
+    .slice(0, 1500)
+    .map(({ type, count, unit_price, currency, free }) => ({ type, count, unit_price, currency, free }));
+  res.json({ status: "success", data });
+});
 
 /** Everything the printable invoice needs. Clients get only their own, sent documents. */
 subRouter.get("/invoice_print_data", (req: any, res) => {

@@ -336,7 +336,7 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
 
     // ───────── Options ─────────
     function defaultOptions() {
-        var anyPlatform = (doc.items || []).some(function (it) { var p = String(it.platform || "").trim(); return p && p !== "بدون پلتفرم"; });
+        var anyPlatform = (doc.items || []).some(function (it) { var p = String(it.platform || "").trim(); return p && p !== "بدون پلتفرم" && p !== "---"; });
         return {
             theme: studio.report_theme === "plain" ? "plain" : "glass", paper: "A4", title: "",
             show_logo: true, show_platform: anyPlatform, show_notes: true, show_payment: true,
@@ -463,7 +463,7 @@ html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
             (items.length ? items.map(function (it, i) {
                 var qty = num(it.qty) || 0, unit = num(it.unit_price), rt = it.row_total != null ? num(it.row_total) : qty * unit;
                 return '<tr class="' + (rt < 0 ? "neg" : "") + '"><td class="n">' + fa(i + 1) + '</td><td class="desc">' + esc(it.type || it.title || "") + "</td>" +
-                    (showPlat ? '<td class="plat">' + esc(it.platform && it.platform !== "بدون پلتفرم" ? it.platform : "—") + "</td>" : "") +
+                    (showPlat ? '<td class="plat">' + esc(it.platform && it.platform !== "بدون پلتفرم" && it.platform !== "---" ? it.platform : "—") + "</td>" : "") +
                     '<td class="num">' + fa(qty) + '</td><td class="num">' + money(unit) + '</td><td class="num total">' + money(rt) + "</td></tr>";
             }).join("") : '<tr><td colspan="' + (showPlat ? 6 : 5) + '" style="text-align:center; color:var(--muted); padding:18px;">قلمی ثبت نشده است.</td></tr>') +
             "</tbody></table></div>";

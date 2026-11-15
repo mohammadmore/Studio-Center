@@ -306,6 +306,27 @@ describe("invoices reach the client only when sent", () => {
     assert.equal(page.status, 200);
   });
 
+  it("saves free invoices and suggests earlier items with their latest price", async () => {
+    const admin = await login("admin");
+    const free = await admin.post("/api/invoices").send({
+      action: "save", org_id: 1, doc_type: "invoice", free: true, currency: "toman",
+      items: [{ type: "تیشرت چاپی با لوگو", platform: "", qty: 50, unit_price: 350000, row_total: 17500000 }, { type: "اجاره غرفه نمایشگاه", qty: 1, unit_price: 9000000, row_total: 9000000 }],
+      subtotal: 26500000, total: 26500000,
+    });
+    assert.equal(free.body.data.free, true);
+    await admin.post("/api/invoices").send({ action: "save", org_id: 1, free: true, items: [{ type: "تیشرت چاپی با لوگو", qty: 10, unit_price: 380000, row_total: 3800000 }], total: 3800000 });
+    const sug = await admin.get("/api/invoice_item_suggestions");
+    const shirt = sug.body.data.find((s: any) => s.type === "تیشرت چاپی با لوگو");
+    assert.equal(shirt.count, 2);
+    assert.equal(shirt.unit_price, 380000);
+    assert.equal(shirt.free, true);
+    assert.equal(sug.body.data[0].free, true, "items of free invoices come first");
+    const loaded = await admin.get(`/api/generate_invoice?invoice_id=${free.body.data.id}`);
+    assert.equal(loaded.body.free, true);
+    const client = await login("brand1");
+    assert.equal((await client.get("/api/invoice_item_suggestions")).status, 403);
+  });
+
   it("does not show an invoice made from an accepted quote until it is sent", async () => {
     const admin = await login("admin");
     const q = await admin.post("/api/invoices").send({ action: "save", org_id: 1, doc_type: "quote", items: [{ type: "پکیج", qty: 1, unit_price: 100, row_total: 100 }], subtotal: 100, total: 100 });

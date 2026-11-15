@@ -45,6 +45,18 @@
                 print-color-adjust: exact !important;
             }
         }
+
+        /* Free invoice: any items (events, promotional gifts...), no content filters or platform column. */
+        body.inv-free .col-platform, body.inv-free .draft-filter { display: none !important; }
+        /* Suggestions under the description box: earlier invoice items, one per row. */
+        .item-suggest { position: fixed; z-index: 3000; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18); max-height: 280px; overflow-y: auto; padding: 4px; display: none; }
+        .item-suggest.open { display: block; }
+        .item-suggest .sg { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; color: var(--text-dark); line-height: 1.5; }
+        .item-suggest .sg + .sg { border-top: 1px solid rgba(128, 128, 128, 0.12); }
+        .item-suggest .sg:hover, .item-suggest .sg.active { background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
+        .item-suggest .sg .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-suggest .sg .t mark { background: color-mix(in srgb, var(--primary-color) 22%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+        .item-suggest .sg .p { flex: none; font-size: 0.78rem; color: var(--text-gray); white-space: nowrap; }
     </style>
     
     <style>
@@ -204,7 +216,7 @@
         </div>
         
         <div class="invoice-controls no-print" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);">
-            <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 10px;">+ ایجاد فاکتور جدید (بر اساس محتواهای کارفرما)</div>
+            <div id="draftTitle" style="font-weight: bold; color: var(--primary-color); margin-bottom: 10px;">+ ایجاد فاکتور جدید (بر اساس محتواهای کارفرما)</div>
             <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 200px;">
                     <label style="font-size: 0.85rem; margin-bottom: 4px; display: block;">کارفرما:</label>
@@ -212,13 +224,13 @@
                         <option value="">-- انتخاب کارفرما --</option>
                     </select>
                 </div>
-                <div style="flex: 1; min-width: 150px;">
+                <div class="draft-filter" style="flex: 1; min-width: 150px;">
                     <label style="font-size: 0.85rem; margin-bottom: 4px; display: block;">مجموعه (اختیاری):</label>
                     <select id="colSelect" class="form-control">
                         <option value="">همه مجموعه‌ها</option>
                     </select>
                 </div>
-                <div style="flex: 1; min-width: 150px;">
+                <div class="draft-filter" style="flex: 1; min-width: 150px;">
                     <label style="font-size: 0.85rem; margin-bottom: 4px; display: block;">وضعیت (اختیاری):</label>
                     <select id="statusSelect" class="form-control">
                         <option value="">همه وضعیت‌ها</option>
@@ -234,14 +246,14 @@
                         <option value="published" selected>منتشر شده</option>
                     </select>
                 </div>
-                <div style="flex: 1; min-width: 150px;">
+                <div class="draft-filter" style="flex: 1; min-width: 150px;">
                     <label style="font-size: 0.85rem; margin-bottom: 4px; display: block;">پلتفرم (اختیاری):</label>
                     <select id="platformSelect" class="form-control">
                         <option value="">همه پلتفرم‌ها</option>
                     </select>
                 </div>
             </div>
-            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 5px;">
+            <div class="draft-filter" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 5px;">
                 <div>
                     <label for="draftStartDate" style="font-size: 0.85rem; margin-bottom: 4px; display: block;">از تاریخ:</label>
                     <input type="text" id="draftStartDate" class="form-control" placeholder="مثلا ۱۴۰۵/۰۱/۰۱" style="width: 160px;" data-jdp>
@@ -364,7 +376,7 @@
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; background: rgba(128, 128, 128, 0.05); padding: 10px; border-radius: 8px;">
-                    <div style="flex: 1; min-width: 150px;">
+                    <div class="col-platform" style="flex: 1; min-width: 150px;">
                         <label style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 5px; display: block;">پلتفرم / بستر (خالی = بدون تغییر):</label>
                         <div class="multi-select" id="bulkPlatformContainer">
                             <input type="hidden" id="bulkPlatformValue" value="">
@@ -394,7 +406,7 @@
                             <th class="no-print" style="width: 30px; text-align: center;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" style="cursor: pointer;"></th>
                             <th style="width: 50px; text-align: center;">ردیف</th>
                             <th style="min-width: 160px;">شرح خدمات / کالا</th>
-                            <th style="min-width: 140px;">پلتفرم / بستر</th>
+                            <th class="col-platform" style="min-width: 140px;">پلتفرم / بستر</th>
                             <th style="width: 80px;">تعداد</th>
                             <th style="min-width: 120px; white-space: nowrap;">فی (<span class="currency-label">تومان</span>)</th>
                             <th style="min-width: 130px; white-space: nowrap;">مبلغ کل (<span class="currency-label">تومان</span>)</th>
@@ -550,6 +562,7 @@
                 const res = await fetch('/api/get_orgs', { cache: 'no-store' });
                 const orgData = await res.json();
                 const select = document.getElementById('orgSelector');
+                window.allOrgsData = orgData.data || [];
                 (orgData.data || []).forEach(org => {
                     select.insertAdjacentHTML('beforeend', `<option value="${org.id}">${escapeHtml(org.org_name)}</option>`);
                 });
@@ -654,6 +667,8 @@
                 }
             } catch(e) {}
 
+            loadItemSuggestions();
+            if (!invoiceId && urlParams.get('free') === '1') enterFreeMode(true);
             if (invoiceId) {
                 // Load existing invoice
                 loadInvoiceById(invoiceId);
@@ -675,6 +690,7 @@
                         notes: data.notes || '',
                         sent_at: data.sent_at || null
                     };
+                    if (data.free) enterFreeMode(false);
                     // Amounts are stored in the currency the document was saved in.
                     currentCurrency = data.currency === 'rial' ? 'rial' : 'toman';
                     document.getElementById('invCurrency').value = currentCurrency;
@@ -736,6 +752,13 @@
 
         async function onDraftOrgChange() {
             const orgId = document.getElementById('orgSelector').value;
+            if (window.FREE_MODE) {
+                // A free invoice is for the chosen brand directly; no content to pull in.
+                currentInvoiceData.org_id = orgId || null;
+                currentOrganization = (window.allOrgsData || []).find(o => String(o.id) === String(orgId)) || null;
+                updateInvoiceUI();
+                return;
+            }
             const colSelect = document.getElementById('colSelect');
             if (colSelect) colSelect.innerHTML = '<option value="">همه مجموعه‌ها</option>';
             
@@ -865,8 +888,8 @@
                         <tr>
                             <td class="no-print" style="text-align: center;"><input type="checkbox" class="item-checkbox" data-index="${index}" onclick="handleCheckboxClick(event, ${index})" onchange="updateSelection()" style="cursor: pointer;"></td>
                             <td style="text-align: center;">${toPersianDigits(index + 1)}</td>
-                            <td><textarea class="form-control inv-desc" rows="1" style="padding:5px; resize:vertical; min-height:34px; line-height:1.6; field-sizing: content;" onchange="updateItem(${index}, 'type', this.value)">${escapeHtml(item.type)}</textarea></td>
-                            <td>
+                            <td><textarea class="form-control inv-desc" data-index="${index}" autocomplete="off" placeholder="شرح قلم — با تایپ، اقلام قبلی پیشنهاد می‌شود" rows="1" style="padding:5px; resize:vertical; min-height:34px; line-height:1.6; field-sizing: content;" onchange="updateItem(${index}, 'type', this.value)">${escapeHtml(item.type)}</textarea></td>
+                            <td class="col-platform">
                                 <div class="multi-select">
                                     <div class="multi-select-display" onclick="toggleMultiSelect(this)">
                                         ${(item.platform || 'بدون پلتفرم').split(/[,،]/).filter(x => x.trim()).map(plt => `<span class="multi-select-tag">${escapeHtml(plt.trim())}</span>`).join('')}
@@ -902,8 +925,8 @@
 
         function addManualItem() {
             currentInvoiceData.items.push({
-                type: 'آیتم سفارشی جدید',
-                platform: '---',
+                type: window.FREE_MODE ? '' : 'آیتم سفارشی جدید',
+                platform: window.FREE_MODE ? '' : '---',
                 qty: 1,
                 unit_price: 0,
                 row_total: 0
@@ -1013,7 +1036,8 @@
                 total: total,
                 notes: currentInvoiceData.notes,
                 paid_amount: currentInvoiceData.paid_amount,
-                currency: currentCurrency
+                currency: currentCurrency,
+                free: !!window.FREE_MODE
             };
 
             try {
@@ -1083,6 +1107,99 @@
     </div>
 
     <script>
+        // ───────── Free invoice: any items for a brand (events, promotional gifts, ...) ─────────
+        function todayJalaliFa() {
+            try { return new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replace(/[^۰-۹/]/g, ''); } catch (e) { return ''; }
+        }
+        function enterFreeMode(fresh) {
+            window.FREE_MODE = true;
+            document.body.classList.add('inv-free');
+            const title = document.getElementById('draftTitle');
+            if (title) title.textContent = 'فاکتور آزاد — هر قلمی (اقلام رویداد، هدایای تبلیغاتی، خدمات و ...) برای یک کارفرما';
+            if (!fresh) return;
+            currentInvoiceData = { id: null, org_id: null, items: [{ type: '', platform: '', qty: 1, unit_price: 0, row_total: 0 }], tax_percent: 0, discount: 0, paid_amount: 0, notes: '' };
+            currentOrganization = null;
+            document.getElementById('invNumber').innerText = '---';
+            document.getElementById('invIssueDate').value = todayJalaliFa();
+            if (new URLSearchParams(location.search).get('type') === 'quote') { document.getElementById('invDocType').value = 'quote'; onDocTypeChange('draft'); }
+            renderItems();
+            calculateTotals();
+        }
+
+        // ───────── Suggestions from earlier invoice items, as rows under the description box ─────────
+        let itemSuggestions = [];
+        async function loadItemSuggestions() {
+            try {
+                const r = await (await fetch('/api/invoice_item_suggestions', { cache: 'no-store' })).json();
+                itemSuggestions = (r && r.data) || [];
+            } catch (e) { itemSuggestions = []; }
+        }
+        const normFa = (s) => String(s || '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\u200c/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+        const suggestBox = document.createElement('div');
+        suggestBox.className = 'item-suggest';
+        suggestBox.setAttribute('role', 'listbox');
+        document.body.appendChild(suggestBox);
+        let suggestFor = null, suggestList = [], suggestActive = -1;
+        function priceIn(s) {
+            const v = Number(s.unit_price) || 0;
+            if (s.currency === currentCurrency) return v;
+            return currentCurrency === 'rial' ? v * 10 : v / 10;
+        }
+        function closeSuggest() { suggestBox.classList.remove('open'); suggestFor = null; suggestActive = -1; }
+        function showSuggest(ta) {
+            const q = normFa(ta.value);
+            const words = q.split(' ').filter(Boolean);
+            suggestList = itemSuggestions.filter(s => {
+                const n = normFa(s.type);
+                if (n === q) return false;
+                return !words.length || words.every(w => n.includes(w));
+            }).slice(0, 8);
+            if (!suggestList.length) return closeSuggest();
+            suggestFor = ta; suggestActive = -1;
+            const mark = (text) => {
+                let html = escapeHtml(text.split('\n')[0]);
+                words.forEach(w => { if (w.length > 1) html = html.replace(new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'i'), '<mark>$1</mark>'); });
+                return html;
+            };
+            suggestBox.innerHTML = suggestList.map((s, i) => `<div class="sg" role="option" data-i="${i}"><span class="t">${mark(s.type)}</span><span class="p">${priceIn(s) ? 'آخرین فی: ' + formatFarsiMoney(priceIn(s)) : ''}${s.count > 1 ? ' · ' + toPersianDigits(s.count) + ' بار' : ''}</span></div>`).join('');
+            const r = ta.getBoundingClientRect();
+            suggestBox.style.top = (r.bottom + 4) + 'px';
+            suggestBox.style.right = (window.innerWidth - r.right) + 'px';
+            suggestBox.style.width = Math.max(r.width, 320) + 'px';
+            suggestBox.classList.add('open');
+        }
+        function pickSuggest(i) {
+            const s = suggestList[i], ta = suggestFor;
+            if (!s || !ta) return;
+            const index = Number(ta.dataset.index);
+            // The box reports its own text when it loses focus; give it the chosen text first.
+            ta.value = s.type;
+            closeSuggest();
+            const item = currentInvoiceData.items[index];
+            if (!item) return;
+            item.type = s.type;
+            if (!Number(item.unit_price) && priceIn(s)) item.unit_price = priceIn(s);
+            item.row_total = (Number(item.qty) || 0) * (Number(item.unit_price) || 0);
+            calculateTotals();
+            renderItems();
+        }
+        suggestBox.addEventListener('mousedown', (e) => { const row = e.target.closest('.sg'); if (row) { e.preventDefault(); pickSuggest(Number(row.dataset.i)); } });
+        document.addEventListener('input', (e) => { if (e.target.classList && e.target.classList.contains('inv-desc')) showSuggest(e.target); });
+        document.addEventListener('focusin', (e) => { if (e.target.classList && e.target.classList.contains('inv-desc') && e.target.value.trim().length < 2 && window.FREE_MODE) showSuggest(e.target); });
+        document.addEventListener('focusout', (e) => { if (e.target === suggestFor) setTimeout(closeSuggest, 120); });
+        document.addEventListener('keydown', (e) => {
+            if (!suggestBox.classList.contains('open') || e.target !== suggestFor) return;
+            const rows = suggestBox.querySelectorAll('.sg');
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                suggestActive = (suggestActive + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+                rows.forEach((r, i) => r.classList.toggle('active', i === suggestActive));
+                rows[suggestActive].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter' && suggestActive >= 0) { e.preventDefault(); pickSuggest(suggestActive); }
+            else if (e.key === 'Escape') closeSuggest();
+        });
+        window.addEventListener('scroll', () => { if (suggestFor) showSuggest(suggestFor); }, true);
+
         // PDF: the document is saved first, then opened on its print page (A4/A5, glass or plain).
         function printInvoice() {
             return saveInvoice((doc) => { window.location.href = 'invoice-print?id=' + doc.id; });
