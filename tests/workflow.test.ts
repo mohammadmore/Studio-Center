@@ -1011,3 +1011,22 @@ describe("quick fill", () => {
     assert.equal((await client.get("/api/quick_fill")).status, 403);
   });
 });
+
+describe("project manager and team", () => {
+  it("leaves the main admin out of people lists and never lists the manager as a team member", async () => {
+    const admin = await login("admin");
+    const list = await admin.get("/api/get_colleagues");
+    assert.ok(!list.body.users.some((c: any) => c.role_id === 1), "main admin account is not offered");
+    state.colleagues.push({ id: 31, username: "sara", passwordHash: state.colleagues[0].passwordHash, full_name: "سارا", role_id: 3, is_active: 1 });
+    state.contents.push({ id: 931, title: "کارت تیم", org_id: 1, status: "todo", project_manager: "علی", assigned_colleagues: ["سارا"] });
+    // The new manager leaves the team; the old one is free to be picked again.
+    await admin.post("/api/update_content_details").send({ id: 931, project_manager: "سارا", assigned_colleagues: ["سارا", "علی"] });
+    assert.equal(card(931).project_manager, "سارا");
+    assert.deepEqual(card(931).assigned_colleagues, ["علی"]);
+    // Same rule for a new card and for a batch change of manager.
+    const created = await admin.post("/api/add_content").send({ title: "کارت تازه", org_id: 1, project_manager: "علی", assigned_colleagues: ["علی ", "سارا"] });
+    assert.deepEqual(created.body.data.assigned_colleagues, ["سارا"]);
+    await admin.post("/api/batch_edit_contents").send({ ids: [931], action: "manager", project_manager: "علی" });
+    assert.deepEqual(card(931).assigned_colleagues, []);
+  });
+});

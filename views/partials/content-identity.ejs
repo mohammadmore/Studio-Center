@@ -385,9 +385,11 @@ const colRadios = (window.allCollections || []).map(c => `
         const typeOptions = (window.allSettings?.content_type || []).map(t => `<option value="${escapeHtml(t.setting_key)}" ${escapeHtml(item.content_type == t.setting_key ? 'selected' : '')}>${escapeHtml(t.setting_key)}</option>`).join('');
         setTimeout(() => { if(window.filterCol) window.filterCol(); }, 50);
         const mgrDatalist = (window.allColleagues || []).map(u => `<option value="${escapeHtml(u.full_name)}">`).join('');
+        // Everyone is listed, but the card's project manager is hidden: a manager is not also a
+        // team member. Changing the manager shows the previous one again (see handleManagerChange).
         const teamCheckboxes = (window.allColleagues || []).map(u => `
-            <label class="team-checkbox-item" style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
-                <input type="checkbox" name="edit_team_cb" value="${escapeHtml(u.full_name)}" ${escapeHtml((item.assigned_colleagues || []).includes(u.full_name) ? 'checked' : '')}>
+            <label class="team-checkbox-item" style="display:${window.sameName(u.full_name, item.project_manager) ? 'none' : 'flex'}; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
+                <input type="checkbox" name="edit_team_cb" value="${escapeHtml(u.full_name)}" ${escapeHtml((item.assigned_colleagues || []).some(n => window.sameName(n, u.full_name)) && !window.sameName(u.full_name, item.project_manager) ? 'checked' : '')}>
                 <span class="team-name" style="font-size:0.9rem;">${escapeHtml(u.full_name)}</span>
             </label>
         `).join('');
@@ -833,20 +835,27 @@ async function toggleStage(id, stage, isChecked) {
 }
 window.toggleStage = toggleStage;
 
+/** Two names are the same person even with stray spaces or Arabic ي/ك. */
+window.sameName = function (a, b) {
+    const n = (s) => String(s == null ? '' : s).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim();
+    return !!n(a) && n(a) === n(b);
+};
+
 window.handleManagerChange = function() {
     const mgrValue = document.getElementById('edit_project_manager') ? document.getElementById('edit_project_manager').value.trim() : '';
     const teamCheckboxes = document.querySelectorAll('input[name="edit_team_cb"]');
+    // The chosen manager leaves the team list (and is unticked); everyone else, including a
+    // previous manager, is listed again.
     teamCheckboxes.forEach(cb => {
         const itemDiv = cb.closest('.team-checkbox-item');
-        if (itemDiv) {
-            if (cb.value === mgrValue) {
-                cb.checked = true;
-                cb.disabled = true;
-                itemDiv.style.opacity = '0.5';
-            } else {
-                cb.disabled = false;
-                itemDiv.style.opacity = '1';
-            }
+        if (!itemDiv) return;
+        cb.disabled = false;
+        itemDiv.style.opacity = '1';
+        if (mgrValue && window.sameName(cb.value, mgrValue)) {
+            cb.checked = false;
+            itemDiv.style.display = 'none';
+        } else {
+            itemDiv.style.display = 'flex';
         }
     });
 };

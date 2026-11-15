@@ -33,6 +33,20 @@ export function resolveColleagueIds(refs: unknown): number[] {
   return [...ids];
 }
 
+/** The project manager is never also listed among the card's team members. */
+export function dropManagerFromTeam(card: any) {
+  if (!card || !Array.isArray(card.assigned_colleagues) || !card.project_manager) return card;
+  const managerIds = resolveColleagueIds([card.project_manager]);
+  const norm = (s: unknown) => String(s ?? "").replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/\s+/g, " ").trim();
+  const managerName = norm(card.project_manager);
+  card.assigned_colleagues = card.assigned_colleagues.filter((n: unknown) => {
+    if (norm(n) === managerName) return false;
+    const ids = resolveColleagueIds([n]);
+    return !(ids.length && managerIds.length && ids[0] === managerIds[0]);
+  });
+  return card;
+}
+
 export function cardColleagueIds(card: any) {
   return resolveColleagueIds([...(card.assigned_colleagues || []), card.project_manager].filter(Boolean));
 }

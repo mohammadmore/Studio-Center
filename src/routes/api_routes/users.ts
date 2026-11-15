@@ -285,7 +285,9 @@ subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => 
 });
 
 subRouter.get("/get_colleagues", (req, res) => {
-  const mapped = colleagues.filter((c) => c.is_active !== 0).map((c) => {
+  // The main admin account is for system settings only, not a person who works on content:
+  // it is left out of every people list (team, project manager, mentions).
+  const mapped = colleagues.filter((c) => c.is_active !== 0 && c.role_id != ADMIN_ROLE_ID).map((c) => {
     // Bank and contact details are only needed by user managers.
     const { shaba, ...rest } = withRoleName(c) as any;
     // Labour cost is salary information.

@@ -6,7 +6,7 @@ import { checkPermission } from "../../middleware/auth.js";
 import { effectiveAvatar, hasPermission } from "../../utils/authUtils.js";
 import { addNotification, logContentActivity } from "../../utils/logger.js";
 import { normalizeJalaliDate, toInt } from "../../utils/helpers.js";
-import { cardColleagueIds, resolveColleagueIds } from "../../utils/contentUtils.js";
+import { cardColleagueIds, dropManagerFromTeam, resolveColleagueIds } from "../../utils/contentUtils.js";
 import { emitToStaff } from "../../utils/socket.js";
 import { managerId, stagePlan } from "../../utils/workflowUtils.js";
 import { canEditCard, CONTENT_PERMS, findOrCreateCollection, notifyNewAssignees } from "./contents.js";
@@ -223,8 +223,9 @@ function applyValues(req: any, card: any, values: any) {
   if (allowed.has("stages")) { const s = strList(values.stages); if (s && s.length) { card.stages = s; done.push("مراحل تولید"); } }
   if (allowed.has("team")) {
     const t = strList(values.team);
-    if (t && t.length) { const prev = card.assigned_colleagues || []; card.assigned_colleagues = t; notifyNewAssignees(card, prev); done.push("همکاران"); }
+    if (t && t.length) { const prev = card.assigned_colleagues || []; card.assigned_colleagues = t; dropManagerFromTeam(card); notifyNewAssignees(card, prev); done.push("همکاران"); }
   }
+  if (done.includes("مدیر پروژه")) dropManagerFromTeam(card);
   if (allowed.has("stage_owners") && values.stage_owners && typeof values.stage_owners === "object") {
     const plan = stagePlan(card);
     let any = false;

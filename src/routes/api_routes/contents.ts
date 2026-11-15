@@ -23,6 +23,7 @@ import {
 import {
   bulkTarget,
   cardColleagueIds,
+  dropManagerFromTeam,
   moveToRecycleBin,
   recordBulkAdd,
   reDeleteBinItem,
@@ -300,6 +301,7 @@ subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) =
     const colId = toInt(col);
     if (colId && collections.some((c) => c.id === colId)) newContent.collection_id = colId;
   }
+  dropManagerFromTeam(newContent);
   logContentActivity(newContent, req, "محتوا را ایجاد کرد");
   contents.unshift(newContent);
   if (is_recurring) addRecurrences(newContent, recurrence_interval_days, recurrence_count);
@@ -920,12 +922,14 @@ subRouter.post("/batch_edit_contents", checkPermission(["depot", "calendar"]), (
         logContentActivity(card, req, "نوع محتوا را تغییر داد");
       } else if (action === "manager" && project_manager !== undefined) {
         card.project_manager = project_manager;
+        dropManagerFromTeam(card);
         logContentActivity(card, req, "مدیر پروژه را دسته‌جمعی تغییر داد");
       } else if (action === "team" && Array.isArray(team)) {
         const previous = card.assigned_colleagues || [];
         card.assigned_colleagues = team
           .map((tId) => colleagues.find((c) => c.id == tId)?.full_name)
           .filter(Boolean);
+        dropManagerFromTeam(card);
         notifyNewAssignees(card, previous);
         logContentActivity(card, req, "تیم اجرایی را تغییر داد");
       } else if (action === "platforms" && Array.isArray(platforms)) {
@@ -1057,6 +1061,7 @@ subRouter.post("/update_content_details", (req: any, res) => {
       notifyNewAssignees(card, previous);
     }
   }
+  if (project_manager !== undefined || assigned_colleagues !== undefined) dropManagerFromTeam(card);
   if (content_type !== undefined) card.content_type = content_type;
   if (publish_date !== undefined) card.publish_date = normalizeJalaliDate(publish_date);
   if (publish_time !== undefined) card.publish_time = publish_time;
