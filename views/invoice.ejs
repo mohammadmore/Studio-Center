@@ -314,7 +314,8 @@
 
         <div class="no-print" style="margin-bottom: 30px; display: flex; gap: 15px; justify-content: flex-end;">
             <button class="btn-primary" onclick="saveInvoice()" style="height: 45px;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره فاکتور در دیتابیس</button>
-            <button class="btn-outline" onclick="printInvoice()" style="height: 45px; background: var(--card-bg);" id="printBtn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><path d="M6 18H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/><path d="M6 2h12v4H6z"/></svg> چاپ فاکتور (PDF)</button>
+            <button class="btn-outline" onclick="printInvoice()" style="height: 45px; background: var(--card-bg); display: inline-flex; align-items: center; gap: 6px;" id="printBtn"><i class=ai data-ic=file-text></i> خروجی PDF / چاپ</button>
+            <button class="btn-outline" onclick="sendInvoiceToClient()" style="height: 45px; background: var(--card-bg); display: inline-flex; align-items: center; gap: 6px; border-color: #16a34a; color: #16a34a;" id="sendBtn"><i class=ai data-ic=send></i> <span>ارسال برای کارفرما</span></button>
         </div>
 
         <div class="invoice-paper" id="invoicePaper">
@@ -671,8 +672,15 @@
                         tax_percent: 0,
                         discount: data.discount || 0,
                         paid_amount: data.paid_amount || 0,
-                        notes: data.notes || ''
+                        notes: data.notes || '',
+                        sent_at: data.sent_at || null
                     };
+                    // Amounts are stored in the currency the document was saved in.
+                    currentCurrency = data.currency === 'rial' ? 'rial' : 'toman';
+                    document.getElementById('invCurrency').value = currentCurrency;
+                    document.querySelectorAll('.currency-label').forEach(l => { l.innerText = currentCurrency === 'rial' ? 'ریال' : 'تومان'; });
+                    const sendBtn = document.getElementById('sendBtn');
+                    if (sendBtn && (data.doc_type === 'quote' ? data.status_name !== 'draft' : data.sent_at)) sendBtn.querySelector('span').textContent = 'ارسال دوباره برای کارفرما';
                     
                     // reverse-calculate tax percent for UI
                     if(data.tax > 0 && data.subtotal > 0) {
@@ -857,7 +865,7 @@
                         <tr>
                             <td class="no-print" style="text-align: center;"><input type="checkbox" class="item-checkbox" data-index="${index}" onclick="handleCheckboxClick(event, ${index})" onchange="updateSelection()" style="cursor: pointer;"></td>
                             <td style="text-align: center;">${toPersianDigits(index + 1)}</td>
-                            <td><input type="text" class="form-control" style="padding:5px;" value="${escapeHtml(item.type)}" onchange="updateItem(${index}, 'type', this.value)"></td>
+                            <td><textarea class="form-control inv-desc" rows="1" style="padding:5px; resize:vertical; min-height:34px; line-height:1.6; field-sizing: content;" onchange="updateItem(${index}, 'type', this.value)">${escapeHtml(item.type)}</textarea></td>
                             <td>
                                 <div class="multi-select">
                                     <div class="multi-select-display" onclick="toggleMultiSelect(this)">
@@ -979,7 +987,7 @@
             calculateTotals();
         }
 
-        async function saveInvoice() {
+        async function saveInvoice(next) {
             if(!currentInvoiceData.org_id) {
                 showToast('ابتدا یک کارفرما انتخاب کنید.');
                 return;
@@ -1004,7 +1012,8 @@
                 discount: currentInvoiceData.discount,
                 total: total,
                 notes: currentInvoiceData.notes,
-                paid_amount: currentInvoiceData.paid_amount
+                paid_amount: currentInvoiceData.paid_amount,
+                currency: currentCurrency
             };
 
             try {
@@ -1014,6 +1023,7 @@
                 });
                 const data = await res.json();
                 if(data.status === 'success') {
+                    if (typeof next === 'function') return next(data.data);
                     showToast('فاکتور با موفقیت ذخیره شد.', 'success');
                     window.location.href = 'invoice?id=' + data.data.id;
                 } else showToast(data.message);
@@ -1073,86 +1083,27 @@
     </div>
 
     <script>
-                                function printInvoice() {
-            const invoicePaper = document.getElementById('invoicePaper');
-            const previewContainer = document.getElementById('previewContainer');
-            
-            // Clone the invoice
-            const clone = invoicePaper.cloneNode(true);
-            
-            // Remove the ID to avoid duplicates
-            clone.removeAttribute('id');
-            
-            // Clean up the clone for preview
-            clone.style.boxShadow = 'none';
-            clone.style.margin = '0';
-            clone.style.border = 'none';
-            
-            // Ensure inputs keep their values
-            const originalInputs = invoicePaper.querySelectorAll('input, textarea, select');
-            const clonedInputs = clone.querySelectorAll('input, textarea, select');
-            
-            originalInputs.forEach((input, index) => {
-                if (clonedInputs[index]) {
-                    if (input.tagName === 'SELECT') {
-                        clonedInputs[index].value = input.value;
-                    } else if (input.type === 'checkbox' || input.type === 'radio') {
-                        clonedInputs[index].checked = input.checked;
-                    } else {
-                        clonedInputs[index].value = input.value;
-                        // Replace input with text for cleaner preview
-                        const div = document.createElement('div');
-                        div.textContent = input.value;
-                        div.style.padding = '8px';
-                        div.style.fontFamily = 'inherit';
-                        div.style.minHeight = '1.5em';
-                        div.style.whiteSpace = 'pre-wrap';
-                        div.style.wordBreak = 'break-word';
-                        if (input.style.textAlign) {
-                            div.style.textAlign = input.style.textAlign;
-                        }
-                        clonedInputs[index].parentNode.replaceChild(div, clonedInputs[index]);
-                    }
-                }
-            });
-            
-            // Replace multi-selects for cleaner preview
-            const originalMultiSelects = invoicePaper.querySelectorAll('.multi-select');
-            const clonedMultiSelects = clone.querySelectorAll('.multi-select');
-            originalMultiSelects.forEach((ms, index) => {
-                if (clonedMultiSelects[index]) {
-                    const display = ms.querySelector('.multi-select-display');
-                    if (display) {
-                        const div = document.createElement('div');
-                        const tags = Array.from(display.querySelectorAll('.multi-select-tag'));
-                        if (tags.length > 0) {
-                            div.textContent = tags.map(t => t.textContent).join('، ');
-                        } else {
-                            div.textContent = display.textContent.trim();
-                        }
-                        div.style.padding = '8px';
-                        div.style.fontFamily = 'inherit';
-                        div.style.minHeight = '1.5em';
-                        div.style.whiteSpace = 'pre-wrap';
-                        div.style.wordBreak = 'break-word';
-                        clonedMultiSelects[index].parentNode.replaceChild(div, clonedMultiSelects[index]);
-                    }
-                }
-            });
-
-            // Remove elements that shouldn't be printed/previewed
-            clone.querySelectorAll('.no-print').forEach(el => el.remove());
-
-            // Scale preview to fit screen if needed
-            const scale = Math.min(1, (window.innerWidth * 0.8) / 800);
-            previewContainer.style.transform = `scale(${scale})`;
-            
-            previewContainer.innerHTML = '';
-            previewContainer.appendChild(clone);
-            
-            document.getElementById('pdfPreviewModal').style.display = 'flex';
+        // PDF: the document is saved first, then opened on its print page (A4/A5, glass or plain).
+        function printInvoice() {
+            return saveInvoice((doc) => { window.location.href = 'invoice-print?id=' + doc.id; });
         }
-        
+
+        // Send to the client: saved first; the client sees it (and its PDF) only after this.
+        async function sendInvoiceToClient() {
+            const quote = document.getElementById('invDocType').value === 'quote';
+            const already = quote ? (document.getElementById('invStatus').value !== 'draft') : !!currentInvoiceData.sent_at;
+            const ok = await customConfirm(already
+                ? 'این سند قبلاً برای کارفرما ارسال شده است. تغییرات ذخیره و دوباره ارسال شود؟'
+                : `پس از ارسال، کارفرما این ${quote ? 'پیش‌فاکتور' : 'فاکتور'} را در پنل خود می‌بیند و می‌تواند PDF آن را دریافت کند. ذخیره و ارسال شود؟`);
+            if (!ok) return;
+            return saveInvoice(async (doc) => {
+                const res = await fetch('/api/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: quote ? 'send_quote' : 'send_invoice', id: doc.id }) });
+                const r = await res.json();
+                showToast(r.message || (r.status === 'success' ? 'ارسال شد' : 'ارسال نشد'), r.status === 'success' ? 'success' : 'error');
+                if (r.status === 'success') setTimeout(() => { window.location.href = 'invoice?id=' + doc.id; }, 700);
+            });
+        }
+
         function closePreviewModal() {
             document.getElementById('pdfPreviewModal').style.display = 'none';
         }

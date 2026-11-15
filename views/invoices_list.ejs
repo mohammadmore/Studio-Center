@@ -90,8 +90,14 @@
             docFilter = b.getAttribute('data-doc');
             loadInvoices();
         });
-        async function quoteAction(action, id) {
-            const res = await api('/api/invoices', { action, id }, { success: action === 'send_quote' ? 'برای کارفرما ارسال شد' : 'فاکتور صادر شد' });
+        async function quoteAction(action, id, resend) {
+            if (action === 'send_invoice') {
+                const ok = await customConfirm(resend
+                    ? 'این فاکتور قبلاً برای کارفرما ارسال شده است. دوباره ارسال شود؟'
+                    : 'پس از ارسال، کارفرما این فاکتور را در پنل خود می‌بیند و می‌تواند PDF آن را دریافت کند. ارسال شود؟');
+                if (!ok) return;
+            }
+            const res = await api('/api/invoices', { action, id }, { success: action === 'convert_quote' ? 'فاکتور صادر شد' : 'برای کارفرما ارسال شد' });
             if (res) loadInvoices();
         }
 
@@ -139,7 +145,8 @@
                                         <h3 style="margin-bottom: 5px; transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color=''">${isQuote ? 'پیش‌فاکتور' : 'فاکتور'} شماره ${escapeHtml(toPersianDigits(inv.invoice_number))} (${escapeHtml(orgName)})</h3>
                                     </a>
                                     <p style="color: var(--text-gray); font-size: 0.9rem;">
-                                        مبلغ کل: <strong>${formatFarsiMoney(inv.total)} تومان</strong> ${escapeHtml(paidText)}
+                                        مبلغ کل: <strong>${formatFarsiMoney(inv.total)} ${inv.currency === 'rial' ? 'ریال' : 'تومان'}</strong> ${escapeHtml(paidText)}
+                                        ${!isQuote && inv.sent_at ? '<span style="display:inline-flex; align-items:center; gap:4px; margin-right:8px; font-size:0.78rem; color:#16a34a; font-weight:bold;"><i class=ai data-ic=send></i> ارسال‌شده برای کارفرما</span>' : ''}
                                     </p>
                                     <p style="color: var(--text-gray); font-size: 0.85rem; margin-top: 5px;">
                                         تاریخ صدور: ${escapeHtml(toPersianDigits(inv.issue_date || '---'))} | سررسید: ${escapeHtml(toPersianDigits(inv.due_date || '---'))}
@@ -152,6 +159,8 @@
                                 </div>
                                 ${isQuote && ['draft', 'rejected'].includes(inv.status) ? `<button onclick="quoteAction('send_quote', ${inv.id})" class="btn-outline" style="background: var(--card-bg); font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;"><i class=ai data-ic=send></i> ارسال برای کارفرما</button>` : ''}
                                 ${isQuote && ['sent', 'accepted'].includes(inv.status) ? `<button onclick="quoteAction('convert_quote', ${inv.id})" class="btn-outline" style="background: var(--card-bg); font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;"><i class=ai data-ic=receipt></i> تبدیل به فاکتور</button>` : ''}
+                                ${!isQuote && inv.org_id && inv.status !== 'cancelled' ? `<button onclick="quoteAction('send_invoice', ${inv.id}, ${inv.sent_at ? 'true' : 'false'})" class="btn-outline" style="background: var(--card-bg); font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;"><i class=ai data-ic=send></i> ${inv.sent_at ? 'ارسال دوباره' : 'ارسال برای کارفرما'}</button>` : ''}
+                                <a href="invoice-print?id=${inv.id}" class="btn-outline" style="text-decoration: none; background: var(--card-bg); display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; height: 42px; padding: 0 12px; white-space: nowrap; box-sizing: border-box;"><i class=ai data-ic=file-text></i> PDF</a>
                                 <button onclick="changeStatus(${inv.id}, ${jsAttr(inv.status)})" class="btn-outline" style="background: var(--card-bg); width: 115px; text-align: center; justify-content: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">تغییر وضعیت</button>
                                 <a href="invoice?id=${inv.id}" class="btn-outline" style="text-decoration: none; width: 115px; text-align: center; justify-content: center; display: inline-flex; align-items: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap; box-sizing: border-box;">نمایش / ویرایش</a>
                                 <button onclick="deleteInvoice(${inv.id})" class="btn-outline" style="border-color: var(--error-color); color: var(--error-color); background: var(--card-bg); width: 115px; text-align: center; justify-content: center; font-size: 0.85rem; height: 42px; padding: 0 10px; white-space: nowrap;">حذف</button>

@@ -22,11 +22,12 @@
         if (!items.length) { box.innerHTML = '<div class="wf-card wf-empty">سندی برای شما صادر نشده است.</div>'; return; }
         box.innerHTML = items.map(i => {
             const quote = i.doc_type === 'quote';
+            const money = (n) => window.money(n).replace(/ تومان$/, i.currency === 'rial' ? ' ریال' : ' تومان');
             const st = (quote ? QUOTE : INVOICE)[i.status] || [i.status, ''];
             const remaining = Math.max(0, (Number(i.total) || 0) - (Number(i.paid_amount) || 0));
             return `
             <div class="wf-card">
-                <div class="wf-row between"><b>${quote ? 'پیش‌فاکتور' : 'فاکتور'} شماره ${fa(i.invoice_number)}</b>${statusChip(st[0], st[1])}</div>
+                <div class="wf-row between"><b>${quote ? 'پیش‌فاکتور' : 'فاکتور'} شماره ${fa(i.invoice_number)}</b><span class="wf-row" style="gap:8px">${statusChip(st[0], st[1])}<a class="wf-btn sm" href="invoice-print?id=${encodeURIComponent(i.id)}"><i class=ai data-ic=download></i> PDF</a></span></div>
                 <div class="muted" style="font-size:.82rem;margin:4px 0 8px">تاریخ: ${fa(i.issue_date || '—')}${i.due_date ? ' — سررسید: ' + fa(i.due_date) : ''}</div>
                 <details><summary style="cursor:pointer">جزئیات اقلام (${fa((i.items || []).length)})</summary>
                     <div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>شرح</th><th>تعداد</th><th>فی</th><th>جمع</th></tr></thead><tbody>

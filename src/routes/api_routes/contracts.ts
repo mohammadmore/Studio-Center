@@ -6,7 +6,7 @@ import { hasPermission } from "../../utils/authUtils.js";
 import { addNotification } from "../../utils/logger.js";
 import { nextId, normalizeJalaliDate, todayJalali, toInt } from "../../utils/helpers.js";
 import { DELIVERED_STATUSES } from "../../utils/workflowUtils.js";
-import { convertQuote, docType, priceOf, toNumber } from "./finances.js";
+import { convertQuote, docType, priceOf, toNumber, visibleToClient } from "./finances.js";
 
 /** Monthly packages per brand ("12 posts, 8 stories and 4 reels a month") and their usage. */
 const subRouter = express.Router();
@@ -196,7 +196,7 @@ subRouter.get("/client_quotes", (req: any, res) => {
   if (!isClient(req)) return fail(res, 403, "عدم دسترسی");
   const orgId = clientOrgId(req);
   const data = invoices
-    .filter((i) => i.org_id == orgId && ((docType(i) === "quote" && i.status !== "draft") || (docType(i) === "invoice" && i.status !== "draft")))
+    .filter((i) => i.org_id == orgId && visibleToClient(i))
     .map((i) => ({
       id: i.id,
       doc_type: docType(i),
@@ -211,6 +211,7 @@ subRouter.get("/client_quotes", (req: any, res) => {
       total: i.total,
       paid_amount: i.paid_amount,
       notes: i.notes,
+      currency: i.currency === "rial" ? "rial" : "toman",
       client_decision: i.client_decision || null,
       invoice_id: i.invoice_id || null,
     }))
@@ -242,7 +243,7 @@ subRouter.post("/client_quotes", (req: any, res) => {
   saveDatabase();
   res.json({
     status: "success",
-    message: decision === "accepted" ? "پیش‌فاکتور تایید شد و فاکتور صادر شد" : "پیش‌فاکتور رد شد",
+    message: decision === "accepted" ? "پیش‌فاکتور تایید شد؛ فاکتور نهایی پس از بررسی استودیو برای شما ارسال می‌شود" : "پیش‌فاکتور رد شد",
     invoice_id: invoice?.id || null,
   });
 });

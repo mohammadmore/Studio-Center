@@ -260,6 +260,67 @@ describe("contracts and quotes", () => {
   });
 });
 
+describe("invoices reach the client only when sent", () => {
+  it("hides unsent invoices, sends them, and serves the printable copy to the right people", async () => {
+    const admin = await login("admin");
+    const saved = await admin.post("/api/invoices").send({
+      action: "save", org_id: 1, doc_type: "invoice", status: "issued", issue_date: "1405/08/01", due_date: "1405/08/20",
+      items: [{ type: "ریلز معرفی\nبا زیرنویس", platform: "اینستاگرام", qty: 2, unit_price: 1500000, row_total: 3000000 }],
+      subtotal: 3000000, tax: 0, discount: 0, total: 3000000, paid_amount: 0, currency: "rial",
+      print_options: { theme: "plain", paper: "A5", title: "صورتحساب نهایی", show_signature: false, evil: "<script>" },
+    });
+    assert.equal(saved.body.status, "success");
+    const id = saved.body.data.id;
+    assert.equal(saved.body.data.currency, "rial");
+    assert.deepEqual(saved.body.data.print_options, { theme: "plain", paper: "A5", title: "صورتحساب نهایی", show_signature: false });
+
+    const client = await login("brand1");
+    const before = await client.get("/api/client_quotes");
+    assert.ok(!before.body.data.some((i: any) => i.id === id), "issued but unsent invoice must stay hidden");
+    assert.equal((await client.get(`/api/invoice_print_data?id=${id}`)).status, 404);
+
+    const sent = await admin.post("/api/invoices").send({ action: "send_invoice", id });
+    assert.equal(sent.body.status, "success");
+    assert.equal(lastNotification().type, "invoice_sent");
+    const after = await client.get("/api/client_quotes");
+    const mine = after.body.data.find((i: any) => i.id === id);
+    assert.ok(mine);
+    assert.equal(mine.currency, "rial");
+    const print = await client.get(`/api/invoice_print_data?id=${id}`);
+    assert.equal(print.body.status, "success");
+    assert.equal(print.body.data.print_options.paper, "A5");
+    assert.equal(print.body.organization.id, 1);
+
+    // Saving print options is staff-only; another brand cannot read this document.
+    assert.equal((await client.post("/api/invoices").send({ action: "save_print_options", id, print_options: {} })).status, 403);
+    const opts = await admin.post("/api/invoices").send({ action: "save_print_options", id, print_options: { theme: "glass", paper: "A4", show_words: false } });
+    assert.deepEqual(opts.body.data, { theme: "glass", paper: "A4", show_words: false });
+    const other = state.organizations.find((o: any) => o.id !== 1);
+    if (other) {
+      const inv = state.invoices.find((i: any) => i.id === id);
+      inv.org_id = other.id;
+      assert.equal((await client.get(`/api/invoice_print_data?id=${id}`)).status, 404);
+      inv.org_id = 1;
+    }
+    const page = await client.get(`/invoice-print?id=${id}`);
+    assert.equal(page.status, 200);
+  });
+
+  it("does not show an invoice made from an accepted quote until it is sent", async () => {
+    const admin = await login("admin");
+    const q = await admin.post("/api/invoices").send({ action: "save", org_id: 1, doc_type: "quote", items: [{ type: "پکیج", qty: 1, unit_price: 100, row_total: 100 }], subtotal: 100, total: 100 });
+    await admin.post("/api/invoices").send({ action: "send_quote", id: q.body.data.id });
+    const client = await login("brand1");
+    const acc = await client.post("/api/client_quotes").send({ id: q.body.data.id, decision: "accept" });
+    const invId = acc.body.invoice_id;
+    assert.ok(invId);
+    const list = (await client.get("/api/client_quotes")).body.data;
+    assert.ok(!list.some((i: any) => i.id === invId));
+    await admin.post("/api/invoices").send({ action: "send_invoice", id: invId });
+    assert.ok((await client.get("/api/client_quotes")).body.data.some((i: any) => i.id === invId));
+  });
+});
+
 describe("timesheet, workload and profitability", () => {
   it("logs time by hand and with a timer", async () => {
     const ali = await login("ali");

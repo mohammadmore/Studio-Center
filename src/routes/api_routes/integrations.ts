@@ -231,7 +231,7 @@ export function monthlyReport(org: any, year: number, month: number, forClient: 
     }
   }
   const monthInvoices = invoices
-    .filter((i) => i.org_id == org.id && docType(i) === "invoice" && i.status !== "draft" && normalizeJalaliDate(i.issue_date).startsWith(prefix))
+    .filter((i) => i.org_id == org.id && docType(i) === "invoice" && i.status !== "draft" && (!forClient || i.sent_at) && normalizeJalaliDate(i.issue_date).startsWith(prefix))
     .map((i) => ({ id: i.id, invoice_number: i.invoice_number, total: toNumber(i.total), paid_amount: toNumber(i.paid_amount), status: i.status }));
   const notes = org.monthly_reports?.[prefix] || {};
   const item = (c: any) => ({

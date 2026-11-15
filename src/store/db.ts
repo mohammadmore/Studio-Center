@@ -10,6 +10,7 @@ import {
   colleagues,
   contents,
   integrations,
+  invoices,
   mediaAssets,
   organizations,
   roles,
@@ -178,6 +179,21 @@ async function encryptSecretsInRollingCopies() {
  * (RESET_ADMIN_USERNAME, default "admin") gets that password on startup and is re-enabled.
  * Meant for a locked-out owner. Each value is applied once; remove the variable afterwards.
  */
+/**
+ * Invoices now reach the client only after "send". Invoices that clients could already see
+ * (anything past draft) are marked as sent once, so nothing disappears from their portal.
+ */
+function markLegacyInvoicesSent() {
+  if (settings.invoice_send_rule) return false;
+  for (const inv of invoices) {
+    if (inv && inv.doc_type !== "quote" && inv.status && inv.status !== "draft" && !inv.sent_at) {
+      inv.sent_at = inv.created_at || new Date().toISOString();
+    }
+  }
+  settings.invoice_send_rule = 1;
+  return true;
+}
+
 function applyEmergencyAdminReset() {
   const newPassword = normalizePasswordInput(process.env.RESET_ADMIN_PASSWORD || "");
   if (!newPassword) return false;
@@ -233,6 +249,7 @@ export async function initDatabase(customDriver?: StorageDriver) {
   }
   ready = true;
   if (applyEmergencyAdminReset()) await flushDatabase(true);
+  if (markLegacyInvoicesSent()) await flushDatabase(true);
   // Rewrite the file at once so no plain-text credential stays on disk.
   if (encryptStoredSecrets()) {
     await flushDatabase(true);

@@ -139,6 +139,21 @@ viewsRouter.get("/report-print", (req: any, res) => {
   );
 });
 
+// Printable invoice / quote (A4 or A5, glass or plain). Clients may open only their own,
+// sent documents; the data endpoint enforces that.
+viewsRouter.get("/invoice-print", (req: any, res) => {
+  const user = req.user;
+  if (!user) return loginRedirect(req, res);
+  if (user.role_id === "client") {
+    limitSettingsForClient(res);
+    return res.render("invoice-print", { isClient: true, canEdit: false, canSaveLetterhead: false });
+  }
+  authGuard("invoice")(req, res, () =>
+    res.render("invoice-print", { isClient: false, canEdit: true, canSaveLetterhead: hasPermission(user, "settings") }),
+  );
+});
+
+
 viewsRouter.get("/reports", (req: any, res, next) => {
   const user = req.user;
   if (!user) return loginRedirect(req, res);

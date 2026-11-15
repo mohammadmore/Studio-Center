@@ -1,8 +1,8 @@
 import express from "express";
 import { contents, expenses, invoices, organizations, settings } from "../../store/state.js";
 import { saveDatabase } from "../../store/db.js";
-import { checkPermission } from "../../middleware/auth.js";
-import { stripSecrets } from "../../utils/authUtils.js";
+import { checkPermission, clientOrgId } from "../../middleware/auth.js";
+import { hasPermission, stripSecrets } from "../../utils/authUtils.js";
 import { moveToRecycleBin } from "../../utils/contentUtils.js";
 import { addNotification } from "../../utils/logger.js";
 import { nextId, normalizeJalaliDate, toLatinDigits, todayJalali } from "../../utils/helpers.js";
@@ -41,10 +41,31 @@ export function convertQuote(quote: any, actor: string) {
     created_by: actor,
   };
   delete inv.client_decision;
+  // The quote's "sent" time must not carry over: the invoice reaches the client only when sent.
+  delete inv.sent_at;
   invoices.push(inv);
   quote.status = "converted";
   quote.invoice_id = id;
   return inv;
+}
+
+/** What the client portal may show: quotes once sent, invoices only after "send". */
+export function visibleToClient(inv: any) {
+  if (!inv) return false;
+  return docType(inv) === "quote" ? inv.status !== "draft" : !!inv.sent_at;
+}
+
+const PRINT_FLAGS = ["show_logo", "show_platform", "show_notes", "show_payment", "show_signature", "show_words", "show_due", "show_page_numbers"];
+
+/** Per-invoice print choices (theme, paper, custom title and which parts to show). */
+export function cleanPrintOptions(v: any) {
+  const o: Record<string, any> = {};
+  if (!v || typeof v !== "object") return o;
+  if (v.theme === "glass" || v.theme === "plain") o.theme = v.theme;
+  if (v.paper === "A4" || v.paper === "A5") o.paper = v.paper;
+  if (typeof v.title === "string") o.title = v.title.trim().slice(0, 80);
+  for (const k of PRINT_FLAGS) if (typeof v[k] === "boolean") o[k] = v[k];
+  return o;
 }
 
 const subRouter = express.Router();
@@ -141,6 +162,8 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
         inv2.notes = notes;
         inv2.paid_amount = toNumber(paid_amount);
         inv2.doc_type = kind;
+        if (req.body.currency === "rial" || req.body.currency === "toman") inv2.currency = req.body.currency;
+        if (req.body.print_options !== undefined) inv2.print_options = cleanPrintOptions(req.body.print_options);
         saveDatabase();
         return res.json({
           status: "success",
@@ -167,6 +190,8 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
       notes,
       paid_amount: toNumber(paid_amount),
       doc_type: kind,
+      currency: req.body.currency === "rial" ? "rial" : "toman",
+      print_options: cleanPrintOptions(req.body.print_options),
       created_at: new Date().toISOString(),
     };
     invoices.push(inv);
@@ -216,6 +241,33 @@ subRouter.post("/invoices", checkPermission("invoice"), (req, res) => {
     );
     saveDatabase();
     return res.json({ status: "success", message: "پیش‌فاکتور برای کارفرما ارسال شد" });
+  }
+  if (action === "send_invoice") {
+    const inv = invoices.find((i) => i.id == id && docType(i) === "invoice");
+    if (!inv) return res.status(404).json({ status: "error", message: "فاکتور یافت نشد" });
+    if (!inv.org_id) return res.status(400).json({ status: "error", message: "کارفرمای فاکتور مشخص نیست" });
+    if (inv.status === "cancelled") return res.status(400).json({ status: "error", message: "فاکتور لغو شده را نمی‌توان ارسال کرد" });
+    if (inv.status === "draft") inv.status = "issued";
+    const again = !!inv.sent_at;
+    inv.sent_at = new Date().toISOString();
+    addNotification(
+      again ? "فاکتور به‌روز شد" : "فاکتور جدید",
+      `فاکتور شماره ${inv.invoice_number} به مبلغ ${toNumber(inv.total).toLocaleString("fa-IR")} ${inv.currency === "rial" ? "ریال" : "تومان"} برای شما ارسال شد.`,
+      "client",
+      inv.org_id,
+      "/client-quotes",
+      "invoice_sent",
+      inv.id,
+    );
+    saveDatabase();
+    return res.json({ status: "success", message: again ? "فاکتور دوباره برای کارفرما ارسال شد" : "فاکتور برای کارفرما ارسال شد", data: inv });
+  }
+  if (action === "save_print_options") {
+    const inv = invoices.find((i) => i.id == id);
+    if (!inv) return res.status(404).json({ status: "error", message: "سند یافت نشد" });
+    inv.print_options = cleanPrintOptions(req.body.print_options);
+    saveDatabase();
+    return res.json({ status: "success", message: "تنظیمات چاپ این سند ذخیره شد", data: inv.print_options });
   }
   if (action === "convert_quote") {
     const quote = invoices.find((i) => i.id == id && docType(i) === "quote");
@@ -282,6 +334,9 @@ subRouter.get(
         total_amount: inv.total,
         paid_amount: inv.paid_amount,
         notes: inv.notes,
+        currency: inv.currency === "rial" ? "rial" : "toman",
+        print_options: inv.print_options || {},
+        sent_at: inv.sent_at || null,
       });
     }
     if (!org_id)
@@ -380,5 +435,44 @@ subRouter.get(
     });
   },
 );
+
+/** Everything the printable invoice needs. Clients get only their own, sent documents. */
+subRouter.get("/invoice_print_data", (req: any, res) => {
+  const inv = invoices.find((i) => i.id == req.query.id);
+  const user = req.user;
+  if (!user) return res.status(401).json({ status: "error", message: "ابتدا وارد شوید" });
+  if (user.role_id === "client") {
+    if (!inv || inv.org_id != clientOrgId(req) || !visibleToClient(inv)) return res.status(404).json({ status: "error", message: "سند یافت نشد" });
+  } else if (!hasPermission(user, "invoice")) {
+    return res.status(403).json({ status: "error", message: "عدم دسترسی" });
+  } else if (!inv) {
+    return res.status(404).json({ status: "error", message: "سند یافت نشد" });
+  }
+  const org = organizations.find((o) => o.id == inv.org_id);
+  res.json({
+    status: "success",
+    data: {
+      id: inv.id,
+      invoice_number: inv.invoice_number,
+      doc_type: docType(inv),
+      status: inv.status,
+      issue_date: inv.issue_date || "",
+      due_date: inv.due_date || "",
+      items: Array.isArray(inv.items) ? inv.items : [],
+      subtotal: toNumber(inv.subtotal),
+      tax: toNumber(inv.tax),
+      discount: toNumber(inv.discount),
+      total: toNumber(inv.total),
+      paid_amount: toNumber(inv.paid_amount),
+      notes: inv.notes || "",
+      currency: inv.currency === "rial" ? "rial" : "toman",
+      print_options: inv.print_options || {},
+      sent_at: inv.sent_at || null,
+    },
+    organization: org
+      ? { id: org.id, org_name: org.org_name, contact_name: org.contact_name || "", phone: org.phone_number || "", logo_url: org.logo_url || "", color: org.color || "" }
+      : null,
+  });
+});
 
 export default subRouter;

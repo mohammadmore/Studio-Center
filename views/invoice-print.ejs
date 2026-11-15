@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-inv-theme="glass" data-paper="A4">
+<head>
+<meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>فاکتور</title>
+<style>
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-Medium.woff2') format('woff2'); font-weight: 500; }
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-SemiBold.woff2') format('woff2'); font-weight: 600; }
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-ExtraBold.woff2') format('woff2'); font-weight: 800; }
+
+/* Page size, bands and the page-number line are written by the script (A4 / A5, document
+   number). Only a top and bottom band stay on the page; the side inset is part of the layout,
+   so the PDF needs no printer margin. In the glass theme the bands carry the page tint. */
+@page glass { background-color: #f4f2fe; }
+
+:root {
+    --accent: #6366f1;
+    --accent-2: #ec4899;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --card: #ffffff;
+    --soft: #f8fafc;
+    --good: #16a34a;
+    --bad: #dc2626;
+    --inset: 12mm;
+}
+html[data-paper="A5"] { --inset: 8mm; }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+html, body { margin: 0; padding: 0; }
+body { font-family: 'Vazirmatn', Tahoma, sans-serif; color: var(--ink); background: #e2e8f0; font-size: 10.5pt; line-height: 1.7; }
+html[data-paper="A5"] body { font-size: 8.6pt; }
+
+/* ───────── Toolbar (screen only) ───────── */
+.toolbar { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #fff; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; box-shadow: 0 4px 18px rgba(0,0,0,.25); }
+.toolbar .group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar .sep { width: 1px; height: 26px; background: rgba(255,255,255,.2); }
+.toolbar button, .toolbar a.tb { font-family: inherit; font-size: 0.9rem; border-radius: 10px; padding: 8px 14px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; min-height: 40px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.toolbar button:hover, .toolbar a.tb:hover { background: rgba(255,255,255,.16); }
+.toolbar button[aria-pressed="true"] { background: #fff; color: #0f172a; border-color: #fff; font-weight: 700; }
+.toolbar .primary { background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899); border: none; font-weight: 700; }
+.toolbar .send { background: #16a34a; border-color: #16a34a; font-weight: 700; }
+.toolbar .hint { font-size: 0.78rem; color: #cbd5e1; }
+.panel { display: none; background: #fff; color: #0f172a; max-width: 960px; margin: 14px auto 0; border-radius: 14px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(15,23,42,.15); }
+.panel.open { display: block; }
+.panel h3 { margin: 0 0 10px; font-size: 1rem; }
+.panel h3 + p { margin: -6px 0 10px; font-size: .8rem; color: #64748b; }
+.panel .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 14px; }
+.panel label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; color: #334155; }
+.panel input[type=text] { font-family: inherit; font-size: 0.9rem; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 9px; min-height: 40px; }
+.panel .checks { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; }
+.panel .checks label { flex-direction: row; align-items: center; gap: 6px; font-weight: 500; min-height: 36px; }
+.panel .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+.panel .actions button { font-family: inherit; border-radius: 10px; padding: 9px 16px; min-height: 40px; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; }
+.panel .actions .save { background: #0f172a; color: #fff; border-color: #0f172a; font-weight: 700; }
+.panel hr { border: 0; border-top: 1px dashed #cbd5e1; margin: 16px 0; }
+.note { font-size: 0.8rem; color: #475569; }
+
+/* ───────── Sheet ───────── */
+.sheet { width: 210mm; min-height: 297mm; margin: 18px auto 40px; background: var(--card); padding: 12mm var(--inset); position: relative; overflow: hidden; box-shadow: 0 10px 40px rgba(15,23,42,.18); }
+html[data-paper="A5"] .sheet { width: 148mm; min-height: 210mm; padding: 8mm var(--inset); }
+.state { text-align: center; padding: 80px 20px; color: var(--muted); font-size: 1rem; }
+
+.letterhead { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 2px solid var(--accent); }
+.lh-studio { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.lh-logo { width: 54px; height: 54px; object-fit: contain; border-radius: 12px; }
+html[data-paper="A5"] .lh-logo { width: 40px; height: 40px; }
+.lh-name { font-size: 1.45em; font-weight: 800; line-height: 1.3; }
+.lh-sub { font-size: .86em; color: var(--muted); }
+.lh-contact { text-align: left; font-size: .8em; color: var(--muted); line-height: 1.8; }
+.lh-contact div { white-space: nowrap; }
+
+.doc-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 4px 0 12px; flex-wrap: wrap; }
+.doc-title { margin: 0; font-size: 2em; font-weight: 800; line-height: 1.25; letter-spacing: -.5px; }
+.doc-title small { display: block; font-size: .42em; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: .8em; font-weight: 600; background: var(--soft); border: 1px solid var(--line); color: #334155; white-space: nowrap; }
+.chip.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, white); background: color-mix(in srgb, var(--good) 9%, white); }
+.chip.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, white); background: color-mix(in srgb, var(--bad) 8%, white); }
+.chip.due { color: #b45309; border-color: #fcd34d; background: #fffbeb; }
+
+.parties { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; margin-bottom: 12px; }
+.box { border-radius: 14px; border: 1px solid var(--line); background: var(--soft); padding: 9px 12px; break-inside: avoid; }
+.box .label { font-size: .78em; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+.box .big { font-size: 1.15em; font-weight: 800; }
+.box .line { font-size: .88em; color: #334155; }
+.box .kv { display: flex; justify-content: space-between; gap: 8px; font-size: .9em; }
+.box .kv b { font-weight: 700; }
+.client { display: flex; align-items: center; gap: 10px; }
+.client img, .client .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; }
+.client .avatar { display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; background: var(--accent); }
+
+.table-card { border-radius: 14px; border: 1px solid var(--line); overflow: hidden; margin-bottom: 12px; }
+table.items { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .9em; }
+table.items thead { display: table-header-group; }
+table.items th { text-align: right; font-weight: 700; padding: 8px 8px; background: var(--soft); border-bottom: 1.5px solid var(--accent); white-space: nowrap; }
+table.items td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.items tbody tr:last-child td { border-bottom: none; }
+table.items tr { break-inside: avoid; }
+table.items td.n { width: 30px; color: var(--muted); text-align: center; }
+table.items td.desc { white-space: pre-wrap; word-break: break-word; font-weight: 500; }
+table.items td.num, table.items th.num { text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.items td.total { font-weight: 700; }
+table.items .plat { font-size: .82em; color: var(--muted); }
+table.items tr.neg td.total, table.items tr.neg td.num { color: var(--bad); }
+
+.closing { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+.closing > .stack { display: flex; flex-direction: column; gap: 10px; }
+.totals { border-radius: 14px; border: 1px solid var(--line); background: var(--soft); padding: 8px 12px; break-inside: avoid; }
+.totals .row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; font-size: .95em; }
+.totals .row span:last-child { font-weight: 700; white-space: nowrap; }
+.totals .row.minus span:last-child { color: var(--bad); }
+.totals .row.grand { border-top: 1.5px solid var(--accent); margin-top: 4px; padding-top: 7px; font-size: 1.2em; font-weight: 800; }
+.totals .row.grand span:last-child { color: var(--accent); font-weight: 800; }
+.totals .words { font-size: .82em; color: #334155; background: color-mix(in srgb, var(--accent) 7%, transparent); border-radius: 9px; padding: 4px 8px; margin-top: 4px; line-height: 1.7; }
+.totals .row.remain span:last-child { color: var(--bad); }
+.totals .row.paid span:last-child { color: var(--good); }
+.box h4 { margin: 0 0 4px; font-size: .95em; display: flex; align-items: center; gap: 6px; }
+.notes { white-space: pre-wrap; font-size: .9em; color: #334155; }
+.pay .kv { padding: 2px 0; }
+.pay .ltr { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+
+.signs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; break-inside: avoid; }
+.sign { border: 1.5px dashed color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 14px; height: 32mm; padding: 8px 12px; font-size: .85em; color: var(--muted); font-weight: 600; }
+html[data-paper="A5"] .sign { height: 24mm; }
+
+.thanks { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; justify-content: space-between; gap: 10px; font-size: .78em; color: var(--muted); break-inside: avoid; }
+.stamp { display: inline-block; border: 2px solid var(--good); color: var(--good); border-radius: 10px; padding: 1px 10px; font-weight: 800; transform: rotate(-6deg); font-size: .95em; }
+.stamp.void { border-color: var(--bad); color: var(--bad); }
+
+/* ───────── Glass theme ───────── */
+html[data-inv-theme="glass"] .sheet {
+    background:
+        radial-gradient(55% 32% at 100% 18%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%),
+        radial-gradient(50% 30% at 0% 48%, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent 70%),
+        radial-gradient(60% 30% at 70% 82%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%),
+        #f4f2fe;
+}
+html[data-inv-theme="glass"] .letterhead { border-bottom: none; padding: 12px 14px; border-radius: 18px; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--accent-2))); color: #fff; box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 30%, transparent); }
+html[data-inv-theme="glass"] .letterhead .lh-sub, html[data-inv-theme="glass"] .letterhead .lh-contact { color: rgba(255,255,255,.88); }
+html[data-inv-theme="glass"] .letterhead .lh-logo { background: rgba(255,255,255,.92); padding: 4px; }
+html[data-inv-theme="glass"] .box, html[data-inv-theme="glass"] .totals, html[data-inv-theme="glass"] .table-card {
+    background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 6px 22px rgba(15,23,42,.07), inset 0 1px 0 rgba(255,255,255,.8);
+}
+html[data-inv-theme="glass"] table.items th { background: color-mix(in srgb, var(--accent) 12%, rgba(255,255,255,.75)); }
+html[data-inv-theme="glass"] table.items tbody td { background: rgba(255,255,255,.28); }
+html[data-inv-theme="glass"] .doc-title { color: color-mix(in srgb, var(--accent) 80%, #0f172a); }
+html[data-inv-theme="glass"] .sign { background: rgba(255,255,255,.4); }
+
+/* ───────── Plain theme (black & white printers) ───────── */
+html[data-inv-theme="plain"] { --accent: #111827; --accent-2: #111827; --soft: #ffffff; --line: #9ca3af; --muted: #4b5563; --good: #111827; --bad: #111827; }
+html[data-inv-theme="plain"] .sheet { background: #fff; }
+html[data-inv-theme="plain"] .letterhead { border-bottom: 2px solid #111827; }
+html[data-inv-theme="plain"] .box, html[data-inv-theme="plain"] .totals, html[data-inv-theme="plain"] .table-card { background: #fff; border: 1px solid #6b7280; box-shadow: none; }
+html[data-inv-theme="plain"] table.items th { background: #f3f4f6; border-bottom: 1.5px solid #111827; }
+html[data-inv-theme="plain"] table.items tbody tr:nth-child(even) td { background: #f9fafb; }
+html[data-inv-theme="plain"] .chip { background: #fff; border-color: #6b7280; color: #111827; }
+html[data-inv-theme="plain"] .totals .words { background: #f3f4f6; }
+html[data-inv-theme="plain"] .client .avatar { background: #374151; }
+html[data-inv-theme="plain"] .sign { border-color: #6b7280; }
+
+/* ───────── Print ───────── */
+.page-bg { display: none; }
+@media print {
+    body { background: #fff; }
+    .toolbar, .panel { display: none !important; }
+    .sheet, html[data-paper="A5"] .sheet { width: auto; min-height: 0; margin: 0; padding: 0 var(--inset); box-shadow: none; overflow: visible; position: relative; z-index: 1; }
+    html[data-inv-theme="glass"] body { page: glass; }
+    html[data-inv-theme="glass"], html[data-inv-theme="glass"] body { background: #f4f2fe; }
+    html[data-inv-theme="glass"] .sheet { background: transparent; }
+    /* Full-bleed tint on every page; it fades to the band colour at the top and bottom. */
+    html[data-inv-theme="glass"] .page-bg {
+        display: block; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background:
+            radial-gradient(55% 30% at 100% 28%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%),
+            radial-gradient(50% 28% at 0% 55%, color-mix(in srgb, var(--accent-2) 17%, transparent), transparent 70%),
+            radial-gradient(55% 24% at 70% 76%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 70%),
+            #f4f2fe;
+    }
+}
+@media screen and (max-width: 860px) {
+    .sheet, html[data-paper="A5"] .sheet { width: 100%; min-height: 0; margin: 10px 0 30px; padding: 16px 12px; }
+    .letterhead, .doc-head { flex-wrap: wrap; }
+    .parties, .closing, .signs { grid-template-columns: 1fr; }
+    .table-card { overflow-x: auto; }
+}
+</style>
+<style id="pageRules"></style>
+</head>
+<body>
+<div class="toolbar" role="toolbar" aria-label="تنظیمات خروجی فاکتور">
+    <div class="group">
+        <a class="tb" id="backLink" href="<%= isClient ? 'client-quotes' : 'invoices_list' %>"><i class=ai data-ic=arrow-right></i> بازگشت</a>
+        <span class="sep" aria-hidden="true"></span>
+        <button type="button" id="themeGlass" aria-pressed="true" onclick="setOpt('theme','glass')"><i class=ai data-ic=sparkles></i> شیشه‌ای</button>
+        <button type="button" id="themePlain" aria-pressed="false" onclick="setOpt('theme','plain')"><i class=ai data-ic=printer></i> ساده (سیاه‌وسفید)</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button type="button" id="paperA4" aria-pressed="true" onclick="setOpt('paper','A4')">A4</button>
+        <button type="button" id="paperA5" aria-pressed="false" onclick="setOpt('paper','A5')">A5</button>
+        <% if (!isClient) { %><button type="button" onclick="togglePanel()" aria-expanded="false" id="panelBtn"><i class=ai data-ic=settings></i> تنظیمات چاپ</button><% } %>
+    </div>
+    <div class="group">
+        <% if (!isClient) { %><button type="button" class="send" id="sendBtn" onclick="sendToClient()" hidden><i class=ai data-ic=send></i> <span>ارسال برای کارفرما</span></button><% } %>
+        <span class="hint">در پنجره‌ی چاپ، مقصد را «Save as PDF» و Margins را «Default» بگذارید.</span>
+        <button type="button" class="primary" onclick="downloadPdf()"><i class=ai data-ic=download></i> دانلود PDF</button>
+    </div>
+</div>
+
+<% if (!isClient) { %>
+<div class="panel" id="panel" role="region" aria-label="تنظیمات چاپ">
+    <h3>این سند</h3>
+    <p>این تنظیمات همراه همین فاکتور ذخیره می‌شود و کارفرما هم همین نسخه را می‌بیند.</p>
+    <div class="grid">
+        <label>عنوان بالای صفحه<input type="text" id="optTitle" placeholder="خالی = «فاکتور» یا «پیش‌فاکتور»"></label>
+    </div>
+    <div class="checks">
+        <label><input type="checkbox" data-opt="show_logo"> لوگوی استودیو</label>
+        <label><input type="checkbox" data-opt="show_platform"> ستون پلتفرم</label>
+        <label><input type="checkbox" data-opt="show_words"> مبلغ به حروف</label>
+        <label><input type="checkbox" data-opt="show_due"> برچسب مهلت پرداخت</label>
+        <label><input type="checkbox" data-opt="show_notes"> توضیحات</label>
+        <label><input type="checkbox" data-opt="show_payment"> اطلاعات پرداخت</label>
+        <label><input type="checkbox" data-opt="show_signature"> جای امضا و مهر</label>
+        <label><input type="checkbox" data-opt="show_page_numbers"> شماره‌ی صفحه</label>
+    </div>
+    <div class="actions">
+        <button type="button" class="save" onclick="savePrintOptions()"><i class=ai data-ic=save></i> ذخیره برای این سند</button>
+        <span id="optNote" class="note"></span>
+    </div>
+    <hr>
+    <h3>سربرگ (مشترک با گزارش محتوا)</h3>
+    <p>اطلاعات بانکی از «تنظیمات پایه» خوانده می‌شود.</p>
+    <div class="grid">
+        <label>نام روی سربرگ<input type="text" id="lhName"></label>
+        <label>زیرعنوان<input type="text" id="lhSubtitle" placeholder="مثلاً: استودیو تولید محتوای دیجیتال"></label>
+        <label>تلفن<input type="text" id="lhPhone" dir="ltr"></label>
+        <label>ایمیل<input type="text" id="lhEmail" dir="ltr"></label>
+        <label>وب‌سایت<input type="text" id="lhWebsite" dir="ltr"></label>
+        <label>آدرس<input type="text" id="lhAddress"></label>
+        <label>رنگ اصلی (تم شیشه‌ای)<input type="color" id="lhAccent" value="#6366f1" style="min-height:40px; width:100%; border:1px solid #cbd5e1; border-radius:9px;"></label>
+    </div>
+    <div class="actions">
+        <% if (canSaveLetterhead) { %><button type="button" class="save" onclick="saveLetterhead()"><i class=ai data-ic=save></i> ذخیره به‌عنوان پیش‌فرض استودیو</button><% } else { %><span class="note">برای تغییر دائمی سربرگ، دسترسی «تنظیمات» لازم است؛ تغییرات اینجا فقط روی همین خروجی اثر دارد.</span><% } %>
+        <span id="lhNote" class="note"></span>
+    </div>
+</div>
+<% } %>
+
+<div class="page-bg" aria-hidden="true"></div>
+<main class="sheet" id="sheet"><div class="state">در حال آماده‌سازی فاکتور…</div></main>
+
+<script>
+(function () {
+    "use strict";
+    var IS_CLIENT = <%- JSON.stringify(!!isClient) %>;
+    var CAN_EDIT = <%- JSON.stringify(!!canEdit) %>;
+    var q = new URLSearchParams(location.search);
+    var docId = q.get("id");
+    var doc = null, org = null, studio = {}, opts = {};
+    var $ = function (id) { return document.getElementById(id); };
+    var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+    var fa = function (n) { return String(n == null ? "" : n).replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; }); };
+    var latin = function (s) { return String(s == null ? "" : s).replace(/[۰-۹]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }).replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); }); };
+    var safeUrl = function (u) { u = String(u || "").trim(); return /^(https?:\/\/|\/|data:image\/)/i.test(u) && !/^javascript:/i.test(u) ? u : ""; };
+    var safeColor = function (c) { return /^#[0-9a-f]{3,8}$/i.test(String(c || "").trim()) ? String(c).trim() : ""; };
+    var num = function (v) { var n = parseFloat(latin(v).replace(/,/g, "")); return isFinite(n) ? n : 0; };
+    var money = function (v) { return Math.round(num(v)).toLocaleString("fa-IR"); };
+
+    var STATUS = { draft: "پیش‌نویس", issued: "صادر شده", paid: "پرداخت شده", cancelled: "لغو شده", sent: "ارسال‌شده برای کارفرما", accepted: "تایید کارفرما", rejected: "رد شده", converted: "تبدیل به فاکتور" };
+    var FLAGS = ["show_logo", "show_platform", "show_notes", "show_payment", "show_signature", "show_words", "show_due", "show_page_numbers"];
+
+    // ───────── Amount in words (Persian) ─────────
+    var ONES = ["", "یک", "دو", "سه", "چهار", "پنج", "شش", "هفت", "هشت", "نه"];
+    var TEENS = ["ده", "یازده", "دوازده", "سیزده", "چهارده", "پانزده", "شانزده", "هفده", "هجده", "نوزده"];
+    var TENS = ["", "", "بیست", "سی", "چهل", "پنجاه", "شصت", "هفتاد", "هشتاد", "نود"];
+    var HUNDREDS = ["", "صد", "دویست", "سیصد", "چهارصد", "پانصد", "ششصد", "هفتصد", "هشتصد", "نهصد"];
+    var SCALES = ["", "هزار", "میلیون", "میلیارد", "هزار میلیارد", "میلیون میلیارد"];
+    function threeWords(n) {
+        var parts = [], h = Math.floor(n / 100), r = n % 100;
+        if (h) parts.push(HUNDREDS[h]);
+        if (r >= 10 && r < 20) parts.push(TEENS[r - 10]);
+        else { if (Math.floor(r / 10)) parts.push(TENS[Math.floor(r / 10)]); if (r % 10) parts.push(ONES[r % 10]); }
+        return parts.join(" و ");
+    }
+    function toWords(value) {
+        var n = Math.round(Math.abs(num(value)));
+        if (!n) return "صفر";
+        var groups = [], i = 0;
+        while (n > 0 && i < SCALES.length) { var g = n % 1000; if (g) groups.unshift(i === 1 && g === 1 ? "هزار" : threeWords(g) + (SCALES[i] ? " " + SCALES[i] : "")); n = Math.floor(n / 1000); i++; }
+        return (num(value) < 0 ? "منفی " : "") + groups.join(" و ");
+    }
+    window.__toWords = toWords;
+
+    // ───────── Dates ─────────
+    function todayJalali() {
+        try {
+            var p = new Intl.DateTimeFormat("en-US-u-ca-persian", { year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+            var get = function (t) { return (p.find(function (x) { return x.type === t; }) || {}).value || ""; };
+            return latin(get("year")).replace(/\D/g, "") + "/" + latin(get("month")) + "/" + latin(get("day"));
+        } catch (e) { return ""; }
+    }
+    function normDate(d) {
+        var m = latin(d).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+        return m ? m[1] + "/" + ("0" + m[2]).slice(-2) + "/" + ("0" + m[3]).slice(-2) : "";
+    }
+
+    // ───────── Letterhead (shared with the content report) ─────────
+    var LH = { lhName: "report_name", lhSubtitle: "report_subtitle", lhPhone: "report_phone", lhEmail: "report_email", lhWebsite: "report_website", lhAddress: "report_address", lhAccent: "report_accent" };
+    var lh = {};
+    function letterheadFromStudio() {
+        return {
+            report_name: studio.report_name || studio.name || "", report_subtitle: studio.report_subtitle || "",
+            report_phone: studio.report_phone || studio.phone || "", report_email: studio.report_email || studio.email || "",
+            report_website: studio.report_website || studio.website || "", report_address: studio.report_address || studio.address || "",
+            report_accent: safeColor(studio.report_accent) || "#6366f1",
+        };
+    }
+    function readLetterheadInputs() {
+        if (!$("lhName")) return;
+        Object.keys(LH).forEach(function (id) { lh[LH[id]] = $(id).value.trim(); });
+    }
+    window.saveLetterhead = async function () {
+        readLetterheadInputs();
+        var note = $("lhNote");
+        try {
+            var r = await fetch("/api/save_studio_info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lh) });
+            var j = await r.json();
+            if (j.status === "success") { Object.assign(studio, lh); note.innerHTML = "<i class=ai data-ic=check></i> سربرگ برای فاکتورها و گزارش‌ها ذخیره شد."; }
+            else note.textContent = j.message || "ذخیره نشد.";
+        } catch (e) { note.textContent = "خطا در ارتباط با سرور."; }
+    };
+
+    // ───────── Options ─────────
+    function defaultOptions() {
+        var anyPlatform = (doc.items || []).some(function (it) { var p = String(it.platform || "").trim(); return p && p !== "بدون پلتفرم"; });
+        return {
+            theme: studio.report_theme === "plain" ? "plain" : "glass", paper: "A4", title: "",
+            show_logo: true, show_platform: anyPlatform, show_notes: true, show_payment: true,
+            show_signature: true, show_words: true, show_due: true, show_page_numbers: true,
+        };
+    }
+    function syncControls() {
+        $("themeGlass").setAttribute("aria-pressed", String(opts.theme === "glass"));
+        $("themePlain").setAttribute("aria-pressed", String(opts.theme === "plain"));
+        $("paperA4").setAttribute("aria-pressed", String(opts.paper === "A4"));
+        $("paperA5").setAttribute("aria-pressed", String(opts.paper === "A5"));
+        if (!$("panel")) return;
+        $("optTitle").value = opts.title || "";
+        document.querySelectorAll("[data-opt]").forEach(function (el) { el.checked = opts[el.getAttribute("data-opt")] !== false; });
+    }
+    window.setOpt = function (k, v) { opts[k] = v; syncControls(); render(); };
+    window.togglePanel = function () {
+        var p = $("panel"), open = !p.classList.contains("open");
+        p.classList.toggle("open", open);
+        $("panelBtn").setAttribute("aria-expanded", String(open));
+    };
+    function readPanel() {
+        if (!$("panel")) return;
+        opts.title = $("optTitle").value.trim();
+        document.querySelectorAll("[data-opt]").forEach(function (el) { opts[el.getAttribute("data-opt")] = el.checked; });
+        readLetterheadInputs();
+    }
+    document.addEventListener("input", function (e) { if (e.target.closest && e.target.closest("#panel")) { readPanel(); render(); } });
+    document.addEventListener("change", function (e) { if (e.target.closest && e.target.closest("#panel")) { readPanel(); render(); } });
+    window.savePrintOptions = async function () {
+        readPanel();
+        var note = $("optNote");
+        try {
+            var r = await fetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_print_options", id: doc.id, print_options: opts }) });
+            var j = await r.json();
+            note.innerHTML = j.status === "success" ? "<i class=ai data-ic=check></i> برای این سند ذخیره شد." : esc(j.message || "ذخیره نشد.");
+        } catch (e) { note.textContent = "خطا در ارتباط با سرور."; }
+    };
+    window.sendToClient = async function () {
+        if (!doc) return;
+        var quote = doc.doc_type === "quote";
+        var again = quote ? doc.status !== "draft" : !!doc.sent_at;
+        var question = (again ? "این سند قبلاً برای کارفرما ارسال شده است. دوباره ارسال شود؟" : "پس از ارسال، کارفرما این " + (quote ? "پیش‌فاکتور" : "فاکتور") + " را در پنل خود می‌بیند و می‌تواند PDF آن را دریافت کند.");
+        var ok = window.customConfirm ? await window.customConfirm(question) : confirm(question);
+        if (!ok) return;
+        try { await window.savePrintOptions(); } catch (e) {}
+        var r = await fetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: quote ? "send_quote" : "send_invoice", id: doc.id }) });
+        var j = await r.json();
+        var msg = j.message || (j.status === "success" ? "ارسال شد" : "ارسال نشد");
+        if (window.showToast) window.showToast(msg, j.status === "success" ? "success" : "error"); else alert(msg);
+        if (j.status === "success") await load();
+    };
+    window.downloadPdf = async function () {
+        try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+        await Promise.all(Array.from(document.images).map(function (img) { return img.complete ? null : new Promise(function (r) { img.onload = img.onerror = r; }); }));
+        window.print();
+    };
+
+    // ───────── Render ─────────
+    function docName() {
+        return opts.title || (doc.doc_type === "quote" ? "پیش‌فاکتور" : "فاکتور");
+    }
+    function pageRules() {
+        var a5 = opts.paper === "A5";
+        var footer = opts.show_page_numbers
+            ? '"' + (doc.doc_type === "quote" ? "پیش‌فاکتور" : "فاکتور") + " شماره " + fa(doc.invoice_number) + ' — صفحه " counter(page, persian) " از " counter(pages, persian)'
+            : '""';
+        $("pageRules").textContent =
+            "@page { size: " + (a5 ? "A5" : "A4") + "; margin: " + (a5 ? "7mm 0 10mm" : "10mm 0 13mm") + ";" +
+            " @bottom-center { content: " + footer + "; font-family: Vazirmatn, Tahoma, sans-serif; font-size: " + (a5 ? "7pt" : "8.5pt") + "; color: #64748b; } }";
+    }
+    function dueChip() {
+        if (!opts.show_due) return "";
+        if (doc.status === "cancelled") return '<span class="chip bad">لغو شده</span>';
+        if (doc.doc_type === "invoice" && (doc.status === "paid" || (num(doc.total) > 0 && num(doc.paid_amount) >= num(doc.total)))) return '<span class="chip good"><i class=ai data-ic=circle-check></i> پرداخت شده</span>';
+        var due = normDate(doc.due_date);
+        if (!due) return "";
+        var today = todayJalali();
+        if (today && due < today && doc.doc_type === "invoice") return '<span class="chip bad"><i class=ai data-ic=alarm-clock></i> سررسید گذشته — ' + fa(due) + "</span>";
+        return '<span class="chip due"><i class=ai data-ic=hourglass></i> ' + (doc.doc_type === "quote" ? "اعتبار تا " : "مهلت پرداخت: ") + fa(due) + "</span>";
+    }
+    function render() {
+        if (!doc) return;
+        var plain = opts.theme === "plain";
+        var html = document.documentElement;
+        html.setAttribute("data-inv-theme", plain ? "plain" : "glass");
+        html.setAttribute("data-paper", opts.paper === "A5" ? "A5" : "A4");
+        html.style.setProperty("--accent", plain ? "#111827" : (safeColor(lh.report_accent) || "#6366f1"));
+        pageRules();
+
+        var cur = doc.currency === "rial" ? "ریال" : "تومان";
+        var quote = doc.doc_type === "quote";
+        var logo = safeUrl(studio.logo_light || studio.logo);
+        var contact = [lh.report_phone && ('<i class=ai data-ic=phone></i> <span dir="ltr">' + esc(fa(lh.report_phone)) + "</span>"), lh.report_email && ('<span dir="ltr">' + esc(lh.report_email) + "</span>"), lh.report_website && ('<span dir="ltr">' + esc(lh.report_website) + "</span>"), lh.report_address && esc(lh.report_address)].filter(Boolean);
+        var items = doc.items || [];
+        var showPlat = !!opts.show_platform;
+        var subtotal = num(doc.subtotal) || items.reduce(function (s, it) { return s + num(it.row_total != null ? it.row_total : num(it.qty) * num(it.unit_price)); }, 0);
+        var tax = num(doc.tax), discount = num(doc.discount), total = num(doc.total) || (subtotal + tax - discount), paid = num(doc.paid_amount);
+        var remain = Math.max(0, total - paid);
+        var orgLogo = org && safeUrl(org.logo_url);
+
+        var h = "";
+        h += '<header class="letterhead"><div class="lh-studio">' +
+            (opts.show_logo && logo ? '<img class="lh-logo" src="' + esc(logo) + '" alt="">' : "") +
+            '<div><div class="lh-name">' + esc(lh.report_name || "استودیو") + "</div>" + (lh.report_subtitle ? '<div class="lh-sub">' + esc(lh.report_subtitle) + "</div>" : "") + "</div></div>" +
+            (contact.length ? '<div class="lh-contact">' + contact.map(function (b) { return "<div>" + b + "</div>"; }).join("") + "</div>" : "") +
+            "</header>";
+
+        h += '<section class="doc-head"><h1 class="doc-title">' + esc(docName()) + "<small>" + (quote ? "پیش‌فاکتور" : "فاکتور") + " شماره " + fa(doc.invoice_number) + "</small></h1>" +
+            '<div class="chips">' + (doc.status === "draft" ? '<span class="chip">پیش‌نویس</span>' : "") + dueChip() + "</div></section>";
+
+        h += '<section class="parties"><div class="box"><div class="label">' + (quote ? "پیشنهاد برای" : "صورتحساب برای") + '</div><div class="client">' +
+            (org ? (orgLogo ? '<img src="' + esc(orgLogo) + '" alt="" data-fallback-icon="building-2">' : '<span class="avatar" style="' + (plain ? "" : "background:" + (safeColor(org.color) || "var(--accent)")) + '">' + esc((org.org_name || "؟").charAt(0)) + "</span>") : "") +
+            '<div style="min-width:0"><div class="big">' + esc((org && org.org_name) || "—") + "</div>" +
+            (org && (org.contact_name || org.phone) ? '<div class="line">' + [org.contact_name && esc(org.contact_name), org.phone && ('<span dir="ltr">' + esc(fa(org.phone)) + "</span>")].filter(Boolean).join(" — ") + "</div>" : "") +
+            "</div></div></div>" +
+            '<div class="box"><div class="kv"><span>شماره</span><b>' + fa(doc.invoice_number) + "</b></div>" +
+            '<div class="kv"><span>تاریخ صدور</span><b>' + (doc.issue_date ? fa(doc.issue_date) : "—") + "</b></div>" +
+            (doc.due_date ? '<div class="kv"><span>' + (quote ? "اعتبار تا" : "سررسید") + "</span><b>" + fa(doc.due_date) + "</b></div>" : "") +
+            '<div class="kv"><span>وضعیت</span><b>' + esc(STATUS[doc.status] || doc.status || "—") + "</b></div></div></section>";
+
+        h += '<div class="table-card"><table class="items"><thead><tr><th>#</th><th>شرح خدمات</th>' + (showPlat ? "<th>پلتفرم</th>" : "") +
+            '<th class="num">تعداد</th><th class="num">فی (' + cur + ')</th><th class="num">مبلغ (' + cur + ")</th></tr></thead><tbody>" +
+            (items.length ? items.map(function (it, i) {
+                var qty = num(it.qty) || 0, unit = num(it.unit_price), rt = it.row_total != null ? num(it.row_total) : qty * unit;
+                return '<tr class="' + (rt < 0 ? "neg" : "") + '"><td class="n">' + fa(i + 1) + '</td><td class="desc">' + esc(it.type || it.title || "") + "</td>" +
+                    (showPlat ? '<td class="plat">' + esc(it.platform && it.platform !== "بدون پلتفرم" ? it.platform : "—") + "</td>" : "") +
+                    '<td class="num">' + fa(qty) + '</td><td class="num">' + money(unit) + '</td><td class="num total">' + money(rt) + "</td></tr>";
+            }).join("") : '<tr><td colspan="' + (showPlat ? 6 : 5) + '" style="text-align:center; color:var(--muted); padding:18px;">قلمی ثبت نشده است.</td></tr>') +
+            "</tbody></table></div>";
+
+        var bank = { holder: studio.account_holder || studio.manager_name || "", card: studio.card_number || "", shaba: studio.shaba || "" };
+        var hasBank = bank.holder || bank.card || bank.shaba;
+        var groupCard = function (c) { return fa(latin(c).replace(/\D/g, "").replace(/(\d{4})(?=\d)/g, "$1 ")); };
+        var shaba = latin(bank.shaba).replace(/\s+/g, "").toUpperCase();
+        if (shaba && !/^IR/.test(shaba)) shaba = "IR" + shaba;
+        shaba = shaba.replace(/^(IR\d{2})(\d{4})(\d{4})(\d{4})(\d{4})(\d{4})(\d{2})$/, "$1 $2 $3 $4 $5 $6 $7");
+
+        var left = "", right = "";
+        right += '<div class="totals"><div class="row"><span>جمع اقلام</span><span>' + money(subtotal) + " " + cur + "</span></div>" +
+            (tax ? '<div class="row"><span>مالیات و عوارض</span><span>' + money(tax) + " " + cur + "</span></div>" : "") +
+            (discount ? '<div class="row minus"><span>تخفیف</span><span>− ' + money(discount) + " " + cur + "</span></div>" : "") +
+            '<div class="row grand"><span>مبلغ قابل پرداخت</span><span>' + money(total) + " " + cur + "</span></div>" +
+            (opts.show_words ? '<div class="words">به حروف: ' + esc(toWords(total)) + " " + cur + "</div>" : "") +
+            (paid ? '<div class="row paid"><span>پرداخت‌شده</span><span>' + money(paid) + " " + cur + "</span></div>" +
+                '<div class="row remain"><span>مانده</span><span>' + money(remain) + " " + cur + "</span></div>" : "") +
+            "</div>";
+        if (opts.show_notes && String(doc.notes || "").trim()) left += '<div class="box"><h4><i class=ai data-ic=notebook-pen></i> توضیحات</h4><div class="notes">' + esc(doc.notes) + "</div></div>";
+        if (opts.show_payment && hasBank && !quote) {
+            left += '<div class="box pay"><h4><i class=ai data-ic=credit-card></i> اطلاعات پرداخت</h4>' +
+                (bank.holder ? '<div class="kv"><span>صاحب حساب</span><b>' + esc(bank.holder) + "</b></div>" : "") +
+                (bank.card ? '<div class="kv"><span>شماره کارت</span><b class="ltr">' + esc(groupCard(bank.card)) + "</b></div>" : "") +
+                (shaba ? '<div class="kv"><span>شبا</span><b class="ltr">' + esc(fa(shaba)) + "</b></div>" : "") + "</div>";
+        }
+        h += '<section class="closing"><div class="stack">' + (left || "<div></div>") + '</div><div class="stack">' + right + "</div></section>";
+
+        if (opts.show_signature) h += '<section class="signs"><div class="sign">مهر و امضای ' + esc(lh.report_name || "استودیو") + '</div><div class="sign">مهر و امضای کارفرما</div></section>';
+
+        var stamp = doc.status === "cancelled" ? '<span class="stamp void">باطل شد</span>' : (!quote && doc.status === "paid" ? '<span class="stamp">تسویه شد</span>' : "");
+        h += '<footer class="thanks"><span>از اعتماد شما به ' + esc(lh.report_name || "ما") + " سپاسگزاریم.</span>" + stamp + "</footer>";
+
+        $("sheet").innerHTML = h;
+        document.title = docName() + " " + fa(doc.invoice_number) + (org && org.org_name ? " — " + org.org_name : "");
+        var sb = $("sendBtn");
+        if (sb) {
+            sb.hidden = !CAN_EDIT || !org || doc.status === "cancelled" || (quote && ["accepted", "converted", "rejected"].indexOf(doc.status) !== -1);
+            var sent = quote ? doc.status !== "draft" : !!doc.sent_at;
+            sb.querySelector("span").textContent = sent ? "ارسال دوباره برای کارفرما" : "ارسال برای کارفرما";
+        }
+    }
+
+    async function load() {
+        var res = await fetch("/api/invoice_print_data?id=" + encodeURIComponent(docId), { cache: "no-store" }).then(function (r) { return r.json(); });
+        if (res.status !== "success") throw new Error(res.message || "load");
+        doc = res.data; org = res.organization;
+        doc.org_id = org && org.id;
+        render();
+    }
+
+    async function init() {
+        if (!docId) { $("sheet").innerHTML = '<div class="state">سندی انتخاب نشده است.</div>'; return; }
+        if (!IS_CLIENT) $("backLink").setAttribute("href", "invoice?id=" + encodeURIComponent(docId));
+        try {
+            var info = await fetch("/api/get_studio_info", { cache: "no-store" }).then(function (r) { return r.json(); }).catch(function () { return {}; });
+            studio = (info && info.data) || {};
+            lh = letterheadFromStudio();
+            if ($("lhName")) Object.keys(LH).forEach(function (id) { $(id).value = lh[LH[id]] || ($(id).type === "color" ? "#6366f1" : ""); });
+            var res = await fetch("/api/invoice_print_data?id=" + encodeURIComponent(docId), { cache: "no-store" }).then(function (r) { return r.json(); });
+            if (res.status !== "success") { $("sheet").innerHTML = '<div class="state">' + esc(res.message || "سند پیدا نشد.") + "</div>"; return; }
+            doc = res.data; org = res.organization; doc.org_id = org && org.id;
+            opts = Object.assign(defaultOptions(), doc.print_options || {});
+            if (q.get("theme") === "glass" || q.get("theme") === "plain") opts.theme = q.get("theme");
+            if (q.get("paper") === "A4" || q.get("paper") === "A5") opts.paper = q.get("paper");
+            syncControls();
+            render();
+            if (q.get("print") === "1") setTimeout(window.downloadPdf, 400);
+        } catch (e) {
+            console.error(e);
+            $("sheet").innerHTML = '<div class="state">فاکتور بارگذاری نشد. صفحه را دوباره باز کنید.</div>';
+        }
+    }
+    init();
+})();
+</script>
+</body>
+</html>

@@ -105,6 +105,8 @@ const ACTION_NAMES: Record<string, string> = {
   start: "شروع",
   stop: "توقف",
   send_quote: "ارسال پیش‌فاکتور",
+  send_invoice: "ارسال فاکتور برای کارفرما",
+  save_print_options: "ذخیره تنظیمات چاپ فاکتور",
   convert_quote: "تبدیل پیش‌فاکتور",
   add_payment: "ثبت پرداخت",
 };
@@ -120,6 +122,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/leaves": "مرخصی‌ها",
   "/reports": "گزارشات",
   "/report-print": "نسخه‌ی چاپی گزارش محتوا",
+  "/invoice-print": "نسخه‌ی چاپی فاکتور",
   "/settings": "تنظیمات",
   "/audit": "تاریخچه فعالیت‌ها",
   "/recycle_bin": "سطل زباله",

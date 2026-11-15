@@ -130,6 +130,7 @@ const CLIENT_API_ROUTES = [
   "/caption_review",
   "/client_deliverables",
   "/client_quotes",
+  "/invoice_print_data",
   "/contract_usage",
   "/brand_kit",
   "/monthly_report_data",
