@@ -1015,8 +1015,11 @@ describe("quick fill", () => {
 describe("project manager and team", () => {
   it("leaves the main admin out of people lists and never lists the manager as a team member", async () => {
     const admin = await login("admin");
+    // Another person with the admin role is a real colleague and is offered.
+    state.colleagues.push({ id: 32, username: "boss", passwordHash: state.colleagues[0].passwordHash, full_name: "مدیر استودیو", role_id: 1, is_active: 1 });
     const list = await admin.get("/api/get_colleagues");
-    assert.ok(!list.body.users.some((c: any) => c.role_id === 1), "main admin account is not offered");
+    assert.ok(!list.body.users.some((c: any) => c.id === 1), "the system account is not offered");
+    assert.ok(list.body.users.some((c: any) => c.id === 32), "other admins are offered");
     state.colleagues.push({ id: 31, username: "sara", passwordHash: state.colleagues[0].passwordHash, full_name: "سارا", role_id: 3, is_active: 1 });
     state.contents.push({ id: 931, title: "کارت تیم", org_id: 1, status: "todo", project_manager: "علی", assigned_colleagues: ["سارا"] });
     // The new manager leaves the team; the old one is free to be picked again.

@@ -10,6 +10,8 @@ import { moveToRecycleBin } from "../../utils/contentUtils.js";
 const subRouter = express.Router();
 
 const ADMIN_ROLE_ID = 1;
+/** The account created at install; it cannot be deleted. */
+const SYSTEM_ACCOUNT_ID = 1;
 const DEFAULT_ROLE_ID = 3;
 // Empty: the pages draw an initials avatar when a colleague has no picture.
 const DEFAULT_AVATAR = "";
@@ -213,7 +215,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => 
     if (!target) return fail(res, 404, "کاربر یافت نشد");
     if (targetIsAdmin && !actorIsAdmin) return fail(res, 403, "شما مجاز به تغییر حساب مدیر کل نیستید");
     if (action === "delete") {
-      if (target.id == 1) return fail(res, 400, "حساب مدیر کل قابل حذف نیست");
+      if (target.id == SYSTEM_ACCOUNT_ID) return fail(res, 400, "حساب مدیر کل قابل حذف نیست");
       if (req.user.id == target.id) return fail(res, 400, "شما نمی‌توانید حساب کاربری خود را غیرفعال کنید");
       target.is_active = 0;
       target.status = "inactive";
@@ -285,9 +287,10 @@ subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => 
 });
 
 subRouter.get("/get_colleagues", (req, res) => {
-  // The main admin account is for system settings only, not a person who works on content:
-  // it is left out of every people list (team, project manager, mentions).
-  const mapped = colleagues.filter((c) => c.is_active !== 0 && c.role_id != ADMIN_ROLE_ID).map((c) => {
+  // The system account created at install (id 1, "admin" by default; it can be renamed but
+  // never deleted) is for system settings, not a person who works on content: it is left
+  // out of every people list. Other people with the admin role take part as themselves.
+  const mapped = colleagues.filter((c) => c.is_active !== 0 && c.id != SYSTEM_ACCOUNT_ID).map((c) => {
     // Bank and contact details are only needed by user managers.
     const { shaba, ...rest } = withRoleName(c) as any;
     // Labour cost is salary information.
