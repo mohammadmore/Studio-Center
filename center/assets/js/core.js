@@ -798,7 +798,8 @@
     "info": "<circle cx=\"12\" cy=\"12\" r=\"10\"/> <path d=\"M12 16v-4\"/> <path d=\"M12 8h.01\"/>",
     "arrow-up": "<path d=\"m5 12 7-7 7 7\"/> <path d=\"M12 19V5\"/>",
     "arrow-down": "<path d=\"M12 5v14\"/> <path d=\"m19 12-7 7-7-7\"/>",
-    "external-link": "<path d=\"M15 3h6v6\"/> <path d=\"M10 14 21 3\"/> <path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/>"
+    "external-link": "<path d=\"M15 3h6v6\"/> <path d=\"M10 14 21 3\"/> <path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/>",
+    "image-off": "<line x1=\"2\" x2=\"22\" y1=\"2\" y2=\"22\"/> <path d=\"M10.41 10.41a2 2 0 1 1-2.83-2.83\"/> <line x1=\"13.5\" x2=\"6\" y1=\"13.5\" y2=\"21\"/> <line x1=\"18\" x2=\"21\" y1=\"12\" y2=\"15\"/> <path d=\"M3.59 3.59A1.99 1.99 0 0 0 3 5v14a2 2 0 0 0 2 2h14c.55 0 1.052-.22 1.41-.59\"/> <path d=\"M21 15V5a2 2 0 0 0-2-2H9\"/>"
   };
 
   function svg(name) {
@@ -829,6 +830,31 @@
     }
   }
   window.asvaIconsScan = scan;
+
+  // Images whose file is missing: <img data-fallback-src="..."> swaps to that address once;
+  // <img data-fallback-icon="image-off"> is replaced by a same-sized box with that icon.
+  document.addEventListener("error", function (e) {
+    var img = e.target;
+    if (!img || img.tagName !== "IMG") return;
+    var alt = img.getAttribute("data-fallback-src");
+    if (alt && !img.hasAttribute("data-fallback-used")) {
+      img.setAttribute("data-fallback-used", "");
+      img.src = alt;
+      return;
+    }
+    var icon = img.getAttribute("data-fallback-icon");
+    if (!icon || !ICONS[icon]) return;
+    var box = document.createElement("span");
+    box.style.cssText = img.style.cssText;
+    box.style.display = "inline-flex";
+    box.style.alignItems = "center";
+    box.style.justifyContent = "center";
+    box.style.color = "var(--text-gray, #64748b)";
+    box.style.fontSize = "2rem";
+    box.title = "فایل این تصویر پیدا نشد";
+    box.innerHTML = window.asvaIcon(icon);
+    img.replaceWith(box);
+  }, true);
 
   var css = "i.ai{display:inline-flex;align-items:center;justify-content:center;width:1.15em;height:1.15em;vertical-align:-0.2em;font-style:normal;flex-shrink:0;line-height:1}" +
     "i.ai>svg{width:100%;height:100%;display:block}" +

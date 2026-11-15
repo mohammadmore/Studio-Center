@@ -56,7 +56,7 @@
     function render() {
         const k = kit;
         const imgs = (k.logos || []).map(l => `<a href="${escapeHtml(safeUrl(l.url))}" target="_blank" rel="noopener" style="display:inline-block;margin:4px;text-align:center;text-decoration:none;color:inherit">
-            ${fileKind(l) === 'image' ? `<img src="${escapeHtml(safeUrl(l.url))}" alt="${escapeHtml(l.name)}" style="width:110px;height:110px;object-fit:contain;background:#fff;border:1px solid var(--border-color);border-radius:12px" loading="lazy">` : `<div class="wf-swatch" style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;font-size:2rem">${fileIcon(l)}</div>`}
+            ${fileKind(l) === 'image' ? `<img src="${escapeHtml(safeUrl(l.url))}" alt="${escapeHtml(l.name)}" style="width:110px;height:110px;object-fit:contain;background:#fff;border:1px solid var(--border-color);border-radius:12px" loading="lazy" data-fallback-icon="image-off">` : `<div class="wf-swatch" style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;font-size:2rem">${fileIcon(l)}</div>`}
             <div style="font-size:.75rem;max-width:110px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.name)}</div></a>`).join('');
         document.getElementById('kit').innerHTML = `
             ${canEdit ? '<div class="wf-actions" style="margin-top:0;margin-bottom:12px"><button type="button" class="btn-primary" onclick="edit()"><i class=ai data-ic=pencil></i> ویرایش کیت برند</button></div>' : ''}

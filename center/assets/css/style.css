@@ -586,10 +586,14 @@ input:focus, select:focus, textarea:focus, button:focus {
     border-radius: 6px;
     font-size: 12px;
     font-weight: 400;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s, visibility 0.2s;
+    line-height: 1.6;
+    /* Wraps instead of running off narrow screens; hidden tooltips take no room (display:none),
+       so they never make a dialog scroll sideways. */
+    white-space: normal;
+    width: max-content;
+    max-width: min(260px, 70vw);
+    text-align: right;
+    display: none;
     pointer-events: none;
     z-index: 100;
 }
@@ -602,21 +606,19 @@ input:focus, select:focus, textarea:focus, button:focus {
     border-width: 5px;
     border-style: solid;
     border-color: rgba(15, 23, 42, 0.9) transparent transparent transparent;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s, visibility 0.2s;
+    display: none;
 }
 .tooltip-icon:hover::after,
 .tooltip-icon:hover::before {
-    opacity: 1;
-    visibility: visible;
+    display: block;
 }
 
 /* Tooltip focus support for accessibility */
 .tooltip-icon:focus-visible::after,
-.tooltip-icon:focus-visible::before {
-    opacity: 1;
-    visibility: visible;
+.tooltip-icon:focus-visible::before,
+.tooltip-icon:focus::after,
+.tooltip-icon:focus::before {
+    display: block;
 }
 
 /* Report Print & PDF Styles */
