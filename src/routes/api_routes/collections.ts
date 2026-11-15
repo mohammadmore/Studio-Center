@@ -416,6 +416,9 @@ subRouter.get("/get_org_report", checkPermission("reports", { allowClients: true
   const platformCounts: Record<string, number> = {};
   let total_components = 0;
   let stats_counted_length = 0;
+  // Work on copies: the report adds display fields (and the "(تکرار)" suffix) that must not
+  // be written back into the stored cards.
+  orgContents = orgContents.map((c) => ({ ...c, status_label: REPORT_STATUS_LABELS[c.status || "raw"] || c.status || REPORT_STATUS_LABELS.raw }));
   orgContents.forEach((c) => {
     if (c.is_recurrence_instance) {
       if (!c.title.includes(" (تکرار)"))
@@ -426,25 +429,7 @@ subRouter.get("/get_org_report", checkPermission("reports", { allowClients: true
       stats_counted_length++;
       if (c.content_type)
         typeCounts[c.content_type] = (typeCounts[c.content_type] || 0) + 1;
-      const statusMap: Record<string, string> = {
-        raw: "ورودی خام",
-        todo: "در صف انتظار",
-        in_progress:
-          "در حال تولید",
-        review:
-          "ارزیابی استودیو",
-        client_review:
-          "ارزیابی کارفرما",
-        needs_revision:
-          "نیاز به اصلاح",
-        done: "تکمیل شده",
-        approved_by_client:
-          "تایید کارفرما",
-        ready_to_publish:
-          "آماده انتشار",
-        published: "منتشر شده",
-      };
-      let s = statusMap[c.status || "raw"] || c.status || "raw";
+      const s = c.status_label;
       statusCounts[s] = (statusCounts[s] || 0) + 1;
       if (c.publish_platforms) {
         c.publish_platforms.forEach((p: any) => {
@@ -476,5 +461,22 @@ subRouter.get("/get_org_report", checkPermission("reports", { allowClients: true
     },
   });
 });
+
+/** Persian names of the content statuses, as shown in reports. */
+const REPORT_STATUS_LABELS: Record<string, string> = {
+  raw: "ورودی خام",
+  todo: "در صف انتظار",
+  doing: "در حال تولید",
+  in_progress: "در حال تولید",
+  review: "ارزیابی استودیو",
+  client_review: "ارزیابی کارفرما",
+  needs_revision: "نیاز به اصلاح",
+  done: "تکمیل شده",
+  approved_by_client: "تایید کارفرما",
+  ready_to_publish: "آماده انتشار",
+  scheduled: "زمان‌بندی شده",
+  published: "منتشر شده",
+  archived: "آرشیو شده",
+};
 
 export default subRouter;

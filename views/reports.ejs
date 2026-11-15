@@ -297,6 +297,25 @@ var notifLoaded = false;
         #filtersContainer .form-control { width: auto; flex: 1 1 170px; max-width: 260px; }
         #filtersContainer input.form-control[data-jdp] { flex: 0 1 140px; }
         @media (max-width: 600px) { #filtersContainer .form-control { max-width: none; flex-basis: 100%; } }
+
+        /* Detailed list: same look as the PDF report (numbered rows, coloured status pills,
+           platform chips), adapted to light and dark themes. */
+        @media screen {
+            .rt-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; overflow-x: auto; box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05); }
+            .rt-card .report-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.88rem; min-width: 720px; }
+            .rt-card .report-table th { text-align: right; font-weight: 700; padding: 12px 12px; white-space: nowrap; color: var(--text-dark); background: color-mix(in srgb, var(--primary-color) 9%, var(--card-bg)); border-bottom: 2px solid var(--primary-color); }
+            .rt-card .report-table td { text-align: right; padding: 10px 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; color: var(--text-dark); }
+            .rt-card .report-table tbody tr:last-child td { border-bottom: none; }
+            .rt-card .report-table tbody tr:hover td { background: color-mix(in srgb, var(--primary-color) 5%, transparent); }
+            .rt-card .report-table td.rt-n { width: 44px; text-align: center; color: var(--text-gray); }
+            .rt-card .report-table td.rt-title { font-weight: 600; }
+            .rt-card .report-table td.rt-muted { color: var(--text-gray); }
+            .rt-card .report-table td.rt-date { white-space: nowrap; }
+            .rt-card .report-table td.rt-date small { color: var(--text-gray); margin-inline-start: 8px; }
+            .rt-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+            .rt-plats { display: flex; flex-wrap: wrap; gap: 4px; }
+            .rt-plats span { font-size: 0.76rem; padding: 1px 8px; border-radius: 8px; background: rgba(128, 128, 128, 0.08); border: 1px solid var(--border-color); white-space: nowrap; }
+        }
     </style>
     <link rel="stylesheet" href="/assets/css/jalalidatepicker.min.css">
     <script src="/assets/js/jalalidatepicker.min.js"></script>
@@ -533,7 +552,7 @@ var notifLoaded = false;
 
                 
                 <h3 style="margin-bottom: 15px; border-bottom: 2px solid var(--primary-color); display: inline-block; padding-bottom: 5px;">لیست تفصیلی فعالیت‌ها</h3>
-                <div class="table-responsive">
+                <div class="table-responsive rt-card">
                     <table class="report-table">
                         <thead>
                             <tr>
@@ -886,28 +905,24 @@ var notifLoaded = false;
                             </div>
                         </td></tr>`;
             } else {
-                data.contents.forEach((c, index) => {
-                    let s = c.status;
-                    if (s === 'done') s = 'منتشر شده';
-                    else if (s === 'todo') s = 'در انتظار';
-                    else if (s === 'doing') s = 'در حال تولید';
-                    else if (s === 'raw') s = 'ایده خام';
-                    
-                    const plats = c.publish_platforms ? c.publish_platforms.join('، ') : '-';
-                    const date = c.publish_date ? c.publish_date + (c.publish_time ? ' - ساعت ' + c.publish_time : '') : '-';
-                    
-                    tbody.insertAdjacentHTML('beforeend', `
-                        <tr>
-                            <td>${toPersianDigits(index + 1)}</td>
-                            <td>${escapeHtml(c.title)}</td>
-                            <td>${escapeHtml(c.content_type || '-')}</td>
+                const STATUS_COLOR = { 'ورودی خام': '#94a3b8', 'در صف انتظار': '#64748b', 'در حال تولید': '#f59e0b', 'ارزیابی استودیو': '#8b5cf6', 'ارزیابی کارفرما': '#ec4899', 'نیاز به اصلاح': '#ef4444', 'تکمیل شده': '#14b8a6', 'تایید کارفرما': '#06b6d4', 'آماده انتشار': '#3b82f6', 'زمان‌بندی شده': '#6366f1', 'منتشر شده': '#22c55e', 'آرشیو شده': '#64748b' };
+                tbody.innerHTML = data.contents.map((c, index) => {
+                    const st = c.status_label || c.status || 'ورودی خام';
+                    const col = STATUS_COLOR[st] || '#64748b';
+                    const plats = (c.publish_platforms || []).map(p => `<span>${escapeHtml(p)}</span>`).join('');
+                    const date = c.publish_date
+                        ? toPersianDigits(c.publish_date) + (c.publish_time ? `<small>ساعت ${escapeHtml(toPersianDigits(c.publish_time))}</small>` : '')
+                        : '—';
+                    return `<tr>
+                            <td class="rt-n">${toPersianDigits(index + 1)}</td>
+                            <td class="rt-title">${escapeHtml(c.title || 'بدون عنوان')}</td>
+                            <td class="rt-muted">${escapeHtml(c.content_type || '—')}</td>
                             <td>${toPersianDigits(c.total_components || 1)}</td>
-                            <td><span style="display:inline-block; padding:3px 8px; border-radius:12px; background: rgba(128, 128, 128, 0.1); font-size:0.8rem;">${escapeHtml(s)}</span></td>
-                            <td>${escapeHtml(plats)}</td>
-                            <td>${toPersianDigits(date)}</td>
-                        </tr>
-                    `);
-                });
+                            <td><span class="rt-pill" style="background:${col}1f; color:${col}; border-color:${col}55">${escapeHtml(st)}</span></td>
+                            <td>${plats ? `<div class="rt-plats">${plats}</div>` : '—'}</td>
+                            <td class="rt-date">${date}</td>
+                        </tr>`;
+                }).join('');
             }
             
             // Charts

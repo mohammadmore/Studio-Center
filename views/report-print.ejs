@@ -411,7 +411,7 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
             } else {
                 html += '<div class="table-card"><table class="list"><thead><tr><th>#</th><th>عنوان محتوا</th><th>نوع</th><th>اجزا</th><th>وضعیت</th><th>پلتفرم‌ها</th><th>تاریخ انتشار</th></tr></thead><tbody>' +
                     list.map(function (c, i) {
-                        var st = STATUS_CODE[c.status || "raw"] || c.status || "ورودی خام";
+                        var st = c.status_label || STATUS_CODE[c.status || "raw"] || c.status || "ورودی خام";
                         var col = STATUS_COLOR[st] || "#64748b";
                         return '<tr><td class="n">' + fa(i + 1) + '</td><td class="title">' + esc(c.title || "بدون عنوان") + '</td><td>' + esc(c.content_type || "—") + '</td><td>' + fa(c.total_components || 1) + '</td>' +
                             '<td><span class="pill" style="background:' + col + '1f; color:' + col + '; border-color:' + col + '55">' + esc(st) + '</span></td>' +
