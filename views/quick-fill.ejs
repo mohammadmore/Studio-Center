@@ -58,17 +58,35 @@
             background: linear-gradient(var(--glass-3, var(--card-bg)), var(--glass-3, var(--card-bg))) padding-box, linear-gradient(135deg, #3b82f6, #8b5cf6) border-box; }
         .qf-prefill-tag { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; font-weight: bold; color: #fff; padding: 2px 10px; border-radius: 999px;
             background: linear-gradient(135deg, #3b82f6, #8b5cf6); box-shadow: 0 4px 12px -6px #6d28d9; cursor: help; }
+        .qf-opt.suggested { outline: 2px dashed #8b5cf6; outline-offset: 2px; background: color-mix(in srgb, #8b5cf6 12%, var(--card-bg)); }
+        .qf-suggest-val { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; outline: 2px dashed #8b5cf6; outline-offset: 2px; background: color-mix(in srgb, #8b5cf6 12%, var(--card-bg)); font-size: 0.86rem; margin-bottom: 8px; }
+        .qf-confirm, .qf-dismiss { border: none; border-radius: 999px; padding: 3px 12px; font: inherit; font-size: 0.76rem; font-weight: bold; cursor: pointer; }
+        .qf-confirm { color: #fff; background: linear-gradient(135deg, #22c55e, #059669); box-shadow: 0 4px 12px -6px #059669; }
+        .qf-dismiss { background: transparent; color: var(--text-gray); text-decoration: underline; }
+        .qf-field.qf-confirmed { border: 3px solid transparent; border-radius: 16px; padding: 10px 12px; margin: 6px 0;
+            background: linear-gradient(var(--glass-3, var(--card-bg)), var(--glass-3, var(--card-bg))) padding-box, linear-gradient(135deg, #22c55e, #059669) border-box; }
+        .qf-ok-tag { margin-inline-start: auto; font-size: 0.74rem; font-weight: bold; color: #059669; }
         .qf-why { font-size: 0.8rem; color: var(--text-gray); margin: -2px 0 8px; line-height: 1.7; }
         .qf-opt .av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: rgba(128,128,128,0.2); display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; }
         .qf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .qf-owner { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 0.88rem; }
         .qf-hint { font-size: 0.78rem; color: var(--text-gray); margin-top: 4px; }
-        .qf-actions { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 8px; margin-top: 14px; }
+        .qf-stage { margin-bottom: 18px; }
+        .qf-floatbar { position: sticky; bottom: 14px; z-index: 30; max-width: 640px; margin: 0 auto 10px; padding: 10px 12px 8px; border-radius: 18px;
+            background: var(--glass-3, var(--card-bg)); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
+            border: 1px solid var(--glass-line, var(--border-color)); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 18px 40px -16px rgba(30,27,75,.45); }
+        .qf-floatbar[hidden] { display: none; }
+        /* Toasts appear above the floating bar, never over its buttons. */
+        #global-toast-container { bottom: 150px !important; }
+        .qf-pending { font-size: 0.8rem; color: #6d28d9; text-align: center; margin-bottom: 6px; font-weight: bold; }
+        [data-theme="dark"] .qf-pending { color: #c4b5fd; }
+        .qf-pending[hidden] { display: none; }
+        .qf-actions { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 8px; }
         .qf-actions button { min-height: 46px; border-radius: 12px; font: inherit; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
         .qf-actions .skip, .qf-actions .later { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-dark); }
         .qf-actions .save { background: linear-gradient(135deg, var(--primary-color), #8b5cf6); color: #fff; border: none; }
         .qf-actions .save:disabled { opacity: .5; cursor: default; }
-        .qf-keys { text-align: center; font-size: 0.75rem; color: var(--text-gray); margin-top: 8px; }
+        .qf-keys { text-align: center; font-size: 0.75rem; color: var(--text-gray); margin-top: 6px; }
         .qf-keys kbd { border: 1px solid var(--border-color); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; font-family: inherit; font-size: 0.72rem; }
         .qf-batch { max-width: 640px; margin: 0 auto 14px; background: color-mix(in srgb, var(--primary-color) 8%, var(--card-bg)); border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent); border-radius: 14px; padding: 10px 14px; display: none; }
         .qf-batch.open { display: block; }
@@ -114,6 +132,17 @@
 
     <div class="qf-stage" id="qfStage">
         <div class="qf-done"><p>در حال بارگذاری…</p></div>
+    </div>
+
+    <!-- Floating actions: always at the bottom of the screen, no scrolling needed. -->
+    <div class="qf-floatbar" id="qfFloat" hidden>
+        <div class="qf-pending" id="qfPending" hidden></div>
+        <div class="qf-actions">
+            <button type="button" class="skip" id="qfSkip" title="رد کن (Esc)"><i class=ai data-ic=arrow-left></i> رد کن</button>
+            <button type="button" class="later" id="qfLater" title="تا فردا نشان نده"><i class=ai data-ic=clock></i> بعداً</button>
+            <button type="button" class="save" id="qfSave" disabled><i class=ai data-ic=check></i> ذخیره و بعدی</button>
+        </div>
+        <div class="qf-keys"><kbd>Enter</kbd> ذخیره و بعدی (در کپشن <kbd>Ctrl</kbd>+<kbd>Enter</kbd>) · <kbd>Esc</kbd> رد کن · روی گوشی: کارت را به کنار بکشید</div>
     </div>
 </main>
 
@@ -232,6 +261,7 @@
 
     async function renderCard(direction) {
         const stage = $('qfStage');
+        $('qfFloat').hidden = !queue.length;
         if (!queue.length) {
             stage.innerHTML = `<div class="qf-done"><div class="big"><i class=ai data-ic=circle-check></i></div><h2>همه‌چیز کامل است</h2><p>${doneToday ? `امروز ${fa(doneToday)} کارت را کامل کردید. ` : ''}کارت ناقصی ${$('qfOrg').value || $('qfField').value || $('qfMine').checked ? 'با این فیلترها ' : ''}باقی نمانده است.</p></div>`;
             return;
@@ -259,18 +289,13 @@
                 <div class="qf-head">${orgHtml}<div class="qf-title">${esc(item.title)}</div><div class="qf-chips">${chips}</div></div>
                 <div class="qf-gaps">${fa(item.missing.length)} جای خالی${shown.length < item.missing.length ? ' (فقط «' + esc((fields.find(f => f.key === focus) || {}).label || '') + '» نمایش داده شده)' : ''} — کارت ${fa(idx + 1)} از ${fa(queue.length)}</div>
                 ${parts.join('')}
-                <div class="qf-actions">
-                    <button type="button" class="skip" id="qfSkip" title="رد کن (Esc)"><i class=ai data-ic=arrow-left></i> رد کن</button>
-                    <button type="button" class="later" id="qfLater" title="تا فردا نشان نده"><i class=ai data-ic=clock></i> بعداً</button>
-                    <button type="button" class="save" id="qfSave" disabled><i class=ai data-ic=check></i> ذخیره و بعدی</button>
-                </div>
-                <div class="qf-keys"><kbd>Enter</kbd> ذخیره و بعدی (در کپشن <kbd>Ctrl</kbd>+<kbd>Enter</kbd>) · <kbd>Esc</kbd> رد کن · روی گوشی: کارت را به کنار بکشید</div>
             </article>`;
         stage.innerHTML = html;
         const card = $('qfCard');
         requestAnimationFrame(() => requestAnimationFrame(() => card.classList.remove('enter')));
         if (window.jalaliDatepicker && $('qfDate')) { try { jalaliDatepicker.startWatch({ persianDigits: true, time: false, hideAfterChange: true, autoHide: true }); } catch (e) {} }
         wireCard(card, item);
+        updatePending(null);
         applyPrefill(card, item);
         readDraft(card);
         // Typing fields get the focus; with only choice buttons the card itself does (keys still work).
@@ -281,6 +306,8 @@
 
     function wireCard(card, item) {
         card.addEventListener('click', (e) => {
+            const conf = e.target.closest('[data-confirm], [data-dismiss]');
+            if (conf) { resolveSuggestion(card, item, conf.dataset.confirm || conf.dataset.dismiss, !!conf.dataset.confirm); return; }
             const opt = e.target.closest('.qf-opt');
             if (!opt) return;
             const single = opt.parentElement.dataset.single, multi = opt.parentElement.dataset.multi;
@@ -492,19 +519,57 @@
         const tip = `از کارت «${pf.from}» — مشابه در: ${pf.why.join('، ')}`;
         Object.entries(pf.values).forEach(([key, value]) => {
             const field = card.querySelector(`.qf-field[data-key="${key}"]`);
-            if (!field) return;
+            if (!field || field.classList.contains('qf-prefilled')) return;
             field.classList.add('qf-prefilled');
             const lbl = field.querySelector('.lbl');
-            if (lbl && !lbl.querySelector('.qf-prefill-tag')) lbl.insertAdjacentHTML('beforeend', `<span class="qf-prefill-tag" title="${esc(tip)}"><i class=ai data-ic=sparkles></i> ${esc(PREFILL_LABEL)}</span>`);
+            if (lbl) lbl.insertAdjacentHTML('beforeend', `<span class="qf-prefill-tag" title="${esc(tip)}"><i class=ai data-ic=sparkles></i> ${esc(PREFILL_LABEL)}</span>
+                <button type="button" class="qf-confirm" data-confirm="${key}" title="این پیشنهاد وارد کارت شود"><i class=ai data-ic=check></i> تایید</button>
+                <button type="button" class="qf-dismiss" data-dismiss="${key}">نه</button>`);
+            // Only marked as a suggestion: nothing is selected until the user confirms it.
             if (key === 'collection') {
-                const inp = field.querySelector('#qfCol');
                 const col = Object.values(colsByOrg).flat().find(c => String(c.id) === String(value));
-                if (inp) inp.value = col ? col.title : String(value);
+                field.querySelector('.lbl').insertAdjacentHTML('afterend', `<div class="qf-suggest-val"><i class=ai data-ic=folder></i> ${esc(col ? col.title : String(value))}</div>`);
                 return;
             }
             const vals = Array.isArray(value) ? value : [value];
-            field.querySelectorAll('.qf-opt').forEach(o => { if (!o.hidden && vals.some(v => sameName(v, o.dataset.v))) o.classList.add('on'); });
+            field.querySelectorAll('.qf-opt').forEach(o => { if (!o.hidden && vals.some(v => sameName(v, o.dataset.v))) o.classList.add('suggested'); });
         });
+        updatePending(card);
+    }
+    function updatePending(card) {
+        const n = card ? card.querySelectorAll('.qf-field.qf-prefilled').length : 0;
+        const box = $('qfPending');
+        box.hidden = !n;
+        box.textContent = n ? `${fa(n)} پیشنهاد از کارت مشابه هنوز تایید نشده؛ تا تایید نکنید وارد کارت نمی‌شود.` : '';
+    }
+    /** "Confirm": the suggested value becomes the field's value. "No": the suggestion goes away. */
+    function resolveSuggestion(card, item, key, accept) {
+        const field = card.querySelector(`.qf-field[data-key="${key}"]`);
+        const pf = prefills[item.id];
+        if (!field || !pf) return;
+        const value = pf.values[key];
+        if (accept) {
+            if (key === 'collection') {
+                const col = Object.values(colsByOrg).flat().find(c => String(c.id) === String(value));
+                const inp = field.querySelector('#qfCol');
+                if (inp) { inp.value = col ? col.title : String(value); inp.dispatchEvent(new Event('input', { bubbles: true })); }
+            } else {
+                const single = field.querySelector('[data-single]');
+                if (single) single.querySelectorAll('.qf-opt').forEach(o => o.classList.remove('on'));
+                field.querySelectorAll('.qf-opt.suggested').forEach(o => o.classList.add('on'));
+            }
+        }
+        field.querySelectorAll('.qf-opt.suggested').forEach(o => o.classList.remove('suggested'));
+        field.querySelectorAll('.qf-prefill-tag, .qf-confirm, .qf-dismiss, .qf-suggest-val').forEach(el => el.remove());
+        field.classList.remove('qf-prefilled');
+        if (accept) {
+            field.classList.add('qf-confirmed');
+            field.querySelector('.lbl').insertAdjacentHTML('beforeend', '<span class="qf-ok-tag"><i class=ai data-ic=check></i> تایید شد</span>');
+        }
+        delete pf.values[key];
+        if (!Object.keys(pf.values).length) delete prefills[item.id];
+        readDraft(card);
+        updatePending(card);
     }
 
     // Keyboard: Enter saves (Ctrl+Enter inside the caption), Esc skips.
