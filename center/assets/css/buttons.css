@@ -128,3 +128,8 @@ button[style*="background: var(--warning-color)"], a[style*="background: var(--w
   padding: 10px 20px; border-radius: 12px; font-family: inherit; font-weight: 700; cursor: pointer; line-height: 1.4;
 }
 :where(.btn-delete, .btn-edit, .btn-danger-light, .btn-delete-perm) { border-radius: 10px; padding: 6px 12px; cursor: pointer; font-family: inherit; font-weight: 700; }
+.gbtn.soft.neutral { --t: #64748b; }
+[data-theme="dark"] .gbtn.soft.neutral { --t: #cbd5e1; }
+/* Brighter text on tinted buttons in the dark theme (these classes outrank the :where rule above). */
+[data-theme="dark"] .gbtn.soft, [data-theme="dark"] .wf-btn.danger:not(.solid) { color: color-mix(in srgb, var(--t) 55%, white) !important; }
+[data-theme="dark"] .gbtn.soft.neutral { color: #e2e8f0 !important; }
