@@ -1,0 +1,130 @@
+/*
+ * Buttons: one glass look for the whole app.
+ * Solid buttons carry a gradient in their own colour with a glass sheen (a light band on
+ * top, a bright inner edge, a soft coloured glow). Tinted buttons are frosted glass with
+ * a light wash of their colour. Loaded last on every page, so it wins over page styles
+ * (and over inline "background: var(--success-color)" leftovers).
+ */
+:root {
+  --gb-success-1: #34d399; --gb-success-2: #059669;
+  --gb-danger-1: #fb7185;  --gb-danger-2: #dc2626;
+  --gb-warning-1: #fbbf24; --gb-warning-2: #d97706;
+  --gb-info-1: #38bdf8;    --gb-info-2: #2563eb;
+  --gb-primary-1: #6366f1; --gb-primary-2: #8b5cf6; --gb-primary-3: #ec4899;
+  --gb-sheen: linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 45%, rgba(255,255,255,0) 55%);
+}
+
+/* ───────── Solid glass buttons ───────── */
+.gbtn.primary, .btn-primary, .wf-btn.primary,
+.gbtn.success, .btn-success, .btn-approve, .btn-apply, .wf-btn.success, .action-task,
+button[style*="background: var(--success-color)"], a[style*="background: var(--success-color)"],
+button[style*="background:var(--success-color)"],
+.gbtn.danger, .btn-danger, .btn-reject, .wf-btn.danger.solid, .action-read,
+button[style*="background: var(--error-color)"], a[style*="background: var(--error-color)"],
+button[style*="background:var(--error-color)"],
+.gbtn.warning, .btn-warning,
+button[style*="background: var(--warning-color)"], a[style*="background: var(--warning-color)"],
+.gbtn.info, .btn-info {
+  --g1: var(--gb-primary-1); --g2: var(--gb-primary-2); --g3: var(--gb-primary-3);
+  background-color: transparent !important;
+  background-image: var(--gb-sheen), linear-gradient(135deg, color-mix(in srgb, var(--g1) 92%, transparent), color-mix(in srgb, var(--g2) 92%, transparent) 55%, color-mix(in srgb, var(--g3) 92%, transparent)) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 0 rgba(0, 0, 0, 0.10), 0 8px 20px -8px color-mix(in srgb, var(--g2) 75%, transparent) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  backdrop-filter: blur(10px) saturate(150%);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+  transition: transform 0.18s ease, box-shadow 0.25s ease, filter 0.2s ease;
+}
+.gbtn.success, .btn-success, .btn-approve, .btn-apply, .wf-btn.success, .action-task,
+button[style*="background: var(--success-color)"], a[style*="background: var(--success-color)"],
+button[style*="background:var(--success-color)"] { --g1: var(--gb-success-1); --g2: var(--gb-success-2); --g3: var(--gb-success-2); }
+.gbtn.danger, .btn-danger, .btn-reject, .wf-btn.danger.solid, .action-read,
+button[style*="background: var(--error-color)"], a[style*="background: var(--error-color)"],
+button[style*="background:var(--error-color)"] { --g1: var(--gb-danger-1); --g2: var(--gb-danger-2); --g3: var(--gb-danger-2); }
+.gbtn.warning, .btn-warning,
+button[style*="background: var(--warning-color)"], a[style*="background: var(--warning-color)"] { --g1: var(--gb-warning-1); --g2: var(--gb-warning-2); --g3: var(--gb-warning-2); }
+.gbtn.info, .btn-info { --g1: var(--gb-info-1); --g2: var(--gb-info-2); --g3: var(--gb-info-2); }
+/* A primary-styled button recoloured inline keeps that colour, now as glass. */
+.btn-primary[style*="--success-color"] { --g1: var(--gb-success-1); --g2: var(--gb-success-2); --g3: var(--gb-success-2); }
+.btn-primary[style*="--error-color"] { --g1: var(--gb-danger-1); --g2: var(--gb-danger-2); --g3: var(--gb-danger-2); }
+.btn-primary[style*="--warning-color"] { --g1: var(--gb-warning-1); --g2: var(--gb-warning-2); --g3: var(--gb-warning-2); }
+
+:is(.gbtn.primary, .btn-primary, .wf-btn.primary, .gbtn.success, .btn-success, .btn-approve, .btn-apply, .wf-btn.success, .action-task,
+    .gbtn.danger, .btn-danger, .btn-reject, .wf-btn.danger.solid, .action-read, .gbtn.warning, .btn-warning, .gbtn.info, .btn-info,
+    button[style*="background: var(--success-color)"], button[style*="background: var(--error-color)"], button[style*="background: var(--warning-color)"]):hover:not(:disabled) {
+  color: #fff !important;
+  filter: brightness(1.07) saturate(1.05);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(0, 0, 0, 0.10), 0 12px 26px -10px color-mix(in srgb, var(--g2) 85%, transparent) !important;
+}
+:is(.gbtn, .btn-primary, .btn-success, .btn-approve, .btn-apply, .btn-danger, .btn-reject, .btn-warning, .btn-info, .wf-btn.primary, .wf-btn.success, .wf-btn.danger.solid):active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.97);
+}
+:is(.gbtn, .btn-primary, .btn-success, .btn-approve, .btn-apply, .btn-danger, .btn-reject, .btn-warning, .btn-info, .wf-btn.primary, .wf-btn.success, .wf-btn.danger.solid):disabled {
+  filter: saturate(0.55);
+  opacity: 0.6;
+  transform: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+:is(.gbtn, .btn-primary, .btn-success, .btn-approve, .btn-apply, .btn-danger, .btn-reject, .btn-warning, .btn-info, .wf-btn.primary, .wf-btn.success, .wf-btn.danger.solid):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--g2, #6366f1) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+
+/* ───────── Tinted (frosted) glass buttons ───────── */
+.gbtn.soft, .btn-danger-light, .btn-delete, .btn-delete-perm, .wf-btn.danger:not(.solid), .btn-edit {
+  --t: var(--gb-danger-2);
+  background-color: transparent !important;
+  background-image: var(--gb-sheen), linear-gradient(135deg, color-mix(in srgb, var(--t) 18%, transparent), color-mix(in srgb, var(--t) 7%, transparent)) !important;
+  color: var(--t) !important;
+  border: 1px solid color-mix(in srgb, var(--t) 32%, transparent) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 14px -8px color-mix(in srgb, var(--t) 60%, transparent) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+  transition: transform 0.18s ease, box-shadow 0.25s ease, background 0.2s ease;
+}
+.btn-edit, .gbtn.soft.info { --t: var(--gb-info-2); }
+.gbtn.soft.success { --t: var(--gb-success-2); }
+.gbtn.soft.warning { --t: var(--gb-warning-2); }
+:is(.gbtn.soft, .btn-danger-light, .btn-delete, .btn-delete-perm, .wf-btn.danger:not(.solid), .btn-edit):hover:not(:disabled) {
+  color: var(--t) !important;
+  background-image: var(--gb-sheen), linear-gradient(135deg, color-mix(in srgb, var(--t) 28%, transparent), color-mix(in srgb, var(--t) 12%, transparent)) !important;
+  transform: translateY(-1px);
+}
+/* Low specificity on purpose: rules that make a tinted button solid (template cards) must win. */
+[data-theme="dark"] :where(.gbtn.soft, .btn-danger-light, .btn-delete, .btn-delete-perm, .wf-btn.danger:not(.solid), .btn-edit) {
+  color: color-mix(in srgb, var(--t) 55%, white) !important;
+}
+
+/* Edit / delete pair on template cards: solid glass, blue and red. */
+.tpl-actions .btn-edit { --g1: var(--gb-info-1); --g2: var(--gb-info-2); }
+.tpl-actions .btn-delete { --g1: var(--gb-danger-1); --g2: var(--gb-danger-2); }
+.tpl-actions :is(.btn-edit, .btn-delete), [data-theme="dark"] .tpl-actions :is(.btn-edit, .btn-delete) {
+  background-image: var(--gb-sheen), linear-gradient(135deg, var(--g1), var(--g2)) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 8px 20px -8px color-mix(in srgb, var(--g2) 75%, transparent) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+}
+.tpl-actions :is(.btn-edit, .btn-delete):hover:not(:disabled), [data-theme="dark"] .tpl-actions :is(.btn-edit, .btn-delete):hover:not(:disabled) { color: #fff !important; filter: brightness(1.07); }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.gbtn, .btn-primary, .btn-success, .btn-approve, .btn-apply, .btn-danger, .btn-reject, .btn-warning, .btn-info, .wf-btn, .btn-delete, .btn-edit, .btn-danger-light) { transition: none !important; transform: none !important; }
+}
+@media print {
+  :is(.gbtn, .btn-primary, .btn-success, .btn-approve, .btn-apply, .btn-danger, .btn-reject, .btn-warning, .btn-info) { box-shadow: none !important; backdrop-filter: none !important; }
+}
+
+/* A tinted button recoloured inline keeps its colour (e.g. orange "archive"). */
+.btn-edit[style*="--warning-color"] { --t: var(--gb-warning-2); }
+.btn-edit[style*="--error-color"], .btn-edit[style*="--danger"] { --t: var(--gb-danger-2); }
+.btn-edit[style*="--success-color"] { --t: var(--gb-success-2); }
+
+/* Base shape for the utility buttons (zero specificity: page styles still decide size). */
+:where(.gbtn, .btn-success, .btn-warning, .btn-info) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 20px; border-radius: 12px; font-family: inherit; font-weight: 700; cursor: pointer; line-height: 1.4;
+}
+:where(.btn-delete, .btn-edit, .btn-danger-light, .btn-delete-perm) { border-radius: 10px; padding: 6px 12px; cursor: pointer; font-family: inherit; font-weight: 700; }

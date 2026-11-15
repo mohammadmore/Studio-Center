@@ -89,6 +89,9 @@ function prepareHtml(html: string) {
   const core =
     (BASE ? `<script>window.ASVA_BASE=${JSON.stringify(BASE)};</script>` : "") +
     `<script src="${BASE}/assets/js/core.js?v=${ASSET_VERSION}"></script>`;
+  // Shared button look (glass, gradient per colour); placed last in <head> so it wins over page styles.
+  const buttons = `<link rel="stylesheet" href="${BASE}/assets/css/buttons.css?v=${ASSET_VERSION}">`;
+  if (/<\/head>/i.test(html)) html = html.replace(/<\/head>/i, (m) => buttons + m);
   if (/<meta charset="UTF-8">/i.test(html)) return html.replace(/<meta charset="UTF-8">/i, (m) => m + core);
   if (html.includes("<head>")) return html.replace("<head>", `<head><meta charset="UTF-8">${core}`);
   return core + html;
