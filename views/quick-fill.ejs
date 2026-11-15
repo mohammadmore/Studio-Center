@@ -53,6 +53,12 @@
         .qf-opt:hover { border-color: var(--primary-color); }
         .qf-opt.on { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
         .qf-opt[hidden] { display: none; }
+        /* A field pre-filled from a similar card: thick blue-to-purple frame and a label. */
+        .qf-field.qf-prefilled { border: 3px solid transparent; border-radius: 16px; padding: 10px 12px; margin: 6px 0;
+            background: linear-gradient(var(--glass-3, var(--card-bg)), var(--glass-3, var(--card-bg))) padding-box, linear-gradient(135deg, #3b82f6, #8b5cf6) border-box; }
+        .qf-prefill-tag { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; font-weight: bold; color: #fff; padding: 2px 10px; border-radius: 999px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6); box-shadow: 0 4px 12px -6px #6d28d9; cursor: help; }
+        .qf-why { font-size: 0.8rem; color: var(--text-gray); margin: -2px 0 8px; line-height: 1.7; }
         .qf-opt .av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: rgba(128,128,128,0.2); display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; }
         .qf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .qf-owner { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 0.88rem; }
@@ -265,6 +271,8 @@
         requestAnimationFrame(() => requestAnimationFrame(() => card.classList.remove('enter')));
         if (window.jalaliDatepicker && $('qfDate')) { try { jalaliDatepicker.startWatch({ persianDigits: true, time: false, hideAfterChange: true, autoHide: true }); } catch (e) {} }
         wireCard(card, item);
+        applyPrefill(card, item);
+        readDraft(card);
         // Typing fields get the focus; with only choice buttons the card itself does (keys still work).
         const firstField = card.querySelector('.qf-field');
         const first = firstField && firstField.querySelector('input:not([type=time])');
@@ -383,6 +391,7 @@
         } catch (e) { r = { status: 'error', message: 'خطا در ارتباط با سرور' }; }
         if (r.status !== 'success') { $('qfSave').disabled = false; if (window.showToast) window.showToast(r.message || 'ذخیره نشد', 'error'); return; }
         doneToday = r.done_today || doneToday;
+        delete prefills[item.id];
         const res = r.data[0] || { missing: [] };
         offerBatch(item, values);
         await leave('leave-done');
@@ -402,33 +411,100 @@
         if (key === 'collection') { const cols = Object.values(colsByOrg).flat(); const c = cols.find(x => x.id === v); return c ? c.title : v; }
         return Array.isArray(v) ? v.join('، ') : v;
     }
+    // ───────── Pre-fill similar cards (never saved without the user) ─────────
+    // A value is offered for the next cards only when they are the same brand AND match the
+    // card just saved on at least MIN_SIMILAR of these attributes. Accepting only pre-fills
+    // the field on those cards (marked in blue/purple); each is saved when the user saves it.
+    const MIN_SIMILAR = 3;
+    const PREFILL_LABEL = 'پیشنهاد از کارت مشابه';
+    const prefills = {}; // card id -> { values: {key: value}, from: title, why: [labels] }
+    const SIM_ATTRS = [
+        ['collection', 'مجموعه'], ['content_type', 'نوع محتوا'], ['project_manager', 'مدیر پروژه'],
+        ['stages', 'مراحل تولید'], ['platforms', 'پلتفرم‌ها'], ['team', 'همکاران'],
+    ];
+    const listKey = (v) => (Array.isArray(v) ? v.map(normName).filter(Boolean).sort().join('|') : '');
+    function collectionTitle(v, orgId) {
+        if (v == null || v === '') return '';
+        if (typeof v === 'object') return normName(v.title);
+        const cols = colsByOrg[String(orgId || '')] || Object.values(colsByOrg).flat();
+        const c = cols.find(x => String(x.id) === String(v));
+        return normName(c ? c.title : v);
+    }
+    /** The card's attributes after a save: its own values plus what was just filled. */
+    function attrsOf(item, values) {
+        values = values || {};
+        const orgId = item.org && item.org.id;
+        return {
+            collection: values.collection !== undefined ? collectionTitle(values.collection, orgId) : collectionTitle(item.collection, orgId),
+            content_type: normName(values.content_type !== undefined ? values.content_type : item.content_type),
+            project_manager: normName(values.project_manager !== undefined ? values.project_manager : (item.manager && item.manager.name)),
+            stages: listKey(values.stages !== undefined ? values.stages : item.stages),
+            platforms: listKey(values.platforms !== undefined ? values.platforms : item.platforms),
+            team: listKey(values.team !== undefined ? values.team : item.team),
+        };
+    }
+    function similarity(a, b) {
+        return SIM_ATTRS.filter(([k]) => a[k] && b[k] && a[k] === b[k]).map(([, label]) => label);
+    }
     function offerBatch(item, values) {
         const box = $('qfBatch');
         const orgId = item.org && item.org.id;
+        const mine = attrsOf(item, values);
+        // Similar cards: same brand and at least MIN_SIMILAR matching attributes.
+        const similar = queue.filter(x => x.id !== item.id && (x.org && x.org.id) === orgId)
+            .map(x => ({ x, why: similarity(mine, attrsOf(x, prefills[x.id] && prefills[x.id].values)) }))
+            .filter(s => s.why.length >= MIN_SIMILAR);
         const offers = SHAREABLE.filter(k => values[k] !== undefined).map(k => {
-            const ids = queue.filter(x => x.id !== item.id && (x.org && x.org.id) === orgId && x.missing.includes(k)).slice(0, 10).map(x => x.id);
-            return { key: k, value: values[k], ids };
-        }).filter(o => o.ids.length);
+            const hits = similar.filter(s => s.x.missing.includes(k)).slice(0, 10);
+            return { key: k, value: values[k], hits };
+        }).filter(o => o.hits.length);
         if (!offers.length) { box.classList.remove('open'); return; }
         const label = (k) => (fields.find(f => f.key === k) || {}).label || k;
-        box.innerHTML = `<div class="t"><span><i class=ai data-ic=sparkles></i> همین را برای کارت‌های بعدیِ ${esc(item.org ? item.org.name : 'بدون برند')} هم بگذارم؟</span><button type="button" data-close aria-label="بستن">✕</button></div>
-            <div class="qf-opts">${offers.map((o, i) => `<button type="button" class="qf-opt" data-batch="${i}">${esc(label(o.key))}: ${esc(valueLabel(o.key, o.value))} — برای ${fa(o.ids.length)} کارت</button>`).join('')}</div>`;
+        const whyAll = [...new Set(offers.flatMap(o => o.hits.flatMap(h => h.why)))];
+        box.innerHTML = `<div class="t"><span><i class=ai data-ic=sparkles></i> این مقدار برای کارت‌های مشابه بعدی هم پیشنهاد شود؟</span><button type="button" data-close aria-label="بستن">✕</button></div>
+            <div class="qf-why">کارت‌هایی که با این کارت در دست‌کم ${fa(MIN_SIMILAR)} مورد یکی‌اند (${esc(whyAll.join('، '))}). فقط پیش‌پر می‌شوند؛ ذخیره با خود شماست.</div>
+            <div class="qf-opts">${offers.map((o, i) => `<button type="button" class="qf-opt" data-batch="${i}">${esc(label(o.key))}: ${esc(valueLabel(o.key, o.value))} — ${fa(o.hits.length)} کارت مشابه</button>`).join('')}</div>`;
         box.classList.add('open');
-        box.onclick = async (e) => {
+        box.onclick = (e) => {
             if (e.target.closest('[data-close]')) { box.classList.remove('open'); return; }
             const b = e.target.closest('[data-batch]');
             if (!b) return;
             const o = offers[Number(b.dataset.batch)];
-            b.disabled = true;
-            const r = await fetch('/api/quick_fill_save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: o.ids, values: { [o.key]: o.value } }) }).then(x => x.json()).catch(() => ({}));
-            if (r.status === 'success') {
-                b.remove();
-                if (window.showToast) window.showToast(`${fa(r.data.length)} کارت دیگر هم به‌روز شد`, 'success');
-                const current = queue[idx] && queue[idx].id;
-                await loadQueue(current);
-                if (!box.querySelector('[data-batch]')) box.classList.remove('open');
-            } else if (window.showToast) window.showToast(r.message || 'انجام نشد', 'error');
+            for (const h of o.hits) {
+                const pf = prefills[h.x.id] || (prefills[h.x.id] = { values: {}, from: item.title, why: h.why });
+                pf.values[o.key] = o.value;
+                pf.from = item.title;
+                pf.why = h.why;
+            }
+            b.remove();
+            // The next card may already be on screen: pre-fill it right away.
+            const shownCard = $('qfCard'), shownItem = queue[idx];
+            if (shownCard && shownItem && prefills[shownItem.id]) { applyPrefill(shownCard, shownItem); readDraft(shownCard); }
+            if (window.showToast) window.showToast(`روی ${fa(o.hits.length)} کارت مشابه پیش‌پر شد؛ هر کدام را وقتی رسید تأیید کنید`, 'info');
+            if (!box.querySelector('[data-batch]')) box.classList.remove('open');
         };
+    }
+
+    /** Marks a pre-filled field and selects its value; the user still confirms by saving. */
+    function applyPrefill(card, item) {
+        const pf = prefills[item.id];
+        if (!pf) return;
+        const tip = `از کارت «${pf.from}» — مشابه در: ${pf.why.join('، ')}`;
+        Object.entries(pf.values).forEach(([key, value]) => {
+            const field = card.querySelector(`.qf-field[data-key="${key}"]`);
+            if (!field) return;
+            field.classList.add('qf-prefilled');
+            const lbl = field.querySelector('.lbl');
+            if (lbl && !lbl.querySelector('.qf-prefill-tag')) lbl.insertAdjacentHTML('beforeend', `<span class="qf-prefill-tag" title="${esc(tip)}"><i class=ai data-ic=sparkles></i> ${esc(PREFILL_LABEL)}</span>`);
+            if (key === 'collection') {
+                const inp = field.querySelector('#qfCol');
+                const col = Object.values(colsByOrg).flat().find(c => String(c.id) === String(value));
+                if (inp) inp.value = col ? col.title : String(value);
+                return;
+            }
+            const vals = Array.isArray(value) ? value : [value];
+            field.querySelectorAll('.qf-opt').forEach(o => { if (!o.hidden && vals.some(v => sameName(v, o.dataset.v))) o.classList.add('on'); });
+        });
     }
 
     // Keyboard: Enter saves (Ctrl+Enter inside the caption), Esc skips.
