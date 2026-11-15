@@ -623,7 +623,7 @@ var notifLoaded = false;
         const isClient = <%= user.role_id === 'client' ? 'true' : 'false' %>;
         
         document.addEventListener('DOMContentLoaded', () => {
-            loadPlatforms();
+            window.__platformsReady = loadPlatforms();
             if (typeof jalaliDatepicker !== 'undefined') {
                 jalaliDatepicker.startWatch({ persianDigits: true, time: false, hideAfterChange: true, autoHide: true, showTodayBtn: true, showEmptyBtn: true });
             }
@@ -646,12 +646,16 @@ var notifLoaded = false;
                         data.data.forEach(o => {
                             sel.insertAdjacentHTML('beforeend', `<option value="${o.id}">${escapeHtml(o.org_name)}</option>`);
                         });
-                        if (queryOrgId) {
+                        if (urlParams.get('org')) {
+                            restoreFiltersFromUrl(urlParams);
+                        } else if (queryOrgId) {
                             sel.value = queryOrgId;
                             loadReport();
                         }
                     }
                 } catch(e) { console.error(e); }
+            } else if (urlParams.get('no_limit') || urlParams.get('from') || urlParams.get('to') || urlParams.get('col') || urlParams.get('status') || urlParams.get('platform')) {
+                restoreFiltersFromUrl(urlParams);
             } else {
                 // Auto load for client
                 onOrgChange();
@@ -695,6 +699,35 @@ var notifLoaded = false;
                     });
                 }
             } catch(e) { console.error(e); }
+        }
+
+        // Coming back from the PDF page: the address carries the same filters, so the report
+        // reopens exactly as it was (brand, dates, collection, status, platform).
+        async function restoreFiltersFromUrl(q) {
+            const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+            if (!isClient) set('orgSelect', q.get('org'));
+            const noLimit = document.getElementById('noTimeLimit');
+            if (q.get('no_limit') === '1') {
+                if (noLimit && !noLimit.checked) { noLimit.checked = true; toggleTimeInputs(); }
+            } else {
+                const fa = (v) => window.toPersianDigits ? window.toPersianDigits(v) : v;
+                if (q.get('from')) set('startDate', fa(q.get('from')));
+                if (q.get('to')) set('endDate', fa(q.get('to')));
+            }
+            set('statusSelect', q.get('status') || '');
+            try { await window.__platformsReady; } catch (e) {}
+            set('platformSelect', q.get('platform') || '');
+            const orgId = document.getElementById('orgSelect') ? document.getElementById('orgSelect').value : '';
+            const colSelect = document.getElementById('colSelect');
+            if (orgId && colSelect) {
+                colSelect.innerHTML = '<option value="">همه مجموعه‌ها</option>';
+                try {
+                    const data = await (await fetch(`/api/get_collections?org_id=${encodeURIComponent(orgId)}`)).json();
+                    (data.data || []).forEach(c => colSelect.insertAdjacentHTML('beforeend', `<option value="${c.id}">${escapeHtml(c.title)}</option>`));
+                } catch (e) {}
+                set('colSelect', q.get('col') || '');
+            }
+            loadReport();
         }
 
         async function onOrgChange() {
@@ -1051,7 +1084,7 @@ var notifLoaded = false;
             if (val('colSelect')) params.set('col', val('colSelect'));
             if (val('statusSelect')) params.set('status', val('statusSelect'));
             if (val('platformSelect')) params.set('platform', val('platformSelect'));
-            window.open('report-print?' + params.toString(), '_blank');
+            window.location.href = 'report-print?' + params.toString();
         }
 
         function revertTheme(wasDark) {

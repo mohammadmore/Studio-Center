@@ -181,7 +181,7 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
 <body>
 <div class="toolbar" role="toolbar" aria-label="تنظیمات خروجی گزارش">
     <div class="group">
-        <a class="tb" href="reports" title="بازگشت به صفحه‌ی گزارش"><i class=ai data-ic=arrow-right></i> بازگشت</a>
+        <a class="tb" href="reports" title="بازگشت به صفحه‌ی گزارش" id="backToReports"><i class=ai data-ic=arrow-right></i> بازگشت</a>
         <span style="font-weight:700;">تم:</span>
         <button type="button" id="themeGlass" aria-pressed="true" onclick="setTheme('glass')"><i class=ai data-ic=sparkles></i> شیشه‌ای</button>
         <button type="button" id="themePlain" aria-pressed="false" onclick="setTheme('plain')"><i class=ai data-ic=printer></i> ساده (سیاه‌وسفید)</button>
@@ -230,6 +230,13 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
     var CLIENT_ORG = <%- JSON.stringify(clientOrgId) %>;
     var LS_KEY = "asva-report-letterhead";
     var q = new URLSearchParams(location.search);
+    // "Back" reopens the reports page with the same filters.
+    (function () {
+        var back = new URLSearchParams();
+        ["org", "no_limit", "from", "to", "col", "status", "platform"].forEach(function (k) { if (q.get(k)) back.set(k, q.get(k)); });
+        var a = document.getElementById("backToReports");
+        if (a && back.toString()) a.setAttribute("href", "reports?" + back.toString());
+    })();
     var report = null, studio = {}, collectionsById = {};
 
     var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
