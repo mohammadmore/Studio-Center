@@ -40,6 +40,14 @@ function withRoleName(c: any) {
   return { ...safe, avatar_url: effectiveAvatar(c), role_name: role ? role.name : "کارشناس" };
 }
 
+/** One spelling for the work types (older forms were saved without the half-space). */
+export function normalizeWorkType(v: string) {
+  const plain = v.replace(/\u200c/g, "").trim();
+  if (plain === "تماموقت (حضوری)") return "تمام‌وقت (حضوری)";
+  if (plain === "پارهوقت / ریموت") return "پاره‌وقت / ریموت";
+  return v;
+}
+
 function profileFields(body: any) {
   const fields: Record<string, any> = {};
   const map: [string, string[]][] = [
@@ -56,6 +64,7 @@ function profileFields(body: any) {
     const key = keys.find((k) => body[k] !== undefined);
     if (key) fields[field] = body[key];
   }
+  if (typeof fields.work_type === "string") fields.work_type = normalizeWorkType(fields.work_type);
   return fields;
 }
 
@@ -165,7 +174,7 @@ subRouter.post("/manage_roles", checkPermission("manage_roles"), (req: any, res)
     const target =
       req.body.direction === "up" ? index - 1 : req.body.direction === "down" ? index + 1 : -1;
     if (index === -1 || target < 0 || target >= roles.length) {
-      return fail(res, 400, "امکان جابجایی وجود ندارد");
+      return fail(res, 400, "امکان جابه‌جایی وجود ندارد");
     }
     [roles[index], roles[target]] = [roles[target], roles[index]];
     saveDatabase();
@@ -262,7 +271,7 @@ subRouter.post("/manage_users", checkPermission("add-user"), (req: any, res) => 
     const targetPos =
       req.body.direction === "up" ? pos - 1 : req.body.direction === "down" ? pos + 1 : -1;
     if (pos === -1 || targetPos < 0 || targetPos >= active.length) {
-      return fail(res, 400, "امکان جابجایی وجود ندارد");
+      return fail(res, 400, "امکان جابه‌جایی وجود ندارد");
     }
     const a = colleagues.indexOf(active[pos]);
     const b = colleagues.indexOf(active[targetPos]);

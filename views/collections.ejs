@@ -64,7 +64,7 @@
                 <p class="page-subtitle">ساختار‌بندی محتوا‌ها در آلبوم‌های منظم</p>
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
-                <input type="text" id="search_collection" class="form-control" onkeyup="renderCollections()" placeholder="جستجوی مجموعه..." style="width: 200px; height: 38px; padding: 0 10px; border-radius: 8px; font-size: 0.9rem; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-dark);">
+                <input type="text" id="search_collection" class="form-control" onkeyup="renderCollections()" placeholder="جست‌وجوی مجموعه..." style="width: 200px; height: 38px; padding: 0 10px; border-radius: 8px; font-size: 0.9rem; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-dark);">
                 <select id="filter_org_id" class="form-control" onchange="renderCollections()" style="width: auto; height: 38px; padding: 0 10px; border-radius: 8px; font-size: 0.9rem; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-gray);">
                     <option value="">همه سازمان‌ها</option>
                 </select>
@@ -356,7 +356,7 @@
         <button type="button" class="btn-primary" onclick="openAddModal()"><i class=ai data-ic=plus></i> ساخت اولین مجموعه</button>
     </div>`;
                 } else {
-                    const msg = searchVal || filterValue !== '' ? 'با این جستجو یا فیلتر چیزی پیدا نشد.' : 'این مجموعه خالی است.';
+                    const msg = searchVal || filterValue !== '' ? 'با این جست‌وجو یا فیلتر چیزی پیدا نشد.' : 'این مجموعه خالی است.';
                     grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px 20px; color: var(--text-gray); background: var(--card-bg); border: 1px dashed var(--border-color); border-radius: 12px;">
                         <div style="font-size:2rem; margin-bottom:8px;"><i class=ai data-ic=folder-open></i></div><div style="margin-bottom:14px;">${msg}</div>
                         ${currentFolderId && !searchVal ? '<button type="button" class="btn-outline" onclick="openAddModal(null)"><i class=ai data-ic=folder></i> ساخت زیرمجموعه</button> <span style="color:var(--text-gray); font-size:0.85rem; display:block; margin-top:10px;">محتوا را می‌توانید از «ویرایش کلی» شناسنامه‌اش به این مجموعه بیاورید یا از مجموعه‌ی دیگری روی مسیر بالا بکشید.</span>' : ''}

@@ -182,7 +182,7 @@ subRouter.post(
         .json({
           status: "error",
           message:
-            "امکان جابجایی وجود ندارد",
+            "امکان جابه‌جایی وجود ندارد",
         });
     }
     return res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
@@ -265,7 +265,7 @@ subRouter.post("/reorder_fonts", checkPermission("settings"), (req, res) => {
   const index = order.indexOf(filename);
   const target = direction === "up" ? index - 1 : direction === "down" ? index + 1 : -1;
   if (target < 0 || target >= order.length) {
-    return res.status(400).json({ status: "error", message: "امکان جابجایی وجود ندارد" });
+    return res.status(400).json({ status: "error", message: "امکان جابه‌جایی وجود ندارد" });
   }
   [order[index], order[target]] = [order[target], order[index]];
   settings.font_order = order;
@@ -349,7 +349,7 @@ subRouter.get("/setup_status", checkPermission("settings"), (req, res) => {
     { id: "studio", title: "نام و لوگوی استودیو", hint: "در تنظیمات پایه، نام و لوگوی روشن و تیره را وارد کنید.", href: "settings", done: !!(info.name && (info.logo_light || info.logo_dark)) },
     { id: "content_types", title: "انواع محتوا و قیمت‌ها", hint: "انواع محتوا (پست، ریلز، ویدیو…) را با قیمت هر کدام تعریف کنید.", href: "settings", done: types.length > 0 && types.some((t: any) => Number(t.price) > 0) },
     { id: "platforms", title: "پلتفرم‌های انتشار", hint: "اینستاگرام، تلگرام و… را در تنظیمات پایه اضافه کنید.", href: "settings", done: active(settings.platform).length > 0 },
-    { id: "roles", title: "نقش‌ها و سطح دسترسی", hint: "برای همکاران نقش‌هایی مثل طراح یا تدوینگر بسازید.", href: "settings", done: roles.some((r) => r.id != 1) },
+    { id: "roles", title: "نقش‌ها و سطح دسترسی", hint: "برای همکاران نقش‌هایی مثل طراح یا تدوین‌گر بسازید.", href: "settings", done: roles.some((r) => r.id != 1) },
     { id: "team", title: "افزودن همکاران", hint: "حساب کاربری همکاران را بسازید.", href: "add-user", done: colleagues.filter((c) => c.is_active !== 0).length > 1 },
     { id: "orgs", title: "افزودن اولین برند (کارفرما)", hint: "برند را با نام کاربری پنل کارفرما ثبت کنید.", href: "organizations", done: organizations.some((o) => o.is_active !== 0) },
     { id: "integrations", title: "اطلاع‌رسانی بیرونی (پیامک، ایمیل، تلگرام، بله)", hint: "حداقل یک کانال را فعال کنید تا کارفرما و تیم خبردار شوند.", href: "integrations", done: ["sms", "email", "telegram", "bale"].some((ch) => integ[ch]?.enabled) },

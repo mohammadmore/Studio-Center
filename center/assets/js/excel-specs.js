@@ -127,7 +127,7 @@
     examples: function (c) {
       var ind = names(active(c.settings && c.settings.industry));
       return [
-        { org_name: "کلینیک ونوس", industry: first(ind, "سایر"), contact_name: "علی محمدی", phone_number: "09123456789", extra_phones: "", emails: "info@example.com", addresses: "تهران، خیابان ولیعصر", color: "#EF4444", username: "venus", password: "" },
+        { org_name: "کلینیک ونوس", industry: first(ind, "سایر"), contact_name: "علی محمدی", phone_number: "09123456789", extra_phones: "", emails: "info@example.com", addresses: "تهران، خیابان ولی‌عصر", color: "#EF4444", username: "venus", password: "" },
       ];
     },
   });

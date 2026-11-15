@@ -93,7 +93,7 @@
             <div class="kpi-card kpi-red" onclick="openStatsModal('revision')">
                 <span class="kpi-title">نرخ اصلاحیه‌های کارفرما</span>
                 <span class="kpi-value" id="kpi-revision">٪</span>
-                <span id="kpi-worst-org" style="font-size: 0.8rem; margin-top: 10px; font-weight: bold; color: var(--error-color);"><i class=ai data-ic=arrow-down></i> پرهزینهترین کارفرما: -</span>
+                <span id="kpi-worst-org" style="font-size: 0.8rem; margin-top: 10px; font-weight: bold; color: var(--error-color);"><i class=ai data-ic=arrow-down></i> پرهزینه‌ترین کارفرما: -</span>
             </div>
             <div class="kpi-card kpi-green" onclick="openStatsModal('completion')">
                 <span class="kpi-title">تعهدات تکمیل شده</span>
@@ -162,7 +162,7 @@
                     document.getElementById('kpi-raw').innerText = window.toPersianDigits(data.kpis.raw_events);
                     document.getElementById('kpi-revision').innerText = window.toPersianDigits(data.kpis.overall_revision_rate) + '٪';
                     document.getElementById('kpi-completion').innerText = window.toPersianDigits(data.kpis.overall_completion_rate) + '٪';
-                    document.getElementById('kpi-worst-org').innerText = '↓ پرهزینهترین کارفرما: ' + data.kpis.worst_org;
+                    document.getElementById('kpi-worst-org').innerText = '↓ پرهزینه‌ترین کارفرما: ' + data.kpis.worst_org;
                     document.getElementById('kpi-best-org').innerText = '↑ بهترین کارفرما: ' + data.kpis.best_org;
 
                     // رسم نمودار گلوگاه‌ها (Bar Chart)

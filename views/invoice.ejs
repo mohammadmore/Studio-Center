@@ -290,7 +290,7 @@
                     <input type="checkbox" id="draftNoTimeLimit" onchange="toggleDraftTimeInputs()" style="width: 16px; height: 16px;">
                     بدون محدودیت زمانی
                 </label>
-                <button class="btn-primary" onclick="generateDraft()" style="margin-right: auto;">تولید پیشنویس فاکتور</button>
+                <button class="btn-primary" onclick="generateDraft()" style="margin-right: auto;">تولید پیش‌نویس فاکتور</button>
             </div>
         </div>
         <div class="invoice-controls no-print" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap;">
@@ -312,7 +312,7 @@
             <div style="flex: 1; min-width: 150px;">
                 <label>وضعیت سند:</label>
                 <select id="invStatus" class="form-control" onchange="updateInvoiceUI()">
-                    <option value="draft">پیشنویس</option>
+                    <option value="draft">پیش‌نویس</option>
                     <option value="issued">صادر شده</option>
                     <option value="paid">پرداخت شده</option>
                     <option value="cancelled">لغو شده</option>
@@ -483,7 +483,7 @@
                         <strong id="invTotal">۰</strong>
                     </div>
                     <div class="totals-row no-print" style="margin-top: 10px;">
-                        <span>مبلغ پرداخت شده (علیالحساب):</span>
+                        <span>مبلغ پرداخت شده (علی‌الحساب):</span>
                         <input type="text" inputmode="numeric" id="invPaidAmount" class="form-control" style="width: 100px; height: 25px; padding: 2px 5px; text-align: center;" value="0" onchange="this.value = formatFarsiMoney(parseNumericInput(this.value)); calculateTotals()">
                     </div>
                     <div class="totals-row">
@@ -491,7 +491,7 @@
                         <strong id="invPaidDisplay" style="color: #16a34a;">۰</strong>
                     </div>
                     <div class="totals-row" style="font-weight: bold;">
-                        <span>باقیمانده:</span>
+                        <span>باقی‌مانده:</span>
                         <strong id="invRemainingDisplay" style="color: var(--error-color);">۰</strong>
                     </div>
                 </div>
@@ -1001,7 +1001,7 @@
         }
 
         const statusMap = {
-            'draft': 'پیشنویس',
+            'draft': 'پیش‌نویس',
             'issued': 'صادر شده',
             'paid': 'پرداخت شده',
             'cancelled': 'لغو شده',

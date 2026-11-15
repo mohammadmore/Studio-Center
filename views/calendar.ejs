@@ -700,7 +700,7 @@
 
                 <div id="existingContentsSection" style="display: none; flex-direction: column; gap: 10px;">
                     <label style="font-weight: bold;">انتخاب از محتوا‌های موجود دپو (منتشر نشده)</label>
-                    <input type="text" id="searchOrgContents" placeholder="جستجو..." onkeyup="filterOrgContents()" style="padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                    <input type="text" id="searchOrgContents" placeholder="جست‌وجو..." onkeyup="filterOrgContents()" style="padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
                     <div id="orgContentsList" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: rgba(128, 128, 128, 0.05);">
                     </div>
                 </div>
@@ -759,7 +759,7 @@
                     </div>
                     <div style="grid-column: 1 / -1; margin-top: 5px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; color: var(--text-gray);">
-                            <input type="checkbox" id="countInStats"> شمارش هر تکرار در آمار عملکرد (اگر زده نشود، فقط نمونه اول در آمار محاسبه می‌شود اما در گزارش با برچسب تکرار ذکر میگردد)
+                            <input type="checkbox" id="countInStats"> شمارش هر تکرار در آمار عملکرد (اگر زده نشود، فقط نمونه اول در آمار محاسبه می‌شود اما در گزارش با برچسب تکرار ذکر می‌گردد)
                         </label>
                     </div>
                 </div>
@@ -1544,7 +1544,7 @@
                         if (match) { match.status = newStatus; break; }
                     }
                 } else {
-                    if(window.showToast) window.showToast(data.message || 'خطا در ذخیرهسازی', 'error');
+                    if(window.showToast) window.showToast(data.message || 'خطا در ذخیره‌سازی', 'error');
                 }
             } catch(e) {
                 console.error(e);

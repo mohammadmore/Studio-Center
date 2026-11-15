@@ -651,7 +651,7 @@ subRouter.post("/unlock_events", checkPermission("organizations"), (req: any, re
   );
   addAuditLog(
     req.user,
-    `بازکردن قفل تقویم ${targetYear}/${targetMonth} سازمان ${org ? org.org_name : numericOrgId} - دلیل: ${reasonText || "بدون دلیل"}`,
+    `باز کردن قفل تقویم ${targetYear}/${targetMonth} سازمان ${org ? org.org_name : numericOrgId} - دلیل: ${reasonText || "بدون دلیل"}`,
     req.ip,
   );
   saveDatabase();

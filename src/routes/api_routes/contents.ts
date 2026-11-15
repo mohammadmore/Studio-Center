@@ -161,7 +161,7 @@ subRouter.post("/bulk_schedule_contents", checkPermission(["calendar", "depot"])
     validUpdates.push({ card, item });
   });
   if (validUpdates.length === 0 && warnings.length === 0) {
-    return res.json({ status: "error", message: "هیچ ردیف معتبری برای بروزرسانی یافت نشد." });
+    return res.json({ status: "error", message: "هیچ ردیف معتبری برای به‌روزرسانی یافت نشد." });
   }
   if (warnings.length > 0 && !force) {
     return res.json({ status: "warning", warnings });

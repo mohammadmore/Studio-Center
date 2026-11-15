@@ -194,6 +194,17 @@ function markLegacyInvoicesSent() {
   return true;
 }
 
+/** Work types saved without the half-space are rewritten in the one spelling the forms use. */
+function normalizeStoredWorkTypes() {
+  const fix: Record<string, string> = { "تماموقت (حضوری)": "تمام‌وقت (حضوری)", "پارهوقت / ریموت": "پاره‌وقت / ریموت" };
+  let changed = false;
+  for (const c of colleagues) {
+    const v = typeof c?.work_type === "string" ? fix[c.work_type.trim()] : undefined;
+    if (v) { c.work_type = v; changed = true; }
+  }
+  return changed;
+}
+
 function applyEmergencyAdminReset() {
   const newPassword = normalizePasswordInput(process.env.RESET_ADMIN_PASSWORD || "");
   if (!newPassword) return false;
@@ -250,6 +261,7 @@ export async function initDatabase(customDriver?: StorageDriver) {
   ready = true;
   if (applyEmergencyAdminReset()) await flushDatabase(true);
   if (markLegacyInvoicesSent()) await flushDatabase(true);
+  if (normalizeStoredWorkTypes()) await flushDatabase(true);
   // Rewrite the file at once so no plain-text credential stays on disk.
   if (encryptStoredSecrets()) {
     await flushDatabase(true);

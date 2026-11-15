@@ -779,9 +779,9 @@ async function submitBatchEdit() {
         </div>
     </div>
 
-    <!-- جستجوی پیشرفته -->
+    <!-- جست‌وجوی پیشرفته -->
     <div class="filter-container">
-        <input type="text" id="searchInput" placeholder="جستجو در عنوان محتوا..." 
+        <input type="text" id="searchInput" placeholder="جست‌وجو در عنوان محتوا..." 
                style="flex: 1; min-width: 280px; padding: 14px; border:1px solid var(--border-color); border-radius:8px;" 
                oninput="filterCards()">
         
@@ -966,7 +966,7 @@ async function submitBatchEdit() {
         <!-- پیش‌نمایش داده‌های خوانده شده -->
         <div id="excelPreviewArea" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: var(--text-gray); font-size: 0.95rem;"><i class=ai data-ic=eye></i> پیش‌نمایش محتوا‌های شناساییشده (<span id="parsedCount">0</span> مورد)</h4>
+                <h4 style="margin: 0; color: var(--text-gray); font-size: 0.95rem;"><i class=ai data-ic=eye></i> پیش‌نمایش محتوا‌های شناسایی‌شده (<span id="parsedCount">0</span> مورد)</h4>
                 <button onclick="resetExcelImport()" style="background: none; border: none; color: var(--error-color); cursor: pointer; font-size: 0.82rem;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> تغییر فایل</button>
             </div>
             
@@ -1216,7 +1216,7 @@ async function drop(ev, newStatus) {
         });
         const data = await res.json();
         if(data.status !== 'success') {
-            if(window.showToast) window.showToast(data.message || 'خطا در ذخیرهسازی', 'error');
+            if(window.showToast) window.showToast(data.message || 'خطا در ذخیره‌سازی', 'error');
         } else {
             if(window.showToast) {
                 window.showToast('وضعیت محتوا تغییر یافت', 'success', {

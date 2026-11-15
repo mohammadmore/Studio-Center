@@ -82,7 +82,7 @@ subRouter.post("/update_leave", checkPermission("leaves"), (req: any, res) => {
     leave.id,
   );
   saveDatabase();
-  res.json({ status: "success", message: "وضعیت مرخصی بروزرسانی شد." });
+  res.json({ status: "success", message: "وضعیت مرخصی به‌روزرسانی شد." });
 });
 
 subRouter.post("/delete_leave", checkPermission("leaves"), (req: any, res) => {

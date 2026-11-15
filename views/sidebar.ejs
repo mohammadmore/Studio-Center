@@ -338,7 +338,7 @@
             </a>
         </div>
     
-    <button onclick="openOmnibar()" id="search-toggle-btn" title="جستجو (Ctrl+Shift+F)" aria-label="جستجو" style="">
+    <button onclick="openOmnibar()" id="search-toggle-btn" title="جست‌وجو (Ctrl+Shift+F)" aria-label="جست‌وجو" style="">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     </button>
 
@@ -664,7 +664,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <path d="M10 9H8" />
   <path d="M16 13H8" />
   <path d="M16 17H8" />
-</svg> موتور قالبساز</a></li><% } %>
+</svg> موتور قالب‌ساز</a></li><% } %>
                 </ul>
             </li>
             <% } %>
@@ -1575,7 +1575,7 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
     <div style="background: var(--card-bg); width: 90%; width: 100%; max-width: 650px; box-sizing: border-box; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--border-color); transform: translateY(-20px); transition: transform 0.2s;" id="omnibarContainer">
         <div style="display: flex; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border-color);">
             <svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='color: var(--primary-color); margin-left: 12px;'><circle cx='11' cy='11' r='8'/><path d='m21 21-4.3-4.3'/></svg>
-            <input type="text" id="omnibarInput" placeholder="جستجو در کل سیستم... (محتوا‌ها، فایل‌ها، پروژه‌ها)" style="flex: 1; border: none; background: transparent; font-size: 1.15rem; color: var(--text-color); outline: none; padding: 5px; font-family: inherit;">
+            <input type="text" id="omnibarInput" placeholder="جست‌وجو در کل سیستم... (محتوا‌ها، فایل‌ها، پروژه‌ها)" style="flex: 1; border: none; background: transparent; font-size: 1.15rem; color: var(--text-color); outline: none; padding: 5px; font-family: inherit;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button onclick="closeOmnibar()" style="background: transparent; border: none; color: var(--text-gray); cursor: pointer; padding: 5px; border-radius: 4px;" onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background='transparent'"><svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg></button>
             </div>
@@ -1583,8 +1583,8 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
         <div id="omnibarResults" style="max-height: 60vh; overflow-y: auto; padding: 0;">
             <div style="padding: 30px; text-align: center; color: var(--text-gray);">
                 <svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1' stroke-linecap='round' stroke-linejoin='round' style='margin-bottom: 12px; opacity: 0.5;'><path d='M12 2v20'/><path d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/></svg>
-                <p>برای شروع جستجو تایپ کنید...</p>
-                <p style="font-size: 0.8rem; margin-top: 8px; opacity: 0.7;">میانبر: Ctrl + Shift + F</p>
+                <p>برای شروع جست‌وجو تایپ کنید...</p>
+                <p style="font-size: 0.8rem; margin-top: 8px; opacity: 0.7;">میان‌بر: Ctrl + Shift + F</p>
             </div>
         </div>
     </div>
@@ -1609,7 +1609,7 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
         input.value = '';
         document.getElementById('omnibarResults').innerHTML = `
             <div style="padding: 30px; text-align: center; color: var(--text-gray);">
-                <p>برای شروع جستجو تایپ کنید...</p>
+                <p>برای شروع جست‌وجو تایپ کنید...</p>
             </div>
         `;
         input.focus();
@@ -1653,11 +1653,11 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
         const resultsDiv = document.getElementById('omnibarResults');
         
         if (q.length < 2) {
-            resultsDiv.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-gray);">برای شروع جستجو تایپ کنید... (حداقل ۲ حرف)</div>`;
+            resultsDiv.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-gray);">برای شروع جست‌وجو تایپ کنید... (حداقل ۲ حرف)</div>`;
             return;
         }
         
-        resultsDiv.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-gray);"><svg class="spinner" viewBox="0 0 50 50" style="width:30px;height:30px;animation:rotate 2s linear infinite;"><circle cx="25" cy="25" r="20" fill="none" stroke-width="5" stroke="var(--primary-color)" style="stroke-linecap:round;animation:dash 1.5s ease-in-out infinite;"></circle></svg><p style="margin-top:10px;">در حال جستجو...</p></div>`;
+        resultsDiv.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-gray);"><svg class="spinner" viewBox="0 0 50 50" style="width:30px;height:30px;animation:rotate 2s linear infinite;"><circle cx="25" cy="25" r="20" fill="none" stroke-width="5" stroke="var(--primary-color)" style="stroke-linecap:round;animation:dash 1.5s ease-in-out infinite;"></circle></svg><p style="margin-top:10px;">در حال جست‌وجو...</p></div>`;
         
         clearTimeout(omnibarDebounceTimer);
         omnibarDebounceTimer = setTimeout(async () => {
@@ -1668,7 +1668,7 @@ document.addEventListener("jdp:change", function(e) { enforcePersianDigits(e.tar
                 if (data.status === 'success') {
                     renderOmnibarResults(data.results, q);
                 } else {
-                    resultsDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--error-color);">خطا در جستجو</div>`;
+                    resultsDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--error-color);">خطا در جست‌وجو</div>`;
                 }
             } catch(err) {
                 console.error(err);
@@ -1984,7 +1984,7 @@ window.showShortcutsModal = function() {
                 <div style="flex: 1;"></div>
                 <h2 style="margin: 0; color: var(--text-color); display: flex; align-items: center; justify-content: center; gap: 8px; flex: 3; text-align: center;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/></svg>
-                    راهنمای کلید‌های میانبر
+                    راهنمای کلید‌های میان‌بر
                 </h2>
                 <div style="flex: 1; display: flex; justify-content: flex-end;">
                     <button onclick="document.getElementById('shortcutsModal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-gray);">&times;</button>
@@ -1996,7 +1996,7 @@ window.showShortcutsModal = function() {
             </div>
             
             <div style="margin-top: 25px; display: flex; gap: 10px;">
-                <button onclick="resetShortcuts()" class="btn-outline" style="flex: 1; padding: 12px; font-size: 0.95rem; border-radius: 8px;">بازنشانی پیشفرض</button>
+                <button onclick="resetShortcuts()" class="btn-outline" style="flex: 1; padding: 12px; font-size: 0.95rem; border-radius: 8px;">بازنشانی پیش‌فرض</button>
                 <button onclick="document.getElementById('shortcutsModal').style.display='none'" class="btn-primary" style="flex: 2; padding: 12px; font-size: 1rem; border-radius: 8px;">متوجه شدم</button>
             </div>
         </div>
@@ -2013,7 +2013,7 @@ window.renderShortcutsEditor = function() {
     
     const items = [
         { id: 'save', label: 'ذخیره کردن فرم‌ها (Save)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>' },
-        { id: 'search', label: 'جستجوی سریع (Omnibar)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>' },
+        { id: 'search', label: 'جست‌وجوی سریع (Omnibar)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>' },
         { id: 'add', label: 'افزودن آیتم جدید', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' },
         { id: 'help', label: 'نمایش این راهنما', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' }
     ];
@@ -2098,14 +2098,14 @@ window.handleShortcutRecord = function(e) {
     renderShortcutsEditor();
     
     // small toast
-    if (window.showToast) window.showToast('کلید میانبر با موفقیت تغییر کرد.', 'success');
+    if (window.showToast) window.showToast('کلید میان‌بر با موفقیت تغییر کرد.', 'success');
 };
 
 window.resetShortcuts = async function() {
-    if (!(await window.customConfirm('آیا از بازنشانی کلید‌های میانبر به حالت پیش‌فرض اطمینان دارید؟'))) return;
+    if (!(await window.customConfirm('آیا از بازنشانی کلید‌های میان‌بر به حالت پیش‌فرض اطمینان دارید؟'))) return;
     localStorage.removeItem('asva_shortcuts_' + window.ASVA_CURRENT_USER);
     renderShortcutsEditor();
-    if (window.showToast) window.showToast('کلید‌های میانبر به حالت پیشفرض بازگشتند.', 'success');
+    if (window.showToast) window.showToast('کلید‌های میان‌بر به حالت پیش‌فرض بازگشتند.', 'success');
 };
 </script>
 <style>

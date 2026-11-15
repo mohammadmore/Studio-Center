@@ -62,7 +62,7 @@
 
         <div class="media-controls flex-responsive">
             <div style="flex: 1; max-width: 300px;">
-                <input type="text" class="form-control" id="searchInput" placeholder="جستجوی نام فایل یا برند..." onkeyup="filterMedia()">
+                <input type="text" class="form-control" id="searchInput" placeholder="جست‌وجوی نام فایل یا برند..." onkeyup="filterMedia()">
             </div>
             <div style="display: flex; gap: 8px;"><input type="file" id="excelInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelImport(event)"><button class="btn-outline" style="border: 1px solid var(--primary-color); color: var(--primary-color); padding: 8px 16px; border-radius: 8px; cursor: pointer;" onclick="openExcelGuideModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> ورود گروهی با اکسل</button><button class="btn-primary" onclick="openMediaModal()">+ افزودن فایل جدید</button></div>
         </div>
@@ -184,7 +184,7 @@
             }
         }
 
-        // جستجوی زنده (فیلتر)
+        // جست‌وجوی زنده (فیلتر)
         function filterMedia() {
             const query = document.getElementById('searchInput').value.toLowerCase();
             const cards = document.querySelectorAll('.media-card');
