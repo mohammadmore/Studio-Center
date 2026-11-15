@@ -12,11 +12,16 @@
 @font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2'); font-weight: 700; }
 @font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-ExtraBold.woff2') format('woff2'); font-weight: 800; }
 
+/* The page keeps only a top and bottom band (for the page number); the side inset lives in
+   the layout itself, so the PDF needs no printer margin. In the glass theme the bands are
+   painted in the same tint as the page edges, so nothing reads as a white frame or a cut. */
 @page {
     size: A4;
-    margin: 12mm 11mm 15mm;
+    margin: 10mm 0 13mm;
     @bottom-center { content: "صفحه " counter(page, persian) " از " counter(pages, persian); font-family: Vazirmatn, Tahoma, sans-serif; font-size: 8.5pt; color: #64748b; }
 }
+@page glass { background-color: #f7f7fd; }
+
 
 :root {
     --accent: #6366f1;
@@ -145,13 +150,24 @@ html[data-report-theme="plain"] .chip, html[data-report-theme="plain"] .plats sp
 html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"] .kpi .bar { background: #f3f4f6; box-shadow: inset 0 0 0 1px #d1d5db; }
 
 /* ───────── Print ───────── */
+.page-bg { display: none; }
 @media print {
     body { background: #fff; }
     .toolbar, .panel { display: none !important; }
-    .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; overflow: visible; }
-    /* Glass: the soft tint covers every whole page (the page background), not just the first. */
-    html[data-report-theme="glass"], html[data-report-theme="glass"] body { background: linear-gradient(180deg, #f6f7ff, #fcf7ff); }
+    /* Side inset is part of the layout: content never reaches the paper edge. */
+    .sheet { width: auto; min-height: 0; margin: 0; padding: 0 12mm; box-shadow: none; overflow: visible; position: relative; z-index: 1; }
+    /* Glass: full-bleed background on every page. The tint fades to the page-band colour at
+       the top and bottom so the band and the page read as one surface. */
+    html[data-report-theme="glass"] body { page: glass; }
+    html[data-report-theme="glass"], html[data-report-theme="glass"] body { background: #f7f7fd; }
     html[data-report-theme="glass"] .sheet { background: transparent; }
+    html[data-report-theme="glass"] .page-bg {
+        display: block; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background:
+            radial-gradient(60% 34% at 100% 30%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+            radial-gradient(55% 30% at 0% 62%, color-mix(in srgb, var(--accent-2) 11%, transparent), transparent 70%),
+            #f7f7fd;
+    }
 }
 @media screen and (max-width: 860px) {
     .sheet { width: 100%; min-height: 0; margin: 10px 0 30px; padding: 16px 12px; }
@@ -204,6 +220,7 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
     </div>
 </div>
 
+<div class="page-bg" aria-hidden="true"></div>
 <main class="sheet" id="sheet"><div class="state">در حال آماده‌سازی گزارش…</div></main>
 
 <script>
