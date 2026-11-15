@@ -119,6 +119,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/organizations": "سازمان‌ها",
   "/leaves": "مرخصی‌ها",
   "/reports": "گزارشات",
+  "/report-print": "نسخه‌ی چاپی گزارش محتوا",
   "/settings": "تنظیمات",
   "/audit": "تاریخچه فعالیت‌ها",
   "/recycle_bin": "سطل زباله",

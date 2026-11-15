@@ -1020,55 +1020,25 @@ var notifLoaded = false;
             }, 800);
         }
 
+        // The PDF is built by a dedicated print page (A4, letterhead, glass or plain theme)
+        // instead of printing this screen, which cut the page and printed before the data arrived.
         function exportPDF() {
-            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            if (isDark) {
-                document.documentElement.setAttribute('data-theme', 'light');
-                document.body.classList.add('pdf-mode-print-preview');
-                if (typeof Chart !== 'undefined') {
-                    Chart.defaults.color = '#000000';
-                    if (typeof typeChartInst !== "undefined" && typeChartInst) typeChartInst.update();
-                    if (typeof statusChartInst !== "undefined" && statusChartInst) statusChartInst.update();
-                    if (typeof platformChartInst !== "undefined" && platformChartInst) platformChartInst.update();
-                }
-                if (window.updateReportsLogoDisplay) window.updateReportsLogoDisplay();
+            const params = new URLSearchParams();
+            const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+            const latin = (v) => String(v || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+            if (val('orgSelect')) params.set('org', val('orgSelect'));
+            const noLimit = document.getElementById('noTimeLimit') && document.getElementById('noTimeLimit').checked;
+            if (noLimit) params.set('no_limit', '1');
+            else {
+                if (val('startDate')) params.set('from', latin(val('startDate')));
+                if (val('endDate')) params.set('to', latin(val('endDate')));
             }
-
-            // Always open in new tab with auto_print=1 to ensure print works perfectly
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('auto_print', '1');
-            
-            const orgId = document.getElementById('orgSelect').value;
-            const fromDate = document.getElementById('startDate').value;
-            const toDate = document.getElementById('endDate').value;
-            const noTimeLimit = document.getElementById('noTimeLimit').checked;
-            
-            if (orgId) currentUrl.searchParams.set('org', orgId);
-            if (fromDate) currentUrl.searchParams.set('from', fromDate);
-            if (toDate) currentUrl.searchParams.set('to', toDate);
-            if (noTimeLimit) currentUrl.searchParams.set('no_limit', '1');
-            
-            if (typeof showToast === 'function') {
-                showToast("در حال آماده‌سازی و باز کردن تب چاپ...", "success");
-            }
-            
-            window.open(currentUrl.toString(), '_blank');
-            
-            // Revert theme locally
-            setTimeout(() => {
-                if (isDark) {
-                    document.documentElement.setAttribute('data-theme', 'dark');
-                    if (typeof Chart !== 'undefined') {
-                        Chart.defaults.color = 'var(--text-gray)';
-                        if (typeof typeChartInst !== "undefined" && typeChartInst) typeChartInst.update();
-                        if (typeof statusChartInst !== "undefined" && statusChartInst) statusChartInst.update();
-                        if (typeof platformChartInst !== "undefined" && platformChartInst) platformChartInst.update();
-                    }
-                    if (window.updateReportsLogoDisplay) window.updateReportsLogoDisplay();
-                }
-            }, 1000);
+            if (val('colSelect')) params.set('col', val('colSelect'));
+            if (val('statusSelect')) params.set('status', val('statusSelect'));
+            if (val('platformSelect')) params.set('platform', val('platformSelect'));
+            window.open('report-print?' + params.toString(), '_blank');
         }
-        
+
         function revertTheme(wasDark) {
             document.getElementById('pdfHeader').style.display = 'none';
             if (wasDark) {

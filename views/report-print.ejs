@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-report-theme="glass">
+<head>
+<meta charset="UTF-8">
+<base href="<%= typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '/' %>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>گزارش محتوا</title>
+<style>
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-Medium.woff2') format('woff2'); font-weight: 500; }
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-SemiBold.woff2') format('woff2'); font-weight: 600; }
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Vazirmatn'; src: url('assets/fonts/vazirmatn/Vazirmatn-ExtraBold.woff2') format('woff2'); font-weight: 800; }
+
+@page {
+    size: A4;
+    margin: 12mm 11mm 15mm;
+    @bottom-center { content: "صفحه " counter(page, persian) " از " counter(pages, persian); font-family: Vazirmatn, Tahoma, sans-serif; font-size: 8.5pt; color: #64748b; }
+}
+
+:root {
+    --accent: #6366f1;
+    --accent-2: #ec4899;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --card: #ffffff;
+    --soft: #f8fafc;
+}
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+html, body { margin: 0; padding: 0; }
+body { font-family: 'Vazirmatn', Tahoma, sans-serif; color: var(--ink); background: #e2e8f0; font-size: 10.5pt; line-height: 1.7; }
+
+/* ───────── Toolbar (screen only) ───────── */
+.toolbar { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #fff; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; box-shadow: 0 4px 18px rgba(0,0,0,.25); }
+.toolbar .group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar button, .toolbar a.tb { font-family: inherit; font-size: 0.9rem; border-radius: 10px; padding: 8px 14px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; min-height: 40px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.toolbar button:hover { background: rgba(255,255,255,.16); }
+.toolbar button[aria-pressed="true"] { background: #fff; color: #0f172a; border-color: #fff; font-weight: 700; }
+.toolbar .primary { background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899); border: none; font-weight: 700; }
+.toolbar .hint { font-size: 0.78rem; color: #cbd5e1; }
+.panel { display: none; background: #fff; color: #0f172a; max-width: 900px; margin: 14px auto 0; border-radius: 14px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(15,23,42,.15); }
+.panel.open { display: block; }
+.panel h3 { margin: 0 0 10px; font-size: 1rem; }
+.panel .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 14px; }
+.panel label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; color: #334155; }
+.panel input[type=text], .panel textarea { font-family: inherit; font-size: 0.9rem; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 9px; min-height: 40px; }
+.panel .checks { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; }
+.panel .checks label { flex-direction: row; align-items: center; gap: 6px; font-weight: 500; min-height: 36px; }
+.panel .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+.panel .actions button { font-family: inherit; border-radius: 10px; padding: 9px 16px; min-height: 40px; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; }
+.panel .actions .save { background: #0f172a; color: #fff; border-color: #0f172a; font-weight: 700; }
+
+/* ───────── Sheet ───────── */
+.sheet { width: 210mm; min-height: 297mm; margin: 18px auto 40px; background: var(--card); padding: 14mm 12mm; position: relative; overflow: hidden; box-shadow: 0 10px 40px rgba(15,23,42,.18); }
+.state { text-align: center; padding: 80px 20px; color: var(--muted); font-size: 1rem; }
+
+.letterhead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 2px solid var(--accent); }
+.lh-studio { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.lh-logo { width: 54px; height: 54px; object-fit: contain; border-radius: 12px; }
+.lh-name { font-size: 15pt; font-weight: 800; line-height: 1.3; }
+.lh-sub { font-size: 9pt; color: var(--muted); }
+.lh-contact { text-align: left; font-size: 8.5pt; color: var(--muted); line-height: 1.8; direction: rtl; }
+.lh-contact div { white-space: nowrap; }
+
+.titlebar { display: flex; align-items: stretch; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.title-main h1 { margin: 0; font-size: 17pt; font-weight: 800; line-height: 1.35; }
+.title-main .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: 8.5pt; font-weight: 600; background: var(--soft); border: 1px solid var(--line); color: #334155; white-space: nowrap; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--soft); min-width: 0; }
+.brand img, .brand .avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex: none; }
+.brand .avatar { display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 15pt; background: var(--accent); }
+.brand .label { font-size: 8pt; color: var(--muted); }
+.brand .bname { font-weight: 800; font-size: 11pt; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.kpi { border-radius: 14px; padding: 10px 12px; border: 1px solid var(--line); background: var(--soft); break-inside: avoid; }
+.kpi .v { font-size: 18pt; font-weight: 800; line-height: 1.2; }
+.kpi .l { font-size: 8.5pt; color: var(--muted); font-weight: 600; }
+.kpi .bar { height: 6px; border-radius: 6px; background: var(--line); margin-top: 6px; overflow: hidden; }
+.kpi .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+
+h2.section { font-size: 12pt; font-weight: 800; margin: 18px 0 8px; display: flex; align-items: center; gap: 8px; break-after: avoid; }
+h2.section::before { content: ""; width: 5px; height: 18px; border-radius: 4px; background: var(--accent); display: inline-block; }
+
+.charts { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 10px; break-inside: avoid; }
+.chart { border-radius: 14px; border: 1px solid var(--line); background: var(--card); padding: 10px 12px; break-inside: avoid; }
+.chart h3 { margin: 0 0 8px; font-size: 9.5pt; font-weight: 700; color: #334155; }
+.bars { display: flex; flex-direction: column; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; font-size: 8.5pt; align-items: center; }
+.bar-row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-row .num { font-weight: 700; }
+.bar-row .track { grid-column: 1 / -1; height: 8px; border-radius: 8px; background: var(--line); overflow: hidden; }
+.bar-row .track > span { display: block; height: 100%; border-radius: 8px; }
+.donut-wrap { display: flex; align-items: center; gap: 10px; }
+.donut-wrap svg { flex: none; }
+.legend { display: flex; flex-direction: column; gap: 3px; font-size: 8pt; min-width: 0; }
+.legend .it { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.legend .dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.empty-chart { color: var(--muted); font-size: 8.5pt; text-align: center; padding: 18px 0; }
+
+table.list { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 8.8pt; }
+table.list thead { display: table-header-group; }
+table.list th { text-align: right; font-weight: 700; padding: 7px 8px; background: var(--soft); border-bottom: 1.5px solid var(--accent); white-space: nowrap; }
+table.list td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.list tr { break-inside: avoid; }
+table.list td.n { width: 30px; color: var(--muted); text-align: center; }
+table.list td.title { font-weight: 600; }
+table.list td.date { white-space: nowrap; direction: rtl; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 8pt; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+.plats { display: flex; flex-wrap: wrap; gap: 3px; }
+.plats span { font-size: 7.8pt; padding: 0 6px; border-radius: 6px; background: var(--soft); border: 1px solid var(--line); white-space: nowrap; }
+
+.footer { margin-top: 18px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; justify-content: space-between; gap: 10px; font-size: 8pt; color: var(--muted); }
+
+/* ───────── Glass theme ───────── */
+html[data-report-theme="glass"] .sheet {
+    background:
+        radial-gradient(60% 40% at 100% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+        radial-gradient(50% 35% at 0% 25%, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent 70%),
+        radial-gradient(60% 40% at 50% 100%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+        linear-gradient(180deg, #f8faff, #fdf8ff);
+}
+html[data-report-theme="glass"] .letterhead { border-bottom: none; padding: 12px 14px; border-radius: 18px; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--accent-2))); color: #fff; box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 30%, transparent); }
+html[data-report-theme="glass"] .letterhead .lh-sub, html[data-report-theme="glass"] .letterhead .lh-contact { color: rgba(255,255,255,.85); }
+html[data-report-theme="glass"] .letterhead .lh-logo { background: rgba(255,255,255,.9); padding: 4px; }
+html[data-report-theme="glass"] .kpi, html[data-report-theme="glass"] .chart, html[data-report-theme="glass"] .brand, html[data-report-theme="glass"] .table-card {
+    background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 6px 22px rgba(15,23,42,.07), inset 0 1px 0 rgba(255,255,255,.8);
+}
+html[data-report-theme="glass"] .table-card { border-radius: 16px; padding: 4px 6px; }
+html[data-report-theme="glass"] table.list th { background: color-mix(in srgb, var(--accent) 10%, rgba(255,255,255,.7)); }
+html[data-report-theme="glass"] .kpi .v { color: var(--accent); }
+html[data-report-theme="glass"] .kpi { border-top: 3px solid color-mix(in srgb, var(--accent) 55%, white); }
+
+/* ───────── Plain theme (black & white printers) ───────── */
+html[data-report-theme="plain"] .sheet { background: #fff; }
+html[data-report-theme="plain"] { --accent: #111827; --accent-2: #111827; --soft: #ffffff; --line: #d1d5db; --muted: #4b5563; }
+html[data-report-theme="plain"] .letterhead { border-bottom: 2px solid #111827; }
+html[data-report-theme="plain"] .kpi, html[data-report-theme="plain"] .chart, html[data-report-theme="plain"] .brand { background: #fff; border: 1px solid #9ca3af; box-shadow: none; }
+html[data-report-theme="plain"] .brand .avatar { background: #374151; }
+html[data-report-theme="plain"] table.list th { background: #f3f4f6; border-bottom: 1.5px solid #111827; }
+html[data-report-theme="plain"] table.list tbody tr:nth-child(even) td { background: #f9fafb; }
+html[data-report-theme="plain"] .pill { background: #fff !important; color: #111827 !important; border-color: #6b7280 !important; }
+html[data-report-theme="plain"] .chip, html[data-report-theme="plain"] .plats span { background: #fff; border-color: #9ca3af; color: #111827; }
+html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"] .kpi .bar { background: #f3f4f6; box-shadow: inset 0 0 0 1px #d1d5db; }
+
+/* ───────── Print ───────── */
+@media print {
+    body { background: #fff; }
+    .toolbar, .panel { display: none !important; }
+    .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; overflow: visible; }
+    /* Glass: the soft tint covers every whole page (the page background), not just the first. */
+    html[data-report-theme="glass"], html[data-report-theme="glass"] body { background: linear-gradient(180deg, #f6f7ff, #fcf7ff); }
+    html[data-report-theme="glass"] .sheet { background: transparent; }
+}
+@media screen and (max-width: 860px) {
+    .sheet { width: 100%; min-height: 0; margin: 10px 0 30px; padding: 16px 12px; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .charts { grid-template-columns: 1fr; }
+    .titlebar, .letterhead { flex-wrap: wrap; }
+    .table-card { overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+<div class="toolbar" role="toolbar" aria-label="تنظیمات خروجی گزارش">
+    <div class="group">
+        <a class="tb" href="reports" title="بازگشت به صفحه‌ی گزارش">→ بازگشت</a>
+        <span style="font-weight:700;">تم:</span>
+        <button type="button" id="themeGlass" aria-pressed="true" onclick="setTheme('glass')">✨ شیشه‌ای</button>
+        <button type="button" id="themePlain" aria-pressed="false" onclick="setTheme('plain')">🖨️ ساده (سیاه‌وسفید)</button>
+        <button type="button" onclick="togglePanel()" aria-expanded="false" id="panelBtn">⚙️ تنظیم سربرگ</button>
+    </div>
+    <div class="group">
+        <span class="hint">در پنجره‌ی چاپ، مقصد را «Save as PDF» بگذارید.</span>
+        <button type="button" class="primary" onclick="downloadPdf()">⬇️ دانلود PDF</button>
+    </div>
+</div>
+
+<div class="panel" id="panel" role="region" aria-label="تنظیم سربرگ">
+    <h3>سربرگ گزارش</h3>
+    <div class="grid">
+        <label>نام روی سربرگ<input type="text" id="lhName"></label>
+        <label>زیرعنوان<input type="text" id="lhSubtitle" placeholder="مثلاً: استودیو تولید محتوای دیجیتال"></label>
+        <label>تلفن<input type="text" id="lhPhone" dir="ltr"></label>
+        <label>ایمیل<input type="text" id="lhEmail" dir="ltr"></label>
+        <label>وب‌سایت<input type="text" id="lhWebsite" dir="ltr"></label>
+        <label>آدرس<input type="text" id="lhAddress"></label>
+        <label>عنوان گزارش<input type="text" id="lhTitle" placeholder="گزارش عملکرد تولید محتوا"></label>
+        <label>متن پایین صفحه<input type="text" id="lhFooter" placeholder="مثلاً: محرمانه — فقط برای استفاده‌ی کارفرما"></label>
+        <label>رنگ اصلی (تم شیشه‌ای)<input type="color" id="lhAccent" value="#6366f1" style="min-height:40px; width:100%; border:1px solid #cbd5e1; border-radius:9px;"></label>
+    </div>
+    <div class="checks">
+        <label><input type="checkbox" id="showLogo" checked> لوگوی استودیو</label>
+        <label><input type="checkbox" id="showContact" checked> اطلاعات تماس</label>
+        <label><input type="checkbox" id="showBrand" checked> لوگو و نام برند</label>
+        <label><input type="checkbox" id="showCharts" checked> نمودارها</label>
+        <label><input type="checkbox" id="showTable" checked> فهرست محتواها</label>
+    </div>
+    <div class="actions">
+        <button type="button" class="save" onclick="saveLetterhead()"><%= canSaveLetterhead ? '💾 ذخیره به‌عنوان پیش‌فرض استودیو' : '💾 ذخیره برای همین مرورگر' %></button>
+        <button type="button" onclick="resetLetterhead()">بازگشت به اطلاعات استودیو</button>
+        <span id="saveNote" style="font-size:0.8rem; color:#475569;"></span>
+    </div>
+</div>
+
+<main class="sheet" id="sheet"><div class="state">در حال آماده‌سازی گزارش…</div></main>
+
+<script>
+(function () {
+    "use strict";
+    var CAN_SAVE = <%- JSON.stringify(!!canSaveLetterhead) %>;
+    var CLIENT_ORG = <%- JSON.stringify(clientOrgId) %>;
+    var LS_KEY = "asva-report-letterhead";
+    var q = new URLSearchParams(location.search);
+    var report = null, studio = {}, collectionsById = {};
+
+    var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+    var fa = function (n) { return String(n == null ? "" : n).replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; }); };
+    var safeUrl = function (u) { u = String(u || "").trim(); return /^(https?:\/\/|\/|data:image\/)/i.test(u) && !/^javascript:/i.test(u) ? u : ""; };
+    var safeColor = function (c) { return /^#[0-9a-f]{3,8}$/i.test(String(c || "").trim()) ? String(c).trim() : ""; };
+    var $ = function (id) { return document.getElementById(id); };
+
+    var STATUS_ORDER = ["ورودی خام", "در صف انتظار", "در حال تولید", "ارزیابی استودیو", "ارزیابی کارفرما", "نیاز به اصلاح", "تکمیل شده", "تایید کارفرما", "آماده انتشار", "منتشر شده"];
+    var STATUS_CODE = { raw: "ورودی خام", todo: "در صف انتظار", in_progress: "در حال تولید", doing: "در حال تولید", review: "ارزیابی استودیو", client_review: "ارزیابی کارفرما", needs_revision: "نیاز به اصلاح", done: "تکمیل شده", approved_by_client: "تایید کارفرما", ready_to_publish: "آماده انتشار", published: "منتشر شده" };
+    var STATUS_COLOR = { "ورودی خام": "#94a3b8", "در صف انتظار": "#64748b", "در حال تولید": "#f59e0b", "ارزیابی استودیو": "#8b5cf6", "ارزیابی کارفرما": "#ec4899", "نیاز به اصلاح": "#ef4444", "تکمیل شده": "#14b8a6", "تایید کارفرما": "#06b6d4", "آماده انتشار": "#3b82f6", "منتشر شده": "#22c55e" };
+    var PALETTE = ["#6366f1", "#ec4899", "#14b8a6", "#f59e0b", "#3b82f6", "#8b5cf6", "#22c55e", "#ef4444", "#06b6d4", "#84cc16"];
+    // Black & white: shades far enough apart to tell apart on paper, never as light as the track.
+    var GRAYS = ["#111827", "#6b7280", "#a3a3a3", "#374151", "#8b8b8b", "#1f2937", "#9ca3af", "#4b5563", "#b0b0b0", "#525252"];
+    var DONE_STATES = ["منتشر شده", "تکمیل شده", "تایید کارفرما", "آماده انتشار"];
+
+    // ───────── Letterhead settings ─────────
+    var FIELDS = { lhName: "report_name", lhSubtitle: "report_subtitle", lhPhone: "report_phone", lhEmail: "report_email", lhWebsite: "report_website", lhAddress: "report_address", lhTitle: "report_title", lhFooter: "report_footer", lhAccent: "report_accent" };
+    var CHECKS = { showLogo: "report_show_logo", showContact: "report_show_contact", showBrand: "report_show_brand", showCharts: "report_show_charts", showTable: "report_show_table" };
+    function fromStudio() {
+        return {
+            report_name: studio.report_name || studio.name || "", report_subtitle: studio.report_subtitle || "",
+            report_phone: studio.report_phone || studio.phone || "", report_email: studio.report_email || studio.email || "",
+            report_website: studio.report_website || studio.website || "", report_address: studio.report_address || studio.address || "",
+            report_title: studio.report_title || "", report_footer: studio.report_footer || "",
+            report_accent: safeColor(studio.report_accent) || "#6366f1", report_theme: studio.report_theme === "plain" ? "plain" : "glass",
+            report_show_logo: studio.report_show_logo !== false, report_show_contact: studio.report_show_contact !== false,
+            report_show_brand: studio.report_show_brand !== false, report_show_charts: studio.report_show_charts !== false,
+            report_show_table: studio.report_show_table !== false,
+        };
+    }
+    function loadLetterhead() {
+        var cfg = fromStudio();
+        if (!CAN_SAVE) { try { var own = JSON.parse(localStorage.getItem(LS_KEY) || "null"); if (own) Object.assign(cfg, own); } catch (e) {} }
+        Object.keys(FIELDS).forEach(function (id) { $(id).value = cfg[FIELDS[id]] || ($(id).type === "color" ? "#6366f1" : ""); });
+        Object.keys(CHECKS).forEach(function (id) { $(id).checked = cfg[CHECKS[id]] !== false; });
+        return cfg;
+    }
+    function currentLetterhead() {
+        var cfg = {};
+        Object.keys(FIELDS).forEach(function (id) { cfg[FIELDS[id]] = $(id).value.trim(); });
+        Object.keys(CHECKS).forEach(function (id) { cfg[CHECKS[id]] = $(id).checked; });
+        cfg.report_theme = document.documentElement.getAttribute("data-report-theme");
+        return cfg;
+    }
+    window.saveLetterhead = async function () {
+        var cfg = currentLetterhead(), note = $("saveNote");
+        if (!CAN_SAVE) {
+            try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); note.textContent = "✓ برای همین مرورگر ذخیره شد."; } catch (e) { note.textContent = "ذخیره نشد."; }
+            return;
+        }
+        try {
+            var r = await fetch("/api/save_studio_info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg) });
+            var j = await r.json();
+            note.textContent = j.status === "success" ? "✓ سربرگ به‌عنوان پیش‌فرض همه‌ی گزارش‌ها ذخیره شد." : (j.message || "ذخیره نشد.");
+            if (j.status === "success") Object.assign(studio, cfg);
+        } catch (e) { note.textContent = "خطا در ارتباط با سرور."; }
+    };
+    window.resetLetterhead = function () {
+        if (!CAN_SAVE) { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
+        $("lhName").value = studio.name || ""; $("lhSubtitle").value = ""; $("lhPhone").value = studio.phone || "";
+        $("lhEmail").value = studio.email || ""; $("lhWebsite").value = studio.website || ""; $("lhAddress").value = studio.address || "";
+        $("lhTitle").value = ""; $("lhFooter").value = ""; $("lhAccent").value = "#6366f1";
+        Object.keys(CHECKS).forEach(function (id) { $(id).checked = true; });
+        $("saveNote").textContent = "اطلاعات استودیو جایگزین شد؛ برای ماندگاری «ذخیره» را بزنید.";
+        render();
+    };
+    window.togglePanel = function () {
+        var p = $("panel"), open = !p.classList.contains("open");
+        p.classList.toggle("open", open);
+        $("panelBtn").setAttribute("aria-expanded", String(open));
+    };
+    window.setTheme = function (t) {
+        document.documentElement.setAttribute("data-report-theme", t);
+        $("themeGlass").setAttribute("aria-pressed", String(t === "glass"));
+        $("themePlain").setAttribute("aria-pressed", String(t === "plain"));
+        render();
+    };
+    window.downloadPdf = async function () {
+        try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+        await Promise.all(Array.from(document.images).map(function (img) { return img.complete ? null : new Promise(function (r) { img.onload = img.onerror = r; }); }));
+        window.print();
+    };
+    document.addEventListener("input", function (e) { if (e.target.closest && e.target.closest("#panel")) render(); });
+    document.addEventListener("change", function (e) { if (e.target.closest && e.target.closest("#panel")) render(); });
+
+    // ───────── Charts (SVG / CSS, crisp in PDF and readable in black & white) ─────────
+    function plain() { return document.documentElement.getAttribute("data-report-theme") === "plain"; }
+    function colorAt(i) { return plain() ? GRAYS[i % GRAYS.length] : PALETTE[i % PALETTE.length]; }
+    function bars(counts) {
+        var items = Object.keys(counts || {}).map(function (k) { return [k, counts[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+        if (!items.length) return '<div class="empty-chart">داده‌ای برای نمایش نیست</div>';
+        var max = Math.max.apply(null, items.map(function (x) { return x[1]; })) || 1;
+        var total = items.reduce(function (s, x) { return s + x[1]; }, 0) || 1;
+        return '<div class="bars">' + items.slice(0, 8).map(function (x, i) {
+            return '<div class="bar-row"><span class="name">' + esc(x[0]) + '</span><span class="num">' + fa(x[1]) + ' <small style="color:var(--muted); font-weight:500;">(' + fa(Math.round(x[1] / total * 100)) + '٪)</small></span>' +
+                '<div class="track"><span style="width:' + Math.max(3, Math.round(x[1] / max * 100)) + '%; background:' + colorAt(i) + ';"></span></div></div>';
+        }).join("") + (items.length > 8 ? '<div class="empty-chart" style="padding:4px 0;">و ' + fa(items.length - 8) + ' مورد دیگر</div>' : "") + '</div>';
+    }
+    function donut(counts) {
+        var items = STATUS_ORDER.filter(function (k) { return counts && counts[k]; }).map(function (k) { return [k, counts[k]]; });
+        Object.keys(counts || {}).forEach(function (k) { if (STATUS_ORDER.indexOf(k) === -1) items.push([k, counts[k]]); });
+        if (!items.length) return '<div class="empty-chart">داده‌ای برای نمایش نیست</div>';
+        var total = items.reduce(function (s, x) { return s + x[1]; }, 0);
+        var r = 34, c = 2 * Math.PI * r, offset = 0;
+        var segs = items.map(function (x, i) {
+            var len = x[1] / total * c, col = plain() ? GRAYS[i % GRAYS.length] : (STATUS_COLOR[x[0]] || PALETTE[i % PALETTE.length]);
+            var seg = '<circle r="' + r + '" cx="45" cy="45" fill="none" stroke="' + col + '" stroke-width="16" stroke-dasharray="' + len.toFixed(2) + ' ' + (c - len).toFixed(2) + '" stroke-dashoffset="' + (-offset).toFixed(2) + '" transform="rotate(-90 45 45)"' + (plain() ? ' stroke-opacity="1"' : "") + '></circle>';
+            offset += len;
+            return { seg: seg, col: col, name: x[0], v: x[1] };
+        });
+        return '<div class="donut-wrap"><svg width="90" height="90" viewBox="0 0 90 90" role="img" aria-label="سهم وضعیت‌ها">' +
+            '<circle r="' + r + '" cx="45" cy="45" fill="none" stroke="var(--line)" stroke-width="16"></circle>' + segs.map(function (s) { return s.seg; }).join("") +
+            '<text x="45" y="44" text-anchor="middle" font-size="15" font-weight="800" fill="currentColor" font-family="Vazirmatn">' + fa(total) + '</text>' +
+            '<text x="45" y="58" text-anchor="middle" font-size="8" fill="#64748b" font-family="Vazirmatn">محتوا</text></svg>' +
+            '<div class="legend">' + segs.map(function (s) { return '<div class="it"><span class="dot" style="background:' + s.col + (plain() ? '; border:1px solid #111827' : '') + '"></span>' + esc(s.name) + ' — <b>' + fa(s.v) + '</b></div>'; }).join("") + '</div></div>';
+    }
+
+    // ───────── Report ─────────
+    function rangeText() {
+        if (q.get("no_limit") === "1") return "همه‌ی زمان‌ها";
+        var from = q.get("from"), to = q.get("to");
+        if (from && to) return "از " + fa(from) + " تا " + fa(to);
+        if (from) return "از " + fa(from);
+        if (to) return "تا " + fa(to);
+        return "همه‌ی زمان‌ها";
+    }
+    function render() {
+        if (!report) return;
+        var cfg = currentLetterhead();
+        document.documentElement.style.setProperty("--accent", plain() ? "#111827" : (safeColor(cfg.report_accent) || "#6366f1"));
+        var org = report.organization || {}, stats = report.stats || {}, list = (report.contents || []).slice();
+        list.sort(function (a, b) { return String(a.publish_date || "9999").localeCompare(String(b.publish_date || "9999")); });
+        var sc = stats.statusCounts || {};
+        var total = stats.total_contents || 0;
+        var published = sc["منتشر شده"] || 0;
+        var doneCount = DONE_STATES.reduce(function (s, k) { return s + (sc[k] || 0); }, 0);
+        var progress = total ? Math.round(doneCount / total * 100) : 0;
+        var logo = safeUrl(studio.logo_light || studio.logo);
+        var title = cfg.report_title || "گزارش عملکرد تولید محتوا";
+        var today = new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date());
+        var filters = [];
+        if (q.get("status")) filters.push("وضعیت: " + (STATUS_CODE[q.get("status")] || q.get("status")));
+        if (q.get("platform")) filters.push("پلتفرم: " + q.get("platform"));
+        if (q.get("col") && collectionsById[q.get("col")]) filters.push("مجموعه: " + collectionsById[q.get("col")]);
+        var contactBits = [cfg.report_phone && ("☎ " + '<span dir="ltr">' + esc(fa(cfg.report_phone)) + '</span>'), cfg.report_email && ('<span dir="ltr">' + esc(cfg.report_email) + '</span>'), cfg.report_website && ('<span dir="ltr">' + esc(cfg.report_website) + '</span>'), cfg.report_address && esc(cfg.report_address)].filter(Boolean);
+        var brandLogo = safeUrl(org.logo_url);
+        var brandColor = plain() ? "#374151" : (safeColor(org.color) || "var(--accent)");
+
+        var html = '';
+        html += '<header class="letterhead"><div class="lh-studio">' +
+            (cfg.report_show_logo && logo ? '<img class="lh-logo" src="' + esc(logo) + '" alt="">' : '') +
+            '<div><div class="lh-name">' + esc(cfg.report_name || "استودیو") + '</div>' + (cfg.report_subtitle ? '<div class="lh-sub">' + esc(cfg.report_subtitle) + '</div>' : '') + '</div></div>' +
+            (cfg.report_show_contact && contactBits.length ? '<div class="lh-contact">' + contactBits.map(function (b) { return '<div>' + b + '</div>'; }).join("") + '</div>' : '') +
+            '</header>';
+        html += '<section class="titlebar"><div class="title-main"><h1>' + esc(title) + '</h1><div class="meta">' +
+            '<span class="chip">📅 ' + esc(rangeText()) + '</span><span class="chip">تاریخ گزارش: ' + esc(today) + '</span>' +
+            filters.map(function (f) { return '<span class="chip">' + esc(f) + '</span>'; }).join("") + '</div></div>' +
+            (cfg.report_show_brand ? '<div class="brand">' + (brandLogo ? '<img src="' + esc(brandLogo) + '" alt="">' : '<span class="avatar" style="background:' + brandColor + '">' + esc((org.org_name || "؟").charAt(0)) + '</span>') +
+                '<div style="min-width:0"><div class="label">کارفرما</div><div class="bname">' + esc(org.org_name || "") + '</div></div></div>' : '') +
+            '</section>';
+        html += '<section class="kpis">' +
+            '<div class="kpi"><div class="v">' + fa(total) + '</div><div class="l">کل محتواها</div></div>' +
+            '<div class="kpi"><div class="v">' + fa(stats.total_components || 0) + '</div><div class="l">کل اجزای تحویلی</div></div>' +
+            '<div class="kpi"><div class="v">' + fa(published) + '</div><div class="l">منتشر شده</div></div>' +
+            '<div class="kpi"><div class="v">' + fa(progress) + '٪</div><div class="l">آماده یا منتشرشده</div><div class="bar"><span style="width:' + progress + '%"></span></div></div>' +
+            '</section>';
+        if (cfg.report_show_charts) {
+            html += '<h2 class="section">نمای کلی</h2><section class="charts">' +
+                '<div class="chart"><h3>وضعیت محتواها</h3>' + donut(sc) + '</div>' +
+                '<div class="chart"><h3>نوع محتوا</h3>' + bars(stats.typeCounts) + '</div>' +
+                '<div class="chart"><h3>پلتفرم‌های انتشار</h3>' + bars(stats.platformCounts) + '</div>' +
+                '</section>';
+        }
+        if (cfg.report_show_table) {
+            html += '<h2 class="section">فهرست محتواها <small style="font-weight:500; color:var(--muted); font-size:9pt;">(' + fa(list.length) + ' مورد)</small></h2>';
+            if (!list.length) {
+                html += '<div class="chart"><div class="empty-chart">در این بازه محتوایی ثبت نشده است.</div></div>';
+            } else {
+                html += '<div class="table-card"><table class="list"><thead><tr><th>#</th><th>عنوان محتوا</th><th>نوع</th><th>اجزا</th><th>وضعیت</th><th>پلتفرم‌ها</th><th>تاریخ انتشار</th></tr></thead><tbody>' +
+                    list.map(function (c, i) {
+                        var st = STATUS_CODE[c.status || "raw"] || c.status || "ورودی خام";
+                        var col = STATUS_COLOR[st] || "#64748b";
+                        return '<tr><td class="n">' + fa(i + 1) + '</td><td class="title">' + esc(c.title || "بدون عنوان") + '</td><td>' + esc(c.content_type || "—") + '</td><td>' + fa(c.total_components || 1) + '</td>' +
+                            '<td><span class="pill" style="background:' + col + '1f; color:' + col + '; border-color:' + col + '55">' + esc(st) + '</span></td>' +
+                            '<td><div class="plats">' + ((c.publish_platforms || []).map(function (p) { return '<span>' + esc(p) + '</span>'; }).join("") || '—') + '</div></td>' +
+                            '<td class="date">' + (c.publish_date ? fa(c.publish_date) + (c.publish_time ? ' <small style="color:var(--muted)">' + fa(c.publish_time) + '</small>' : '') : '—') + '</td></tr>';
+                    }).join("") + '</tbody></table></div>';
+            }
+        }
+        html += '<footer class="footer"><span>' + esc(cfg.report_footer || ("تهیه‌شده توسط " + (cfg.report_name || "استودیو"))) + '</span><span>' + esc(today) + '</span></footer>';
+        $("sheet").innerHTML = html;
+        document.title = title + " — " + (org.org_name || "") + " — " + rangeText();
+    }
+
+    async function init() {
+        var orgId = CLIENT_ORG || q.get("org");
+        if (!orgId) { $("sheet").innerHTML = '<div class="state">برای ساخت گزارش، اول در صفحه‌ی «گزارش‌ها» یک برند انتخاب کنید.</div>'; return; }
+        var url = "/api/get_org_report?org_id=" + encodeURIComponent(orgId);
+        if (q.get("col")) url += "&col_id=" + encodeURIComponent(q.get("col"));
+        if (q.get("status")) url += "&status=" + encodeURIComponent(q.get("status"));
+        if (q.get("platform")) url += "&platform=" + encodeURIComponent(q.get("platform"));
+        if (q.get("no_limit") === "1") url += "&no_time_limit=true";
+        else {
+            if (q.get("from")) url += "&start_date=" + encodeURIComponent(q.get("from"));
+            if (q.get("to")) url += "&end_date=" + encodeURIComponent(q.get("to"));
+        }
+        try {
+            var res = await Promise.all([
+                fetch(url, { cache: "no-store" }).then(function (r) { return r.json(); }),
+                fetch("/api/get_studio_info", { cache: "no-store" }).then(function (r) { return r.json(); }).catch(function () { return {}; }),
+                q.get("col") ? fetch("/api/get_collections?org_id=" + encodeURIComponent(orgId)).then(function (r) { return r.json(); }).catch(function () { return {}; }) : Promise.resolve({}),
+            ]);
+            if (res[0].status !== "success") throw new Error(res[0].message || "report");
+            report = res[0];
+            studio = (res[1] && res[1].data) || {};
+            ((res[2] && res[2].data) || []).forEach(function (c) { collectionsById[c.id] = c.title; });
+            var cfg = loadLetterhead();
+            var theme = q.get("theme") === "plain" || q.get("theme") === "glass" ? q.get("theme") : cfg.report_theme;
+            setTheme(theme === "plain" ? "plain" : "glass");
+            if (q.get("print") === "1") setTimeout(window.downloadPdf, 400);
+        } catch (e) {
+            console.error(e);
+            $("sheet").innerHTML = '<div class="state">گزارش بارگذاری نشد. صفحه را دوباره باز کنید.</div>';
+        }
+    }
+    init();
+})();
+</script>
+</body>
+</html>

@@ -126,6 +126,19 @@ for (const view of ["monthly-report", "client-brand-kit"]) {
   });
 }
 
+/** Print-ready content report (A4, configurable letterhead, glass or plain theme). */
+viewsRouter.get("/report-print", (req: any, res) => {
+  const user = req.user;
+  if (!user) return loginRedirect(req, res);
+  if (user.role_id === "client") {
+    limitSettingsForClient(res);
+    return res.render("report-print", { isClient: true, clientOrgId: req.account?.id ?? null, canSaveLetterhead: false });
+  }
+  authGuard("reports")(req, res, () =>
+    res.render("report-print", { isClient: false, clientOrgId: null, canSaveLetterhead: hasPermission(user, "settings") }),
+  );
+});
+
 viewsRouter.get("/reports", (req: any, res, next) => {
   const user = req.user;
   if (!user) return loginRedirect(req, res);
