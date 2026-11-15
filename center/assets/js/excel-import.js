@@ -96,7 +96,7 @@
         '<li>ترتیب ستون‌ها مهم نیست؛ فقط نام ستون‌ها در ردیف اول باید مثل جدول بالا باشد.</li>' +
         '<li>ستون‌های اختیاری را می‌توانید حذف کنید یا خالی بگذارید.</li>' + notes +
       '</ul>' +
-      '<button type="button" class="btn-outline" data-excel-sample="' + esc(key) + '" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:12px">📄 دریافت فایل نمونه با همین ستون‌ها (.xlsx)</button>';
+      '<button type="button" class="btn-outline" data-excel-sample="' + esc(key) + '" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:12px"><i class=ai data-ic=file-text></i> دریافت فایل نمونه با همین ستون‌ها (.xlsx)</button>';
   }
 
   /** Fills a container with the guide and wires its "download sample" button. */

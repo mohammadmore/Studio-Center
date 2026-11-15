@@ -648,7 +648,7 @@ async function saveAllEditFields(id, closeAfterSave = false) {
         });
         const result = await res.json();
         if (result.status === 'success') {
-            (result.warnings || []).forEach(w => window.showToast && window.showToast('⚠️ ' + w, 'info'));
+            (result.warnings || []).forEach(w => window.showToast && window.showToast('' + w, 'info'));
             window.hasUnsavedChanges = false;
             await reloadContentSource();
             showToast('تغییرات با موفقیت ذخیره شد', 'success');

@@ -158,7 +158,7 @@
   });
 
   // Media library → POST /api/save_media (batch_add)
-  var MEDIA_TYPES = ["تصویر / لوگو 🖼️", "فایل لایه‌باز / وکتور 🎨", "فونت سازمانی 🔤", "سند / راهنمای برند 📄", "صدا / موشن 🎵"];
+  var MEDIA_TYPES = ["تصویر / لوگو", "فایل لایه‌باز / وکتور", "فونت سازمانی", "سند / راهنمای برند", "صدا / موشن"];
   X.MEDIA_TYPES = MEDIA_TYPES;
   /** Maps a loosely written type ("لوگو", "وکتور", "pdf") to the library's own type names. */
   X.mediaType = function (v) {

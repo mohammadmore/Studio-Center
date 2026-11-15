@@ -78,8 +78,8 @@
             <nav class="folder-path" id="folderPath" aria-label="مسیر مجموعه"></nav>
             <div class="folder-actions" id="folderActions"></div>
             <div class="drag-hint" id="dragHint">
-                <span class="drag-hint-mouse">💡 برای جابه‌جایی، مجموعه یا محتوا را روی مجموعه‌ی مقصد یا یکی از بخش‌های مسیر بالا بکشید و رها کنید.</span>
-                <span class="drag-hint-touch">💡 برای جابه‌جایی در گوشی: مجموعه را با «ویرایش» و محتوا را با «ویرایش کلی» شناسنامه‌اش به مجموعه‌ی دیگر ببرید.</span>
+                <span class="drag-hint-mouse"><i class=ai data-ic=lightbulb></i> برای جابه‌جایی، مجموعه یا محتوا را روی مجموعه‌ی مقصد یا یکی از بخش‌های مسیر بالا بکشید و رها کنید.</span>
+                <span class="drag-hint-touch"><i class=ai data-ic=lightbulb></i> برای جابه‌جایی در گوشی: مجموعه را با «ویرایش» و محتوا را با «ویرایش کلی» شناسنامه‌اش به مجموعه‌ی دیگر ببرید.</span>
             </div>
         </div>
 
@@ -306,7 +306,7 @@
                 btn.type = 'button';
                 const last = i === crumbs.length - 1;
                 btn.className = 'crumb' + (last ? ' current' : '');
-                btn.textContent = (i === 0 ? '🗂️ ' : '📁 ') + c.title;
+                btn.innerHTML = (i === 0 ? '<i class=ai data-ic=folders></i> ' : '<i class=ai data-ic=folder></i> ') + escapeHtml(c.title);
                 if (last) btn.setAttribute('aria-current', 'page');
                 else btn.onclick = () => openFolder(c.id);
                 makeDropTarget(btn, c.id);
@@ -314,10 +314,10 @@
             });
             const cur = colById(currentFolderId);
             actions.innerHTML = cur
-                ? `<button type="button" class="btn-outline" onclick="openAddModal(null)">📁 زیرمجموعه جدید</button>
-                   <button type="button" class="btn-edit" style="width:auto" onclick="openAddModal(${cur.id})">✏️ ویرایش</button>
-                   <button type="button" class="btn-edit" style="width:auto; background:var(--warning-color); color:#fff" onclick="archiveCol(${cur.id})">📦 آرشیو</button>
-                   <button type="button" class="btn-delete" style="width:auto" onclick="deleteCol(${cur.id})">🗑️ حذف</button>`
+                ? `<button type="button" class="btn-outline" onclick="openAddModal(null)"><i class=ai data-ic=folder></i> زیرمجموعه جدید</button>
+                   <button type="button" class="btn-edit" style="width:auto" onclick="openAddModal(${cur.id})"><i class=ai data-ic=pencil></i> ویرایش</button>
+                   <button type="button" class="btn-edit" style="width:auto; background:var(--warning-color); color:#fff" onclick="archiveCol(${cur.id})"><i class=ai data-ic=package></i> آرشیو</button>
+                   <button type="button" class="btn-delete" style="width:auto" onclick="deleteCol(${cur.id})"><i class=ai data-ic=trash-2></i> حذف</button>`
                 : '';
             document.title = cur ? cur.title + ' | ' + BASE_TITLE : BASE_TITLE;
         }
@@ -350,27 +350,27 @@
                 if (!currentFolderId && !searchVal && filterValue === '' && !(collectionsList || []).some(isVisibleCol)) {
                     grid.innerHTML = `
     <div style="grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--card-bg); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
-        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 2rem;">📁</div>
+        <div style="width: 80px; height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 2rem;"><i class=ai data-ic=folder></i></div>
         <h3 style="font-size: 1.5rem; color: var(--text-dark); margin-bottom: 10px;">هنوز مجموعه‌ای نساخته‌اید!</h3>
         <p style="color: var(--text-gray); width: 100%; max-width: 400px; box-sizing: border-box; margin-bottom: 25px; line-height: 1.6;">مجموعه‌ها به شما کمک می‌کنند محتوا‌های کمپین‌ها و پروژه‌ها را به صورت منظم دسته‌بندی و مدیریت کنید.</p>
-        <button type="button" class="btn-primary" onclick="openAddModal()">➕ ساخت اولین مجموعه</button>
+        <button type="button" class="btn-primary" onclick="openAddModal()"><i class=ai data-ic=plus></i> ساخت اولین مجموعه</button>
     </div>`;
                 } else {
                     const msg = searchVal || filterValue !== '' ? 'با این جستجو یا فیلتر چیزی پیدا نشد.' : 'این مجموعه خالی است.';
                     grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px 20px; color: var(--text-gray); background: var(--card-bg); border: 1px dashed var(--border-color); border-radius: 12px;">
-                        <div style="font-size:2rem; margin-bottom:8px;">📂</div><div style="margin-bottom:14px;">${msg}</div>
-                        ${currentFolderId && !searchVal ? '<button type="button" class="btn-outline" onclick="openAddModal(null)">📁 ساخت زیرمجموعه</button> <span style="color:var(--text-gray); font-size:0.85rem; display:block; margin-top:10px;">محتوا را می‌توانید از «ویرایش کلی» شناسنامه‌اش به این مجموعه بیاورید یا از مجموعه‌ی دیگری روی مسیر بالا بکشید.</span>' : ''}
+                        <div style="font-size:2rem; margin-bottom:8px;"><i class=ai data-ic=folder-open></i></div><div style="margin-bottom:14px;">${msg}</div>
+                        ${currentFolderId && !searchVal ? '<button type="button" class="btn-outline" onclick="openAddModal(null)"><i class=ai data-ic=folder></i> ساخت زیرمجموعه</button> <span style="color:var(--text-gray); font-size:0.85rem; display:block; margin-top:10px;">محتوا را می‌توانید از «ویرایش کلی» شناسنامه‌اش به این مجموعه بیاورید یا از مجموعه‌ی دیگری روی مسیر بالا بکشید.</span>' : ''}
                     </div>`;
                 }
                 return;
             }
 
             if (folders.length) {
-                if (currentFolderId || searchVal) grid.insertAdjacentHTML('beforeend', `<h3 class="section-title">📁 ${searchVal ? 'مجموعه‌ها' : 'زیرمجموعه‌ها'} <small>(${toFa(folders.length)})</small></h3>`);
+                if (currentFolderId || searchVal) grid.insertAdjacentHTML('beforeend', `<h3 class="section-title"><i class=ai data-ic=folder></i> ${searchVal ? 'مجموعه‌ها' : 'زیرمجموعه‌ها'} <small>(${toFa(folders.length)})</small></h3>`);
                 folders.forEach(col => grid.appendChild(folderCard(col, !!searchVal)));
             }
             if (items.length) {
-                grid.insertAdjacentHTML('beforeend', `<h3 class="section-title">📄 محتواها <small>(${toFa(items.length)})</small></h3>`);
+                grid.insertAdjacentHTML('beforeend', `<h3 class="section-title"><i class=ai data-ic=file-text></i> محتواها <small>(${toFa(items.length)})</small></h3>`);
                 items.forEach(item => grid.appendChild(contentCard(item, !!searchVal)));
             }
         }
@@ -403,7 +403,7 @@
                     <button type="button" class="btn-edit" onclick="event.stopPropagation(); archiveCol(${col.id})" style="background:var(--warning-color); color:#fff; border:none;">آرشیو</button>
                     <button type="button" class="btn-delete" onclick="event.stopPropagation(); deleteCol(${col.id})">حذف</button>
                 </div>
-                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-gray); padding-left: 90px; min-height: 2.8em; line-height: 1.4;">📁 ${escapeHtml(col.title)}</h3>
+                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-gray); padding-left: 90px; min-height: 2.8em; line-height: 1.4;"><i class=ai data-ic=folder></i> ${escapeHtml(col.title)}</h3>
                 ${showPath && col.parent_id ? `<div class="card-path">در: ${escapeHtml(pathText(col.parent_id))}</div>` : ''}
                 <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
                     ${col.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(col.org_logo))}" style="width:24px; height:24px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : `<span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${escapeHtml(safeColor(col.org_color) || 'var(--text-gray)')}"></span>`}
@@ -435,10 +435,10 @@
             const orgBadgeStyle = `background: color-mix(in srgb, ${cardColor} 8%, transparent); color: ${cardColor}; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold; display:inline-flex; align-items:center; gap:6px; margin-bottom:8px;`;
             div.innerHTML = `
                 <div style="${orgBadgeStyle}">
-                    ${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:24px; height:24px; border: 1px solid white; border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'}
+                    ${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:24px; height:24px; border: 1px solid white; border-radius:50%; object-fit:cover;" loading="lazy">` : '<i class=ai data-ic=building-2></i>'}
                     <span>${escapeHtml(item.org_name || 'بدون سازمان')}</span>
                 </div>
-                <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray); line-height: 1.4;">📄 ${escapeHtml(item.title || 'بدون عنوان')}</div>
+                <div style="font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; color: var(--text-gray); line-height: 1.4;"><i class=ai data-ic=file-text></i> ${escapeHtml(item.title || 'بدون عنوان')}</div>
                 ${showPath && item.collection_id != currentFolderId ? `<div class="card-path">در: ${escapeHtml(pathText(item.collection_id))}</div>` : ''}
                 <div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 5px;"><span style="background: rgba(128, 128, 128, 0.1); padding: 2px 6px; border-radius: 4px;">${escapeHtml(item.content_type || 'نامشخص')}</span></div>
                 <div style="font-size: 0.85rem; margin-top: 10px;">وضعیت: ${escapeHtml(translateStatus(item.status))}</div>`;
@@ -582,7 +582,7 @@
             if(s === 'done') return 'تکمیل شده';
             if(s === 'approved_by_client') return 'تایید کارفرما';
             if(s === 'ready_to_publish') return 'آماده انتشار';
-            if(s === 'published') return 'منتشر شده 🌟';
+            if(s === 'published') return 'منتشر شده';
             if(s === 'archived') return 'آرشیو شده';
             return s || 'ورودی خام';
         }

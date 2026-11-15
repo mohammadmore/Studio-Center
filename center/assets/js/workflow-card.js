@@ -26,7 +26,7 @@
     }).catch(function () { window.renderWorkflowPanel(id); });
   }
   function showWarnings(list) {
-    (list || []).forEach(function (w) { window.showToast && window.showToast("⚠️ " + w, "info"); });
+    (list || []).forEach(function (w) { window.showToast && window.showToast(String(w), "info"); });
   }
 
   var VERSION_INTERNAL = { pending: ["در انتظار تایید داخلی", "amber"], approved: ["تایید داخلی", "green"], rejected: ["رد در تایید داخلی", "red"], skipped: ["", ""] };
@@ -116,10 +116,10 @@
     if (!list.length) return '<div class="wf-empty-sm">نظری ثبت نشده است.</div>';
     return list.map(function (f) {
       var where = f.timecode !== null && f.timecode !== undefined ? '<span class="wf-timecode">' + fmtTime(f.timecode) + "</span>" : "";
-      var pin = f.x !== null && f.x !== undefined ? '<span class="wf-chip purple">📍 نقطه روی تصویر</span>' : "";
+      var pin = f.x !== null && f.x !== undefined ? '<span class="wf-chip purple"><i class=ai data-ic=map-pin></i> نقطه روی تصویر</span>' : "";
       return '<div class="wf-msg ' + (f.author_type === "client" ? "client" : "") + '"' + (f.resolved ? ' style="opacity:.6"' : "") + ">" +
         '<div class="meta"><b>' + e(f.author) + "</b>" + (f.author_type === "client" ? window.statusChip("کارفرما", "blue") : "") + where + pin + "<span>" + e(window.faDateTime(f.at)) + "</span>" +
-        (f.author_type === "client" ? '<button type="button" class="wf-btn sm" data-resolve="' + f.id + '" data-state="' + (f.resolved ? "0" : "1") + '">' + (f.resolved ? "بازگشایی" : "✓ انجام شد") + "</button>" : "") +
+        (f.author_type === "client" ? '<button type="button" class="wf-btn sm" data-resolve="' + f.id + '" data-state="' + (f.resolved ? "0" : "1") + '">' + (f.resolved ? "بازگشایی" : "<i class=ai data-ic=check></i> انجام شد") + "</button>" : "") +
         "</div>" + e(f.text) + "</div>";
     }).join("");
   }
@@ -134,12 +134,12 @@
     var rounds = (it.review_versions || []).filter(function (v) { return v.client && v.client.status === "rejected"; }).length;
     pane.innerHTML =
       '<div class="wf-row between" style="margin-bottom:10px"><span class="muted" style="font-size:.85rem">دور اصلاح کارفرما: ' + window.fa(rounds) + "</span>" +
-      '<button type="button" class="wf-btn primary" id="wfNewVersion">➕ ارسال نسخه جدید برای بازبینی</button></div>' +
+      '<button type="button" class="wf-btn primary" id="wfNewVersion"><i class=ai data-ic=plus></i> ارسال نسخه جدید برای بازبینی</button></div>' +
       (versions.length ? versions.map(function (v) {
         var internal = VERSION_INTERNAL[(v.internal || {}).status] || ["", ""];
         var client = VERSION_CLIENT[(v.client || {}).status] || (v.sent_to_client_at ? ["منتظر نظر کارفرما", "amber"] : ["", ""]);
         var approveBtns = (v.internal || {}).status === "pending" && can("approve_content") && v === versions[0]
-          ? '<div class="wf-row" style="margin:8px 0"><button type="button" class="wf-btn success" data-internal="approve">✓ تایید و ارسال برای کارفرما</button><button type="button" class="wf-btn danger" data-internal="reject">↩️ برگشت برای اصلاح</button></div>'
+          ? '<div class="wf-row" style="margin:8px 0"><button type="button" class="wf-btn success" data-internal="approve"><i class=ai data-ic=check></i> تایید و ارسال برای کارفرما</button><button type="button" class="wf-btn danger" data-internal="reject"><i class=ai data-ic=undo-2></i> برگشت برای اصلاح</button></div>'
           : "";
         return '<div class="wf-card" style="padding:12px">' +
           '<div class="wf-row between"><b>نسخه ' + window.fa(v.v) + "</b><span>" +
@@ -216,8 +216,8 @@
     var approval = it.caption_approval || {};
     var chip = approval.status === "approved" ? window.statusChip("کپشن تایید شده", "green") : approval.status === "rejected" ? window.statusChip("کپشن نیاز به اصلاح", "red") : approval.status === "pending" ? window.statusChip("منتظر تایید کپشن", "amber") : "";
     var snippets = await loadSnippets(it.org_id);
-    var snippetOptions = '<option value="">➕ درج از بانک متن…</option>' + snippets.map(function (s) {
-      return '<option value="' + s.id + '">' + (s.kind === "hashtag" ? "#️⃣ " : s.kind === "cta" ? "👉 " : "💬 ") + e(s.title) + "</option>";
+    var snippetOptions = '<option value="">درج از بانک متن…</option>' + snippets.map(function (s) {
+      return '<option value="' + s.id + '">' + e((s.kind === "hashtag" ? "هشتگ: " : s.kind === "cta" ? "دعوت به اقدام: " : "") + s.title) + "</option>";
     }).join("");
     pane.innerHTML =
       (chip ? '<div style="margin-bottom:8px">' + chip + (approval.comment ? ' <span class="muted" style="font-size:.85rem">' + e(approval.comment) + "</span>" : "") + "</div>" : "") +
@@ -285,8 +285,8 @@
       '<p class="muted" style="font-size:.85rem;margin-top:0">فایل‌های نهایی و باکیفیت را اینجا بگذارید؛ پس از «تحویل به کارفرما» در پنل برند قابل دانلود است.</p>' +
       (it.delivered_at ? '<div style="margin-bottom:8px">' + window.statusChip("تحویل شده: " + window.faDateTime(it.delivered_at), "green") + "</div>" : "") +
       window.fileListHtml(files, { removable: true, download: true, empty: "فایل نهایی اضافه نشده است" }) +
-      '<div class="wf-actions"><button type="button" class="wf-btn" id="dvUpload">⬆️ آپلود فایل نهایی</button><button type="button" class="wf-btn" id="dvLink">🔗 لینک</button>' +
-      '<button type="button" class="wf-btn primary" id="dvDeliver"' + (files.length ? "" : " disabled") + ">📦 تحویل به کارفرما</button></div>";
+      '<div class="wf-actions"><button type="button" class="wf-btn" id="dvUpload"><i class=ai data-ic=upload></i> آپلود فایل نهایی</button><button type="button" class="wf-btn" id="dvLink"><i class=ai data-ic=link></i> لینک</button>' +
+      '<button type="button" class="wf-btn primary" id="dvDeliver"' + (files.length ? "" : " disabled") + "><i class=ai data-ic=package></i> تحویل به کارفرما</button></div>";
     var add = async function (list) {
       if (!list.length) return;
       var res = await window.api("/api/deliverables", { action: "add", id: it.id, files: list });
@@ -324,7 +324,7 @@
     var stages = it.stages || [];
     pane.innerHTML =
       '<div class="wf-row between" style="margin-bottom:10px"><b>مجموع: ' + window.fa(Math.round(((res && res.total_minutes) || 0) / 6) / 10) + " ساعت</b>" +
-      (mine ? '<button type="button" class="wf-btn danger solid" id="tmStop">⏹ توقف تایمر</button>' : '<button type="button" class="wf-btn primary" id="tmStart">▶️ شروع تایمر روی این کار</button>') + "</div>" +
+      (mine ? '<button type="button" class="wf-btn danger solid" id="tmStop"><i class=ai data-ic=circle-stop></i> توقف تایمر</button>' : '<button type="button" class="wf-btn primary" id="tmStart"><i class=ai data-ic=play></i> شروع تایمر روی این کار</button>') + "</div>" +
       '<div class="wf-row"><input class="form-control" id="tmHours" type="number" min="0.25" step="0.25" placeholder="ساعت" style="max-width:100px" aria-label="ساعت">' +
       '<input class="form-control" id="tmDay" data-jdp placeholder="تاریخ (امروز)" style="max-width:140px" aria-label="تاریخ">' +
       (stages.length ? '<select class="form-control" id="tmStage" style="max-width:160px" aria-label="مرحله"><option value="">مرحله</option>' + stages.map(function (s) { return "<option>" + e(s) + "</option>"; }).join("") + "</select>" : "") +

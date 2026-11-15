@@ -19,7 +19,7 @@
     <main class="main-content">
         <div class="page-header-container flex-responsive">
             <div>
-                <h1 class="page-title">📊 <span>گزارش ماهانه کارفرما</span></h1>
+                <h1 class="page-title"><i class=ai data-ic=chart-column></i> <span>گزارش ماهانه کارفرما</span></h1>
                 <p class="page-subtitle">آنچه تحویل شد، نتایج و برنامه ماه بعد؛ برای کارفرما بفرستید یا PDF بگیرید.</p>
             </div>
         </div>
@@ -28,7 +28,7 @@
             <% if (!clientMode) { %><label class="wf-label" style="margin:0">برند<select class="form-control" id="fOrg" onchange="load()"></select></label><% } %>
             <label class="wf-label" style="margin:0">سال<input class="form-control" id="fYear" type="number" style="width:100px" onchange="load()"></label>
             <label class="wf-label" style="margin:0">ماه<select class="form-control" id="fMonth" onchange="load()"></select></label>
-            <button type="button" class="wf-btn primary" onclick="window.print()">🖨️ دریافت PDF / چاپ</button>
+            <button type="button" class="wf-btn primary" onclick="window.print()"><i class=ai data-ic=printer></i> دریافت PDF / چاپ</button>
         </div>
         <div id="report" class="wf-page"><div class="wf-empty">در حال بارگذاری…</div></div>
 <% if (clientMode) { %>
@@ -91,19 +91,19 @@
             ${u.contract ? `<div class="wf-card"><h3>پکیج «${escapeHtml(u.contract.title || '')}»: تعهد در برابر تحویل</h3><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>نوع</th><th>تعهد</th><th>تحویل</th><th>پیشرفت</th></tr></thead><tbody>
                 ${u.rows.filter(x => x.quota || x.delivered).map(x => `<tr><td>${escapeHtml(x.content_type)}</td><td>${fa(x.quota)}</td><td>${fa(x.delivered)}</td><td><div class="wf-progress ${x.delivered >= x.quota ? 'done' : ''}"><span style="width:${x.quota ? Math.min(100, Math.round(x.delivered / x.quota * 100)) : 100}%"></span></div></td></tr>`).join('')}
             </tbody></table></div></div>` : ''}
-            <div class="wf-card"><h3>✅ تحویل‌شده در این ماه</h3>${itemRows(r.delivered, true)}</div>
-            ${r.metrics.length ? `<div class="wf-card"><h3>📈 نتایج به تفکیک پلتفرم</h3><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>پلتفرم</th><th>پست</th><th>بازدید</th><th>لایک</th><th>کامنت</th><th>اشتراک</th><th>ذخیره</th></tr></thead><tbody>
+            <div class="wf-card"><h3><i class=ai data-ic=circle-check></i> تحویل‌شده در این ماه</h3>${itemRows(r.delivered, true)}</div>
+            ${r.metrics.length ? `<div class="wf-card"><h3><i class=ai data-ic=trending-up></i> نتایج به تفکیک پلتفرم</h3><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>پلتفرم</th><th>پست</th><th>بازدید</th><th>لایک</th><th>کامنت</th><th>اشتراک</th><th>ذخیره</th></tr></thead><tbody>
                 ${r.metrics.map(m => `<tr><td>${escapeHtml(m.platform)}</td><td>${fa(m.posts)}</td><td>${n(m.views)}</td><td>${n(m.likes)}</td><td>${n(m.comments)}</td><td>${n(m.shares)}</td><td>${n(m.saves)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
-            ${r.not_delivered.length ? `<div class="wf-card"><h3>⏳ در دست تولید (برنامه این ماه)</h3>${itemRows(r.not_delivered, false)}</div>` : ''}
-            <div class="wf-card"><h3>📝 جمع‌بندی ماه</h3>
+            ${r.not_delivered.length ? `<div class="wf-card"><h3><i class=ai data-ic=hourglass></i> در دست تولید (برنامه این ماه)</h3>${itemRows(r.not_delivered, false)}</div>` : ''}
+            <div class="wf-card"><h3><i class=ai data-ic=notebook-pen></i> جمع‌بندی ماه</h3>
                 ${CLIENT ? `<div style="white-space:pre-wrap;line-height:1.9">${escapeHtml(r.summary || '—')}</div>` : `<textarea class="form-control no-print" id="rSummary" rows="5" placeholder="نکات مهم، دستاوردها و پیشنهادها…">${escapeHtml(r.summary)}</textarea><div class="print-only" style="white-space:pre-wrap">${escapeHtml(r.summary)}</div>`}
             </div>
-            <div class="wf-card"><h3>🗓️ برنامه ماه آینده</h3>
+            <div class="wf-card"><h3><i class=ai data-ic=calendar-days></i> برنامه ماه آینده</h3>
                 ${itemRows(r.next_month, false)}
                 ${CLIENT ? (r.next_plan ? `<div style="white-space:pre-wrap;margin-top:8px">${escapeHtml(r.next_plan)}</div>` : '') : `<textarea class="form-control no-print" id="rNext" rows="4" style="margin-top:8px" placeholder="ایده‌ها و برنامه ماه بعد…">${escapeHtml(r.next_plan)}</textarea>`}
             </div>
-            ${r.invoices.length ? `<div class="wf-card"><h3>💳 فاکتورهای این ماه</h3>${r.invoices.map(i => `<div>فاکتور ${fa(i.invoice_number)}: ${money(i.total)} — ${i.status === 'paid' ? 'پرداخت شده' : 'منتظر پرداخت'}</div>`).join('')}</div>` : ''}
-            ${CLIENT ? '' : `<div class="wf-actions no-print"><button type="button" class="wf-btn" onclick="save()">ذخیره یادداشت‌ها</button><button type="button" class="wf-btn primary" onclick="save('send')">📤 ذخیره و ارسال برای کارفرما</button></div>`}`;
+            ${r.invoices.length ? `<div class="wf-card"><h3><i class=ai data-ic=credit-card></i> فاکتورهای این ماه</h3>${r.invoices.map(i => `<div>فاکتور ${fa(i.invoice_number)}: ${money(i.total)} — ${i.status === 'paid' ? 'پرداخت شده' : 'منتظر پرداخت'}</div>`).join('')}</div>` : ''}
+            ${CLIENT ? '' : `<div class="wf-actions no-print"><button type="button" class="wf-btn" onclick="save()">ذخیره یادداشت‌ها</button><button type="button" class="wf-btn primary" onclick="save('send')"><i class=ai data-ic=send></i> ذخیره و ارسال برای کارفرما</button></div>`}`;
     }
     async function save(action) {
         const body = { org_id: report.org.id, year: report.year, month: report.month, summary: document.getElementById('rSummary').value, next_plan: document.getElementById('rNext').value, action };

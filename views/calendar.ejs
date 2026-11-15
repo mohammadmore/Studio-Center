@@ -19,7 +19,7 @@
         function openExcelScheduleModal() {
             AsvaExcel.renderGuide('scheduleExcelGuide', 'schedule', scheduleExcelCtx());
             const btn = document.querySelector('#scheduleExcelGuide [data-excel-sample]');
-            if (btn) btn.innerHTML = '📄 دریافت فهرست محتواهای این ماه برای زمان‌بندی (.xlsx)';
+            if (btn) btn.innerHTML = '<i class=ai data-ic=file-text></i> دریافت فهرست محتواهای این ماه برای زمان‌بندی (.xlsx)';
             document.getElementById('excelScheduleModal').style.display = 'flex';
             resetExcelScheduleModal();
         }
@@ -464,7 +464,7 @@
     
     <main class="main-content">
         <div class="page-header-container flex-responsive" style="justify-content: space-between; align-items: center;">
-        <button type="button" class="wf-btn" onclick="showIcsLink()" style="order:5" title="همگام‌سازی موعدها و انتشارها با Google Calendar یا تقویم گوشی">🗓️ همگام‌سازی با تقویم گوشی</button>
+        <button type="button" class="wf-btn" onclick="showIcsLink()" style="order:5" title="همگام‌سازی موعدها و انتشارها با Google Calendar یا تقویم گوشی"><i class=ai data-ic=calendar-days></i> همگام‌سازی با تقویم گوشی</button>
         <div>
             <h1 class="page-title"><!-- @license lucide-static v1.28.0 - ISC -->
 <svg
@@ -495,7 +495,7 @@
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" class="action-buttons">
             <button id="viewToggleBtn" class="btn-outline" onclick="toggleViewMode()" style="display: inline-flex; align-items: center; gap: 6px; height: 42px; border-radius: 6px; padding: 0 15px; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer; font-family: Tahoma; font-size: 0.9rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg> نمایش فهرستی</button>
             <button class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px; height: 42px;  color: white !important; border: none; padding: 0 15px; border-radius: 6px; cursor: pointer; font-family: Tahoma; font-size: 0.9rem;" onclick="openExcelScheduleModal()"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg> زمان‌بندی با اکسل</button>
-            <button id="btnApplyTemplate" class="btn-primary" onclick="toggleTemplate()" style="display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 15px; border-radius: 6px;  color: white !important; border: none; cursor: pointer; font-family: Tahoma; font-size: 0.9rem; font-weight: bold;">🌟 اعمال قالب</button>
+            <button id="btnApplyTemplate" class="btn-primary" onclick="toggleTemplate()" style="display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 15px; border-radius: 6px;  color: white !important; border: none; cursor: pointer; font-family: Tahoma; font-size: 0.9rem; font-weight: bold;"><i class=ai data-ic=sparkles></i> اعمال قالب</button>
         </div>
     </div>
         
@@ -551,7 +551,7 @@
     <div class="modal-overlay" id="applyTemplateModal">
         <div class="modal-content" style="width: 100%; max-width: 500px; box-sizing: border-box;">
             <div class="modal-header">
-                <h3 class="modal-title">🌟 اعمال قالب محتوایی</h3>
+                <h3 class="modal-title"><i class=ai data-ic=sparkles></i> اعمال قالب محتوایی</h3>
                 <button class="close-btn" onclick="document.getElementById('applyTemplateModal').style.display='none'">×</button>
             </div>
             <div style="padding: 20px;">
@@ -609,7 +609,7 @@
     <!-- Confirm Modal -->
     <div class="modal-overlay" id="customConfirmModal" style="display: none; z-index: 2147483647 !important;">
         <div class="modal-content" style="width: 100%; max-width: 400px; box-sizing: border-box; text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 10px;">ℹ️</div>
+            <div style="font-size: 3rem; margin-bottom: 10px;"><i class=ai data-ic=info></i></div>
             <h3 style="margin-bottom: 15px; color: var(--text-dark);">توجه</h3>
             <p id="customConfirmMessage" style="color: var(--text-gray); line-height: 1.6; margin-bottom: 20px; white-space: pre-wrap;"></p>
             <div style="display: flex; gap: 10px;">
@@ -711,7 +711,7 @@
                 </div>
                 <div id="newContentSection" style="display: none; flex-direction: column; gap: 10px; margin-top: 5px;">
                     <div style="text-align: right; margin-bottom: 5px;">
-                        <button type="button" onclick="window.showDepotList()" style="background: none; border: none; color: var(--text-gray); font-size: 0.9rem; cursor: pointer; text-decoration: underline;">🔙 بازگشت به انتخاب از دپو</button>
+                        <button type="button" onclick="window.showDepotList()" style="background: none; border: none; color: var(--text-gray); font-size: 0.9rem; cursor: pointer; text-decoration: underline;"><i class=ai data-ic=arrow-right></i> بازگشت به انتخاب از دپو</button>
                     </div>
                 <label style="font-weight: bold; color: var(--primary-color);">ایجاد محتوای کاملاً جدید</label>
                 <input type="text" id="newScheduleTitle" placeholder="عنوان محتوای جدید" style="padding: 14px; border: 1px solid #ddd; border-radius: 8px;">
@@ -946,7 +946,7 @@
         function toggleTemplate() {
             if (window.activeTemplatePreview) {
                 window.activeTemplatePreview = null;
-                document.getElementById('btnApplyTemplate').innerText = '🌟 اعمال قالب';
+                document.getElementById('btnApplyTemplate').innerHTML = '<i class=ai data-ic=sparkles></i> اعمال قالب';
                 document.getElementById('btnApplyTemplate').style.backgroundColor = 'var(--warning-color)';
                 
                 const filterEl = document.getElementById('orgFilter');
@@ -1351,7 +1351,7 @@
                                     
                                     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                                         <div style="display: flex; align-items: center; gap: 6px; color: var(--text-gray); font-size: 0.95rem;">
-                                            ${ev.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(ev.org_logo))}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} 
+                                            ${ev.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(ev.org_logo))}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;" loading="lazy">` : '<i class=ai data-ic=building-2></i>'} 
                                             ${escapeHtml(orgName)}
                                         </div>
                                         <span style="background: color-mix(in srgb, var(--primary-color) 10%, transparent); color: var(--primary-color); padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold;">
@@ -1438,7 +1438,7 @@
                         const blockColor = safeColor(item.org_color) || 'var(--primary-color)';
                         cardHtml = `<div class="popup-item" style="cursor:pointer; background: color-mix(in srgb, ${blockColor} 5%, transparent); border: 2px dashed color-mix(in srgb, ${blockColor} 50%, transparent); border-radius: 12px; transition:all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;" onmouseover="this.style.transform='scale(1.02)'; this.style.background='color-mix(in srgb, ${blockColor} 8%, transparent)';" onmouseout="this.style.transform='scale(1)'; this.style.background='color-mix(in srgb, ${blockColor} 5%, transparent)';" onclick="window.openScheduleWithPreview(${jsAttr(item.org_id)}, ${jsAttr(item.content_type)}, '${encodeURIComponent(item.topic || '')}', ${dayNumber}, ${item.count || 1})">
                             <div style="margin-bottom: 8px;">
-                                ${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" loading="lazy">` : '<span style="font-size: 24px;">🏢</span>'}
+                                ${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" loading="lazy">` : '<span style="font-size: 24px;"><i class=ai data-ic=building-2></i></span>'}
                             </div>
                             <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-gray); margin-bottom: 5px;">محتوای پیشنهادی پکیج ${escapeHtml(item.template_name ? '(' + item.template_name + ')' : '')}</div>
                             <div style="display: flex; gap: 8px; justify-content: center;">
@@ -1453,7 +1453,7 @@
                                 <span class="popup-org-name" style="font-size: 1.1rem; color: var(--text-gray);">پیشنهاد: ${escapeHtml(typeName)} <span style="font-size:0.85rem; color: var(--text-gray); font-weight:normal;">(${escapeHtml(item.topic || typeName)})</span></span>
                             </div>
                             <div style="margin-top: 8px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px;">
-                                <span class="popup-content-type" style="background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-gray); display:inline-flex; align-items:center; gap:4px;">${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} ${escapeHtml(orgName)}</span>
+                                <span class="popup-content-type" style="background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-gray); display:inline-flex; align-items:center; gap:4px;">${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" loading="lazy">` : '<i class=ai data-ic=building-2></i>'} ${escapeHtml(orgName)}</span>
                                 <span style="font-size: 0.75rem; color: ${color}; margin-top: auto; margin-bottom: auto; background: color-mix(in srgb, ${color} 8%, transparent); padding: 2px 6px; border-radius: 4px; font-weight: bold;">جهت تخصیص کلیک کنید</span>
                             </div>
                             <div class="popup-item-footer" style="margin-top: auto;">
@@ -1468,9 +1468,9 @@
                                 <span class="popup-time">${escapeHtml(time)}</span>
                             </div>
                             <div style="margin-top: 8px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px;">
-                                <span class="popup-content-type" style="background: rgba(128, 128, 128, 0.1); color: var(--text-gray); display:inline-flex; align-items:center; gap:4px;">${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} ${escapeHtml(orgName)}</span>
+                                <span class="popup-content-type" style="background: rgba(128, 128, 128, 0.1); color: var(--text-gray); display:inline-flex; align-items:center; gap:4px;">${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" loading="lazy">` : '<i class=ai data-ic=building-2></i>'} ${escapeHtml(orgName)}</span>
                                 <span class="popup-content-type">${escapeHtml(typeName)}</span>
-                                ${item.topic ? `<span class="popup-content-type" class="topic-badge">🎯 ${escapeHtml(item.topic)}</span>` : ''}
+                                ${item.topic ? `<span class="popup-content-type" class="topic-badge"><i class=ai data-ic=target></i> ${escapeHtml(item.topic)}</span>` : ''}
                             </div>
                             <div class="popup-item-footer">
                                 <span>${item.is_published ? `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M20 6 9 17l-5-5'/></svg> منتشر شده` : `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg> در حال تدوین`}</span>

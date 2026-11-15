@@ -8,8 +8,8 @@
         <span><%= shellOrg.org_name || 'پنل کارفرما' %></span>
     </div>
     <div class="wf-row">
-        <button type="button" class="wf-btn" onclick="openMyChannels()" title="دریافت اعلان در تلگرام / بله">🔔 تنظیم اعلان‌ها</button>
-        <button type="button" class="wf-btn" onclick="(function(){var d=document.documentElement;var n=d.getAttribute('data-theme')==='dark'?'light':'dark';d.setAttribute('data-theme',n);try{localStorage.setItem('theme',n)}catch(e){}})()" aria-label="تغییر حالت روز / شب">🌓</button>
+        <button type="button" class="wf-btn" onclick="openMyChannels()" title="دریافت اعلان در تلگرام / بله"><i class=ai data-ic=bell></i> تنظیم اعلان‌ها</button>
+        <button type="button" class="wf-btn" onclick="(function(){var d=document.documentElement;var n=d.getAttribute('data-theme')==='dark'?'light':'dark';d.setAttribute('data-theme',n);try{localStorage.setItem('theme',n)}catch(e){}})()" aria-label="تغییر حالت روز / شب"><i class=ai data-ic=sun-moon></i></button>
         <a class="wf-btn danger" href="/api/logout">خروج</a>
     </div>
 </div>

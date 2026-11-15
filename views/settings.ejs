@@ -187,15 +187,15 @@
                 
                 <div id="studio-settings-container" style="display: none;">
                     <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
-                        <button type="button" class="btn-outline" style="padding:8px 14px;" onclick="showSetupCardAgain()">🚀 نمایش دوباره کارت راه‌اندازی در میز کار</button>
+                        <button type="button" class="btn-outline" style="padding:8px 14px;" onclick="showSetupCardAgain()"><i class=ai data-ic=rocket></i> نمایش دوباره کارت راه‌اندازی در میز کار</button>
                     </div>
                     <div id="backupBox" style="display:none; background: rgba(128,128,128,0.05); border:1px solid var(--border-color); border-radius:12px; padding:16px; margin-bottom:18px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
                             <div>
-                                <h3 style="margin:0 0 4px; font-size:1.05rem;">🛟 پشتیبان‌گیری از داده‌ها</h3>
+                                <h3 style="margin:0 0 4px; font-size:1.05rem;"><i class=ai data-ic=life-buoy></i> پشتیبان‌گیری از داده‌ها</h3>
                                 <div style="color:var(--text-gray); font-size:0.85rem; line-height:1.7;">هر روز یک نسخه‌ی فشرده از همه‌ی داده‌ها (کاربران، برندها، محتواها، فاکتورها و تنظیمات) خودکار ذخیره می‌شود و ۱۴ نسخه‌ی آخر نگه داشته می‌شود. فایل‌های آپلودشده در پشتیبان نیستند. بهتر است هر چند وقت یک نسخه را دانلود کنید و جای دیگری نگه دارید.</div>
                             </div>
-                            <button type="button" class="btn-primary" id="backupNowBtn" onclick="createBackupNow()" style="padding:10px 16px;">💾 پشتیبان‌گیری الان</button>
+                            <button type="button" class="btn-primary" id="backupNowBtn" onclick="createBackupNow()" style="padding:10px 16px;"><i class=ai data-ic=save></i> پشتیبان‌گیری الان</button>
                         </div>
                         <div id="backupList" style="margin-top:12px;"></div>
                     </div>
@@ -220,7 +220,7 @@
                                             <div style="font-size: 0.75rem; color: var(--text-gray);">تصویر بارگذاری‌شده بدون پس‌زمینه (PNG)</div>
                                         </div>
                                     </div>
-                                    <button type="button" onclick="removeStudioLogo('light')" style="background: rgba(239, 68, 68, 0.15); color: var(--error-color); border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer;">✕ حذف لوگو</button>
+                                    <button type="button" onclick="removeStudioLogo('light')" style="background: rgba(239, 68, 68, 0.15); color: var(--error-color); border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer;"><i class=ai data-ic=x></i> حذف لوگو</button>
                                 </div>
                             </div>
                             <div>
@@ -238,7 +238,7 @@
                                             <div style="font-size: 0.75rem; color: var(--text-gray);">تصویر بارگذاری‌شده بدون پس‌زمینه (PNG)</div>
                                         </div>
                                     </div>
-                                    <button type="button" onclick="removeStudioLogo('dark')" style="background: rgba(239, 68, 68, 0.15); color: var(--error-color); border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer;">✕ حذف لوگو</button>
+                                    <button type="button" onclick="removeStudioLogo('dark')" style="background: rgba(239, 68, 68, 0.15); color: var(--error-color); border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer;"><i class=ai data-ic=x></i> حذف لوگو</button>
                                 </div>
                             </div>
                             <div>
@@ -295,7 +295,7 @@
                 <div id="fonts-container" style="display: none;">
                     <!-- بخش 1: کتابخانه فونت‌ها -->
             
-                <div class="card-title"><span>🎨</span> کتابخانه فونت‌های سیستم</div>
+                <div class="card-title"><span><i class=ai data-ic=palette></i></span> کتابخانه فونت‌های سیستم</div>
                 
                 <div id="fontLibraryList" style="margin-bottom: 20px; max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; background: rgba(128, 128, 128, 0.05);">
                     <div class="skeleton" style="height: 60px; width: 100%; margin-bottom: 10px; border-radius: 8px;"></div><div class="skeleton" style="height: 60px; width: 100%; border-radius: 8px;"></div>
@@ -305,7 +305,7 @@
                     <div style="font-weight: bold; margin-bottom: 10px; font-size: 0.9rem;">+ آپلود فونت جدید به کتابخانه</div>
                     <form onsubmit="uploadCustomFont(event)">
                         <div class="upload-box" style="padding: 15px;" onclick="document.getElementById('fontInput').click()">
-                            <span class="upload-icon" style="font-size: 2rem; margin-bottom: 5px;">🔤</span>
+                            <span class="upload-icon" style="font-size: 2rem; margin-bottom: 5px;"><i class=ai data-ic=type></i></span>
                             <strong style="color: var(--primary-color); display: block;">انتخاب فایل فونت</strong>
                             <div id="fileNameDisplay" style="margin-top: 5px; font-size: 0.8rem; color: var(--text-dark);">فقط فرمت‌های TTF و WOFF مجاز است</div>
                         </div>
@@ -417,7 +417,7 @@
                             <% if (adminCat) { (adminCat.permissions || []).forEach(perm => { %>
                                 <label class="perm-admin">
                                     <input type="checkbox" name="perms" value="<%= perm.id %>" id="permAdminBox">
-                                    <span><b>⚠️ <%= perm.name %></b><small><%= perm.hint || '' %></small></span>
+                                    <span><b><i class=ai data-ic=triangle-alert></i> <%= perm.name %></b><small><%= perm.hint || '' %></small></span>
                                 </label>
                             <% }); } %>
                             <div class="perm-grid" id="permGrid">
@@ -706,8 +706,8 @@
                             ${priceBadge}
                         </div>
                         <div style="display: flex; gap: 5px;">
-                            <button onclick="reorderSetting(${item.id}, 'up')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="بالا">↑</button>
-                            <button onclick="reorderSetting(${item.id}, 'down')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="پایین">↓</button>
+                            <button onclick="reorderSetting(${item.id}, 'up')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="بالا"><i class=ai data-ic=arrow-up></i></button>
+                            <button onclick="reorderSetting(${item.id}, 'down')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="پایین"><i class=ai data-ic=arrow-down></i></button>
                             <button onclick="prepareEditSetting(${item.id})" style="background: #e0f2fe; color: #0284c7; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">ویرایش</button>
                             <button onclick="deleteSetting(${item.id})" class="btn-delete">حذف</button>
                         </div>
@@ -1037,7 +1037,7 @@
                                     <div style="font-family: '${escapeHtml(fontId)}'; font-size: 1.2rem; font-weight: bold;">
                                         ${escapeHtml(font.fa_name)} - ${escapeHtml(font.en_name)}
                                     </div>
-                                    <div style="font-size: 0.75rem; color: var(--text-gray);">${escapeHtml(font.filename)} ${font.filename === activeFont ? '<span style="background: rgba(16,185,129,.15); color: #059669; border-radius: 10px; padding: 1px 8px; font-weight: bold; margin-right: 6px;">✓ فونت فعال</span>' : ''}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-gray);">${escapeHtml(font.filename)} ${font.filename === activeFont ? '<span style="background: rgba(16,185,129,.15); color: #059669; border-radius: 10px; padding: 1px 8px; font-weight: bold; margin-right: 6px;"><i class=ai data-ic=check></i> فونت فعال</span>' : ''}</div>
                                 </div>
                                 <div id="edit-font-form-${idx}" style="display: none; flex-direction: column; gap: 10px; background: rgba(128, 128, 128, 0.1); padding: 10px; border-radius: 8px;">
                                     <input type="text" id="edit-fa-name-${idx}" class="form-control" placeholder="نام فارسی" value="${escapeHtml(font.fa_name)}">
@@ -1051,8 +1051,8 @@
                                     <div class="font-actions-row1" style="display: flex; gap: 5px;">
                                         <button onclick="document.getElementById('edit-font-form-${idx}').style.display = 'flex'" style="background: #fef08a; color: #854d0e; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold;">ویرایش نام</button>
                                         <button onclick="deleteFont(${jsAttr(font.filename)})" class="btn-delete" style="padding: 6px 15px; font-size: 0.85rem;">حذف</button>
-                                        <button onclick="reorderFont(${jsAttr(font.filename)}, 'up')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="بالا">↑</button>
-                                        <button onclick="reorderFont(${jsAttr(font.filename)}, 'down')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="پایین">↓</button>
+                                        <button onclick="reorderFont(${jsAttr(font.filename)}, 'up')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="بالا"><i class=ai data-ic=arrow-up></i></button>
+                                        <button onclick="reorderFont(${jsAttr(font.filename)}, 'down')" style="background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1;" title="پایین"><i class=ai data-ic=arrow-down></i></button>
                                     </div>
                                     <div class="font-actions-row2" style="display: flex; gap: 5px; flex: 1;">
                                         <button onclick="setActiveFont(${jsAttr(font.filename)})" style="background: #e0f2fe; color: #0284c7; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; width: 100%;">اعمال به عنوان فونت فعال</button>
@@ -1164,15 +1164,15 @@
                     const result = await res.json();
                     if(result.status === 'success') { 
                         showToast((result.message || 'فونت آپلود شد') + ' — صفحه برای نمایش فونت جدید تازه می‌شود…', 'success');
-                        document.getElementById('fileNameDisplay').innerText = '✓ آپلود شد: ' + fileInput.files[0].name;
+                        document.getElementById('fileNameDisplay').innerHTML = '<i class=ai data-ic=check></i> آپلود شد: ' + escapeHtml(fileInput.files[0].name);
                         await loadFonts();
                         setTimeout(() => window.location.reload(), 1500);
 
                     } else {
                         showToast(result.message || 'آپلود فونت ممکن نشد', 'error');
-                        document.getElementById('fileNameDisplay').innerText = '✗ آپلود نشد: ' + (result.message || '');
+                        document.getElementById('fileNameDisplay').innerHTML = '<i class=ai data-ic=x></i> آپلود نشد: ' + escapeHtml(result.message || '');
                     }
-                } catch(err) { showToast("خطا در ارتباط با سرور", 'error'); document.getElementById('fileNameDisplay').innerText = '✗ خطا در ارتباط با سرور'; } 
+                } catch(err) { showToast("خطا در ارتباط با سرور", 'error'); document.getElementById('fileNameDisplay').innerHTML = '<i class=ai data-ic=x></i> خطا در ارتباط با سرور'; } 
                 finally { fileInput.value = ''; btn.innerHTML = `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align: middle; margin-left: 4px;\"><path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z\"/><path d=\"m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0-2.18 2.06c2.81 3.2 4.09 7.42 4.09 11.75v1.07\"/><path d=\"m9 18 3 3a22 22 0 0 0 13-3.82 1.5 1.5 0 0 0-2.06-2.18c-3.2 2.81-7.42 4.09-11.75 4.09h-1.07\"/></svg> آپلود فونت`; btn.disabled = false; }
             };
             reader.readAsDataURL(fileInput.files[0]);
@@ -1222,8 +1222,8 @@
                         <div class="role-actions">
                             <button class="role-btn btn-edit" onclick="editRole(${r.id})">ویرایش</button>
                             <button class="role-btn btn-delete" onclick="deleteRole(${r.id})">حذف</button>
-                            <button class="role-btn btn-up" onclick="reorderRole(${r.id}, 'up')" title="بالا">↑</button>
-                            <button class="role-btn btn-down" onclick="reorderRole(${r.id}, 'down')" title="پایین">↓</button>
+                            <button class="role-btn btn-up" onclick="reorderRole(${r.id}, 'up')" title="بالا"><i class=ai data-ic=arrow-up></i></button>
+                            <button class="role-btn btn-down" onclick="reorderRole(${r.id}, 'down')" title="پایین"><i class=ai data-ic=arrow-down></i></button>
                         </div>
                     `;
                 }
@@ -1562,8 +1562,8 @@
         document.getElementById('backupList').innerHTML = list.length
             ? '<div style="display:flex; flex-direction:column; gap:6px;">' + list.map((b, i) => `
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 12px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:10px; flex-wrap:wrap;">
-                    <span>${i === 0 ? '🟢 ' : ''}${escapeHtml(when(b.created_at))} — ${escapeHtml(window.toPersianDigits ? window.toPersianDigits(fmtSize(b.size)) : fmtSize(b.size))}${b.manual ? ' <small style="color:var(--text-gray)">(دستی)</small>' : ''}</span>
-                    <a class="btn-outline" style="padding:6px 12px; text-decoration:none;" href="api/backups/download?name=${encodeURIComponent(b.name)}" download>⬇️ دانلود</a>
+                    <span>${i === 0 ? '<i class="ai ai-fill" data-ic=circle style="color:#10b981"></i> ' : ''}${escapeHtml(when(b.created_at))} — ${escapeHtml(window.toPersianDigits ? window.toPersianDigits(fmtSize(b.size)) : fmtSize(b.size))}${b.manual ? ' <small style="color:var(--text-gray)">(دستی)</small>' : ''}</span>
+                    <a class="btn-outline" style="padding:6px 12px; text-decoration:none;" href="api/backups/download?name=${encodeURIComponent(b.name)}" download><i class=ai data-ic=download></i> دانلود</a>
                 </div>`).join('') + '</div>'
             : '<div style="color:var(--text-gray); font-size:0.9rem;">هنوز پشتیبانی ساخته نشده است؛ اولین پشتیبان خودکار حداکثر یک ساعت بعد از راه‌اندازی ساخته می‌شود.</div>';
     }

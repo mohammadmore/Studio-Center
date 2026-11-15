@@ -89,18 +89,18 @@
                 <div class="form-group">
                     <label>نوع فایل:</label>
                     <select id="assetType" class="form-control">
-                        <option value="تصویر / لوگو 🖼️">تصویر / لوگو 🖼️</option>
-                        <option value="فایل لایه‌باز / وکتور 🎨">فایل لایه‌باز / وکتور 🎨</option>
-                        <option value="فونت سازمانی 🔤">فونت سازمانی 🔤</option>
-                        <option value="سند / راهنمای برند 📄">سند / راهنمای برند 📄</option>
-                        <option value="صدا / موشن 🎵">صدا / موشن 🎵</option>
+                        <option value="تصویر / لوگو">تصویر / لوگو</option>
+                        <option value="فایل لایه‌باز / وکتور">فایل لایه‌باز / وکتور</option>
+                        <option value="فونت سازمانی">فونت سازمانی</option>
+                        <option value="سند / راهنمای برند">سند / راهنمای برند</option>
+                        <option value="صدا / موشن">صدا / موشن</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="fileUrl">فایل یا لینک (درایو، دراپ‌باکس…):</label>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="fileUrl" class="form-control" placeholder="https://drive.google.com/... یا فایل را آپلود کنید" required style="flex: 1;">
-                        <button type="button" class="btn-outline" style="white-space: nowrap;" onclick="uploadMediaFile()">⬆️ آپلود فایل</button>
+                        <button type="button" class="btn-outline" style="white-space: nowrap;" onclick="uploadMediaFile()"><i class=ai data-ic=upload></i> آپلود فایل</button>
                     </div>
                     <small id="fileUploadInfo" style="display: block; margin-top: 6px; color: var(--text-gray);"></small>
                 </div>
@@ -163,19 +163,19 @@
 
                 (data.assets || []).forEach(asset => {
                     // تعیین آیکون بر اساس نوع فایل
-                    let icon = '📁';
-                    if(asset.asset_type.includes('تصویر')) icon = '🖼️';
-                    if(asset.asset_type.includes('فونت')) icon = '🔤';
-                    if(asset.asset_type.includes('سند')) icon = '📄';
-                    if(asset.asset_type.includes('وکتور')) icon = '🎨';
+                    let icon = '<i class=ai data-ic=folder></i>';
+                    if(asset.asset_type.includes('تصویر')) icon = '<i class=ai data-ic=image></i>';
+                    if(asset.asset_type.includes('فونت')) icon = '<i class=ai data-ic=type></i>';
+                    if(asset.asset_type.includes('سند')) icon = '<i class=ai data-ic=file-text></i>';
+                    if(asset.asset_type.includes('وکتور')) icon = '<i class=ai data-ic=palette></i>';
 
                     container.insertAdjacentHTML('beforeend', `
                         <div class="media-card" data-title="${escapeHtml(asset.asset_name)}" data-org="${escapeHtml(asset.org_name)}" style="border-right: 4px solid ${escapeHtml(asset.org_color)}; background: color-mix(in srgb, ${escapeHtml(asset.org_color)} 10%, transparent);">
                             <div class="media-icon">${icon}</div>
                             <div class="media-title">${escapeHtml(asset.asset_name)}</div>
-                            <div class="media-org" style="background: color-mix(in srgb, ${escapeHtml(asset.org_color)} 15%, transparent); color: ${escapeHtml(asset.org_color)}; border: 1px solid color-mix(in srgb, ${escapeHtml(asset.org_color)} 30%, transparent); display: inline-flex; align-items: center; gap: 6px;">${asset.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(asset.org_logo))}" style="width:24px; height:24px; border-radius:50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); object-fit:cover;" loading="lazy">` : `🏢`} ${escapeHtml(asset.org_name)}</div>
-                            <span style="font-size: 0.8rem; color: gray; margin-bottom: 15px;">${escapeHtml(asset.asset_type)}</span>
-                            <a href="${escapeHtml(safeUrl(asset.file_url))}" class="btn-download">⬇️ دریافت فایل</a>
+                            <div class="media-org" style="background: color-mix(in srgb, ${escapeHtml(asset.org_color)} 15%, transparent); color: ${escapeHtml(asset.org_color)}; border: 1px solid color-mix(in srgb, ${escapeHtml(asset.org_color)} 30%, transparent); display: inline-flex; align-items: center; gap: 6px;">${asset.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(asset.org_logo))}" style="width:24px; height:24px; border-radius:50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); object-fit:cover;" loading="lazy">` : `<i class=ai data-ic=building-2></i>`} ${escapeHtml(asset.org_name)}</div>
+                            <span style="font-size: 0.8rem; color: gray; margin-bottom: 15px;">${escapeHtml(window.asvaNoEmoji(asset.asset_type))}</span>
+                            <a href="${escapeHtml(safeUrl(asset.file_url))}" class="btn-download"><i class=ai data-ic=download></i> دریافت فایل</a>
                         </div>
                     `);
                 });
@@ -297,7 +297,7 @@
                 <div style="margin-bottom: 15px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 10px; border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
                     <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
                         <div>نام فایل: <span style="font-weight:bold;">${escapeHtml(media.asset_name)}</span></div>
-                        <div>نوع فایل: <span style="font-weight:bold;">${escapeHtml(media.asset_type)}</span></div>
+                        <div>نوع فایل: <span style="font-weight:bold;">${escapeHtml(window.asvaNoEmoji(media.asset_type))}</span></div>
                         <div style="grid-column: 1/-1;">لینک: <a href="${escapeHtml(safeUrl(media.file_url))}" target="_blank" style="color:var(--primary-color)">${escapeHtml(media.file_url.substring(0,40))}...</a></div>
                         <div>برند: <span style="font-weight:bold;">${escapeHtml(media.org || 'عمومی (همه برندها)')}</span></div>
                     </div>

@@ -8,10 +8,10 @@
     <main class="main-content">
         <div class="page-header-container flex-responsive">
             <div>
-                <h1 class="page-title">🎬 <span>برنامه تصویربرداری و تجهیزات</span></h1>
+                <h1 class="page-title"><i class=ai data-ic=clapperboard></i> <span>برنامه تصویربرداری و تجهیزات</span></h1>
                 <p class="page-subtitle">تاریخ و لوکیشن شوت، عوامل، رزرو تجهیزات (بدون رزرو دوباره) و برگه برنامه روز فیلم‌برداری.</p>
             </div>
-            <button type="button" class="btn-primary" onclick="editShoot()">➕ تصویربرداری جدید</button>
+            <button type="button" class="btn-primary" onclick="editShoot()"><i class=ai data-ic=plus></i> تصویربرداری جدید</button>
         </div>
         <div class="wf-page">
             <div class="wf-tabs" role="tablist">
@@ -44,7 +44,7 @@
             const pane = document.getElementById('pane');
             const today = todayJalali();
             if (tab === 'equipment') {
-                pane.innerHTML = `<div class="wf-row" style="margin-bottom:12px"><button type="button" class="wf-btn primary" onclick="editEquipment()">➕ تجهیز جدید</button></div>
+                pane.innerHTML = `<div class="wf-row" style="margin-bottom:12px"><button type="button" class="wf-btn primary" onclick="editEquipment()"><i class=ai data-ic=plus></i> تجهیز جدید</button></div>
                     <div class="wf-card"><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>نام</th><th>دسته</th><th>سریال</th><th>وضعیت</th><th>رزروهای پیش رو</th><th></th></tr></thead><tbody>
                     ${equipment.map(eq => {
                         const next = shoots.filter(s => s.status === 'planned' && s.date >= today && (s.equipment_ids || []).includes(eq.id));
@@ -62,11 +62,11 @@
             pane.innerHTML = list.map(s => `
                 <div class="wf-card" style="border-right:4px solid ${escapeHtml(safeColor(s.org_color || '') || 'var(--primary-color)')}">
                     <div class="wf-row between"><div><b style="font-size:1.05rem">${escapeHtml(s.title)}</b> <span class="muted">${escapeHtml(s.org_name || '')}</span></div>${statusChip(...(STATUS[s.status] || ['', '']))}</div>
-                    <div class="wf-row" style="margin:8px 0;font-size:.9rem">📅 ${fa(s.date)} ${s.start_time ? '⏰ ' + fa(s.start_time) + (s.end_time ? '–' + fa(s.end_time) : '') : ''} ${s.location ? '📍 ' + escapeHtml(s.location) : ''}</div>
-                    <div style="font-size:.85rem">👥 ${s.crew.map(m => escapeHtml(m.name) + (m.role ? ` (${escapeHtml(m.role)})` : '')).join('، ') || '—'}</div>
-                    <div style="font-size:.85rem">🎥 ${s.equipment_items.map(e => escapeHtml(e.name)).join('، ') || '—'}</div>
-                    ${s.contents.length ? `<div style="font-size:.85rem">🗂️ ${s.contents.map(c => escapeHtml(c.title)).join('، ')}</div>` : ''}
-                    <div class="wf-actions"><a class="wf-btn" href="call-sheet?id=${s.id}" target="_blank">🖨️ برگه برنامه (Call Sheet)</a><button type="button" class="wf-btn" onclick="editShoot(${s.id})">ویرایش</button><button type="button" class="wf-btn danger" onclick="delShoot(${s.id})">حذف</button></div>
+                    <div class="wf-row" style="margin:8px 0;font-size:.9rem"><i class=ai data-ic=calendar></i> ${fa(s.date)} ${s.start_time ? '<i class=ai data-ic=alarm-clock></i> ' + fa(s.start_time) + (s.end_time ? '–' + fa(s.end_time) : '') : ''} ${s.location ? '<i class=ai data-ic=map-pin></i> ' + escapeHtml(s.location) : ''}</div>
+                    <div style="font-size:.85rem"><i class=ai data-ic=users></i> ${s.crew.map(m => escapeHtml(m.name) + (m.role ? ` (${escapeHtml(m.role)})` : '')).join('، ') || '—'}</div>
+                    <div style="font-size:.85rem"><i class=ai data-ic=video></i> ${s.equipment_items.map(e => escapeHtml(e.name)).join('، ') || '—'}</div>
+                    ${s.contents.length ? `<div style="font-size:.85rem"><i class=ai data-ic=folders></i> ${s.contents.map(c => escapeHtml(c.title)).join('، ')}</div>` : ''}
+                    <div class="wf-actions"><a class="wf-btn" href="call-sheet?id=${s.id}" target="_blank"><i class=ai data-ic=printer></i> برگه برنامه (Call Sheet)</a><button type="button" class="wf-btn" onclick="editShoot(${s.id})">ویرایش</button><button type="button" class="wf-btn danger" onclick="delShoot(${s.id})">حذف</button></div>
                 </div>`).join('');
         }
         function crewRow(m) {
@@ -88,7 +88,7 @@
                 <label class="wf-label">لوکیشن<input class="form-control" id="sLoc" value="${escapeHtml(s.location || '')}"></label>
                 <label class="wf-label">لینک نقشه<input class="form-control ltr" id="sLocUrl" value="${escapeHtml(s.location_url || '')}" placeholder="https://"></label>
                 <div class="wf-label">عوامل</div><div id="sCrew">${(s.crew.length ? s.crew : [{}]).map(crewRow).join('')}</div>
-                <button type="button" class="wf-btn sm" onclick="document.getElementById('sCrew').insertAdjacentHTML('beforeend', crewRow({}))">➕ عامل دیگر</button>
+                <button type="button" class="wf-btn sm" onclick="document.getElementById('sCrew').insertAdjacentHTML('beforeend', crewRow({}))"><i class=ai data-ic=plus></i> عامل دیگر</button>
                 <div class="wf-label" style="margin-top:10px">تجهیزات (موارد رزروشده در همان ساعت قابل انتخاب نیستند؛ سرور هم بررسی می‌کند)</div>
                 <div id="sEquip" class="wf-row">${equipment.filter(e => e.is_active || s.equipment_ids.includes(e.id)).map(e => `<label class="wf-chip" style="cursor:pointer"><input type="checkbox" class="sEq" value="${e.id}" ${s.equipment_ids.includes(e.id) ? 'checked' : ''}> ${escapeHtml(e.name)}</label>`).join('') || '<span class="muted">ابتدا در تب تجهیزات، تجهیز ثبت کنید.</span>'}</div>
                 <label class="wf-label" style="margin-top:10px">کارت‌های محتوای این شوت<select class="form-control" id="sCards" multiple size="5">${cards.map(c => `<option value="${c.id}" ${s.content_ids.includes(c.id) ? 'selected' : ''}>${escapeHtml(c.title)} — ${escapeHtml(c.org_name || '')}</option>`).join('')}</select></label>
@@ -107,7 +107,7 @@
             });
             m.q('#sSave').onclick = async () => {
                 let res = await api('/api/shoots', body(false), { raw: true });
-                if (res && res.errors) return wfModal('تداخل رزرو', res.errors.map(x => `<div class="wf-msg">⛔ ${escapeHtml(x)}</div>`).join(''));
+                if (res && res.errors) return wfModal('تداخل رزرو', res.errors.map(x => `<div class="wf-msg"><i class=ai data-ic=ban></i> ${escapeHtml(x)}</div>`).join(''));
                 if (res && res.status === 'warning') {
                     const ok = await window.customConfirm('هشدار:\n' + res.warnings.join('\n') + '\n\nبا این حال ذخیره شود؟');
                     if (!ok) return;

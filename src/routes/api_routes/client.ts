@@ -68,7 +68,7 @@ subRouter.post("/client_review", (req: any, res) => {
         id: Date.now(),
         author: reviewer,
         author_type: isClient(req) ? "client" : "staff",
-        text: `${action === "approve" ? "✅ تایید" : "↩️ درخواست اصلاح"}: ${commentText}`,
+        text: `${action === "approve" ? "تایید" : "درخواست اصلاح"}: ${commentText}`,
         file_index: 0,
         timecode: null,
         x: null,
@@ -87,7 +87,7 @@ subRouter.post("/client_review", (req: any, res) => {
   const overLimit = action === "reject" && limit > 0 && rounds > limit;
   const details =
     (commentText ? ` توضیحات: ${commentText}` : "") +
-    (overLimit ? ` ⚠️ تعداد دور اصلاح (${rounds}) از سقف قرارداد (${limit}) گذشت.` : "");
+    (overLimit ? ` — تعداد دور اصلاح (${rounds}) از سقف قرارداد (${limit}) گذشت.` : "");
   addNotification(
     "نتیجه بررسی محتوا",
     `محتوای "${item.title}" توسط نماینده ${org ? org.org_name : ""} ${actionFa}.${details}`,

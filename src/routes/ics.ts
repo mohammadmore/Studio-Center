@@ -108,19 +108,19 @@ function colleagueEvents(c: any): CalEvent[] {
         uid: `pub-${card.id}`,
         date: card.publish_date,
         time: card.publish_time,
-        title: `📢 انتشار: ${card.title}`,
+        title: `انتشار: ${card.title}`,
         description: `${card.content_type || ""} — ${(card.publish_platforms || []).join("، ")}`,
       });
     }
     if (isFinished(card)) continue;
     for (const [stage, plan] of Object.entries<any>(card.stage_plan || {})) {
       if (plan?.owner_id != c.id || !plan.due_date || (card.completed_stages || []).includes(stage)) continue;
-      events.push({ uid: `stage-${card.id}-${Buffer.from(stage).toString("hex").slice(0, 40)}`, date: plan.due_date, title: `⏰ ${stage}: ${card.title}` });
+      events.push({ uid: `stage-${card.id}-${Buffer.from(stage).toString("hex").slice(0, 40)}`, date: plan.due_date, title: `موعد ${stage}: ${card.title}` });
     }
   }
   for (const s of shoots) {
     if (s.status === "cancelled" || !(s.crew || []).some((m: any) => m.colleague_id == c.id)) continue;
-    events.push({ uid: `shoot-${s.id}`, date: s.date, time: s.call_time || s.start_time, end: s.end_time, title: `🎬 ${s.title}`, location: s.location, description: s.notes });
+    events.push({ uid: `shoot-${s.id}`, date: s.date, time: s.call_time || s.start_time, end: s.end_time, title: `تصویربرداری: ${s.title}`, location: s.location, description: s.notes });
   }
   return events;
 }
@@ -133,13 +133,13 @@ function orgEvents(o: any): CalEvent[] {
       uid: `pub-${card.id}`,
       date: card.publish_date,
       time: card.publish_time,
-      title: `📢 ${card.title}`,
+      title: `انتشار: ${card.title}`,
       description: `${card.content_type || ""} — ${(card.publish_platforms || []).join("، ")}`,
     });
   }
   for (const s of shoots) {
     if (s.org_id != o.id || s.status === "cancelled") continue;
-    events.push({ uid: `shoot-${s.id}`, date: s.date, time: s.call_time || s.start_time, end: s.end_time, title: `🎬 تصویربرداری: ${s.title}`, location: s.location });
+    events.push({ uid: `shoot-${s.id}`, date: s.date, time: s.call_time || s.start_time, end: s.end_time, title: `تصویربرداری: ${s.title}`, location: s.location });
   }
   return events;
 }

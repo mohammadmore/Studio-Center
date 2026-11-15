@@ -17,12 +17,12 @@
             var anchor = document.querySelector('.main-content .page-header-container') || document.querySelector('.main-content > *');
             if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor.nextSibling); else document.body.prepend(box);
         }
-        box.innerHTML = '<b style="color: var(--error-color);">🔒 ورود از دستگاه‌های ناشناس قفل شده است</b>' +
+        box.innerHTML = '<b style="color: var(--error-color);"><i class=ai data-ic=lock></i> ورود از دستگاه‌های ناشناس قفل شده است</b>' +
             '<span style="font-size: 0.85rem; color: var(--text-gray); line-height: 1.7;">به دلیل چند رمز اشتباه پشت سر هم. صاحب حساب از دستگاه‌هایی که قبلاً با آن‌ها وارد شده هنوز می‌تواند وارد شود. اگر خودش رمز را فراموش کرده، قفل را باز کنید (و در صورت لزوم رمزش را عوض کنید).</span>' +
             list.map(function (x) {
                 return '<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; background: var(--card-bg); border:1px solid var(--border-color); border-radius:10px; padding:8px 12px;">' +
                     '<span><b>' + esc(x.name) + '</b> <span dir="ltr" style="color:var(--text-gray)">(' + esc(x.username) + ')</span> — ' + fa(x.minutes) + ' دقیقه‌ی دیگر خودکار باز می‌شود</span>' +
-                    '<button type="button" class="btn-outline" data-unlock="' + esc(x.username) + '" style="padding:6px 14px;">🔓 باز کردن قفل</button></div>';
+                    '<button type="button" class="btn-outline" data-unlock="' + esc(x.username) + '" style="padding:6px 14px;"><i class=ai data-ic=lock-open></i> باز کردن قفل</button></div>';
             }).join('');
         box.querySelectorAll('[data-unlock]').forEach(function (b) {
             b.onclick = async function () {

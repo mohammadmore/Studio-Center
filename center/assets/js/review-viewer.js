@@ -53,16 +53,16 @@
         } else if (kind === "audio") {
           html += '<audio id="rvVideo" src="' + e(url) + '" controls style="width:100%"></audio>';
         } else if (kind === "pdf") {
-          html += '<div class="wf-actions" style="justify-content:flex-start"><a class="wf-btn primary" href="' + e(url) + '" target="_blank" rel="noopener">📄 باز کردن PDF</a></div>';
+          html += '<div class="wf-actions" style="justify-content:flex-start"><a class="wf-btn primary" href="' + e(url) + '" target="_blank" rel="noopener"><i class=ai data-ic=file-text></i> باز کردن PDF</a></div>';
         } else if (f) {
-          html += '<div class="wf-actions" style="justify-content:flex-start"><a class="wf-btn primary" href="' + e(url) + '" target="_blank" rel="noopener">🔗 مشاهده فایل</a></div>';
+          html += '<div class="wf-actions" style="justify-content:flex-start"><a class="wf-btn primary" href="' + e(url) + '" target="_blank" rel="noopener"><i class=ai data-ic=link></i> مشاهده فایل</a></div>';
         }
         if (v.note) html += '<div class="wf-msg" style="margin-top:10px"><div class="meta"><b>توضیح استودیو درباره این نسخه</b></div>' + e(v.note) + "</div>";
 
         // Comment box
         html += '<div class="wf-card" style="margin-top:12px;padding:12px">' +
           '<div class="wf-row">' +
-          (kind === "video" || kind === "audio" ? '<button type="button" class="wf-btn" id="rvAtTime">⏱️ نظر در همین لحظه</button>' : "") +
+          (kind === "video" || kind === "audio" ? '<button type="button" class="wf-btn" id="rvAtTime"><i class=ai data-ic=timer></i> نظر در همین لحظه</button>' : "") +
           '<span id="rvWhere" class="muted" style="font-size:.85rem">' + whereLabel() + "</span></div>" +
           '<div class="wf-row" style="margin-top:8px"><textarea class="form-control" id="rvText" rows="2" style="flex:1" placeholder="نظر یا اصلاحیه خود را بنویسید…" aria-label="نظر"></textarea><button type="button" class="wf-btn primary" id="rvSend">ثبت نظر</button></div></div>';
 
@@ -72,7 +72,7 @@
           var pinNo = pins.indexOf(x);
           return '<div class="wf-msg ' + (x.author_type === "client" ? "client" : "") + '"' + (x.resolved ? ' style="opacity:.6"' : "") + '><div class="meta"><b>' + (x.author_type === "client" ? "شما" : "استودیو") + "</b>" +
             (x.timecode !== null && x.timecode !== undefined ? '<button type="button" class="wf-timecode" data-seek="' + x.timecode + '">' + fmt(x.timecode) + "</button>" : "") +
-            (pinNo !== -1 ? '<span class="wf-chip purple">📍 ' + window.fa(pinNo + 1) + "</span>" : "") +
+            (pinNo !== -1 ? '<span class="wf-chip purple"><i class=ai data-ic=map-pin></i> ' + window.fa(pinNo + 1) + "</span>" : "") +
             (x.resolved ? '<span class="wf-chip green">اعمال شد</span>' : "") +
             "<span>" + e(window.faDateTime(x.at)) + "</span></div>" + e(x.text) + "</div>";
         }).join("") : '<div class="wf-empty-sm">هنوز نظری ثبت نشده است.</div>');
@@ -86,7 +86,7 @@
         html += '<div class="wf-card" style="margin-top:14px"><div class="wf-row between"><h3 style="margin:0">کپشن‌ها</h3>' +
           (ca.status === "approved" ? window.statusChip("کپشن تایید شد", "green") : ca.status === "rejected" ? window.statusChip("درخواست اصلاح کپشن", "red") : window.statusChip("منتظر تایید کپشن", "amber")) + "</div>" +
           (capKeys.length ? capKeys.map(function (k) { return '<div style="margin-top:8px"><b>' + e(k) + '</b><div style="white-space:pre-wrap;font-size:.92rem;line-height:1.8">' + e(caps[k]) + "</div></div>"; }).join("") : '<div style="white-space:pre-wrap;margin-top:8px">' + e(d.caption) + "</div>") +
-          (ca.status !== "approved" ? '<div class="wf-actions"><button type="button" class="wf-btn danger" data-cap="reject">اصلاح کپشن</button><button type="button" class="wf-btn success" data-cap="approve">✓ تایید کپشن</button></div>' : "") +
+          (ca.status !== "approved" ? '<div class="wf-actions"><button type="button" class="wf-btn danger" data-cap="reject">اصلاح کپشن</button><button type="button" class="wf-btn success" data-cap="approve"><i class=ai data-ic=check></i> تایید کپشن</button></div>' : "") +
           "</div>";
       }
 
@@ -94,7 +94,7 @@
       html += '<div class="wf-card" style="margin-top:14px">' +
         '<div class="muted" style="font-size:.85rem">دور اصلاح تا کنون: ' + window.fa(d.revision_rounds) + limitNote + "</div>" +
         (awaiting
-          ? '<label class="wf-label" style="margin-top:8px">توضیح نهایی (اختیاری)<textarea class="form-control" id="rvDecisionNote" rows="2"></textarea></label><div class="wf-actions"><button type="button" class="wf-btn danger solid" data-decide="reject">↩️ نیاز به اصلاح</button><button type="button" class="wf-btn success" data-decide="approve">✓ تایید نهایی این نسخه</button></div>'
+          ? '<label class="wf-label" style="margin-top:8px">توضیح نهایی (اختیاری)<textarea class="form-control" id="rvDecisionNote" rows="2"></textarea></label><div class="wf-actions"><button type="button" class="wf-btn danger solid" data-decide="reject"><i class=ai data-ic=undo-2></i> نیاز به اصلاح</button><button type="button" class="wf-btn success" data-decide="approve"><i class=ai data-ic=check></i> تایید نهایی این نسخه</button></div>'
           : '<div class="muted" style="margin-top:6px">این محتوا در حال حاضر منتظر تصمیم شما نیست.</div>') +
         "</div>";
       body.innerHTML = html;

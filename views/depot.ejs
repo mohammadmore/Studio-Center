@@ -354,7 +354,7 @@ function toggleBatchFields() {
     if (action === 'delete') {
         container.innerHTML = `<div style="color: var(--error-color); font-weight: bold; margin-top: 10px;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/><path d='M12 9v4'/><path d='M12 17h.01'/></svg> آیا از حذف این ` + selectedBatchIds.length + ` محتوا اطمینان دارید؟ محتوا‌ها به سطل زباله منتقل خواهند شد.</div>`;
     } else if (action === 'archive') {
-        container.innerHTML = '<div style="color: #d97706; font-weight: bold; margin-top: 10px;">📦 محتوا‌های انتخاب شده به بایگانی منتقل خواهند شد.</div>';
+        container.innerHTML = '<div style="color: #d97706; font-weight: bold; margin-top: 10px;"><i class=ai data-ic=package></i> محتوا‌های انتخاب شده به بایگانی منتقل خواهند شد.</div>';
     } else if (action === 'shift_dates') {
             payload.shift_days = document.getElementById('batchShiftDaysInput').value;
         } else if (action === 'status') {
@@ -860,17 +860,17 @@ async function submitBatchEdit() {
                 <label style="font-weight: bold; display: block; margin-bottom: 8px;">عملکرد (Action)</label>
                 <select id="batchAction" onchange="toggleBatchFields()" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; background: var(--card-bg);">
                     <option value="">-- انتخاب کنید --</option>
-                    <option value="delete">🗑️ حذف گروهی</option>
-                    <option value="archive">📦 آرشیو گروهی (بایگانی)</option>
-                    <option value="status">🔄 تغییر وضعیت</option>
-                    <option value="components">🧩 ویرایش تعداد اجزا</option>
-                    <option value="org">🏢 تغییر سازمان/کارفرما</option>
-                    <option value="collection">📁 تغییر مجموعه</option>
-                    <option value="type">🏷️ تغییر نوع محتوا</option>
-                    <option value="manager">👤 تغییر مدیر پروژه</option>
-                    <option value="team">👥 تغییر همکاران تیم</option>
-                    <option value="platforms">📱 تغییر پلتفرم‌های انتشار</option>
-                    <option value="stages">⚙️ تغییر مراحل تولید</option>
+                    <option value="delete">حذف گروهی</option>
+                    <option value="archive">آرشیو گروهی (بایگانی)</option>
+                    <option value="status">تغییر وضعیت</option>
+                    <option value="components">ویرایش تعداد اجزا</option>
+                    <option value="org">تغییر سازمان/کارفرما</option>
+                    <option value="collection">تغییر مجموعه</option>
+                    <option value="type">تغییر نوع محتوا</option>
+                    <option value="manager">تغییر مدیر پروژه</option>
+                    <option value="team">تغییر همکاران تیم</option>
+                    <option value="platforms">تغییر پلتفرم‌های انتشار</option>
+                    <option value="stages">تغییر مراحل تولید</option>
                 </select>
             </div>
 
@@ -957,7 +957,7 @@ async function submitBatchEdit() {
 
         <!-- منطقه آپلود فایل -->
         <div id="excelDropZone" style="border: 2px dashed var(--border-color); background: rgba(128,128,128,0.05); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 20px;" onclick="document.getElementById('excelFileInput').click()">
-            <div style="font-size: 2.5rem; margin-bottom: 8px;">📊</div>
+            <div style="font-size: 2.5rem; margin-bottom: 8px;"><i class=ai data-ic=chart-column></i></div>
             <div style="font-weight: 700; color: var(--primary-color); font-size: 1rem; margin-bottom: 4px;">انتخاب یا رها کردن فایل اکسل (Excel)</div>
             <div style="font-size: 0.82rem; color: var(--text-gray);">فرمت‌های پشتیبانی شده: .xlsx, .xls, .csv</div>
             <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelSelect(event)">
@@ -966,7 +966,7 @@ async function submitBatchEdit() {
         <!-- پیش‌نمایش داده‌های خوانده شده -->
         <div id="excelPreviewArea" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: var(--text-gray); font-size: 0.95rem;">👁️ پیش‌نمایش محتوا‌های شناساییشده (<span id="parsedCount">0</span> مورد)</h4>
+                <h4 style="margin: 0; color: var(--text-gray); font-size: 0.95rem;"><i class=ai data-ic=eye></i> پیش‌نمایش محتوا‌های شناساییشده (<span id="parsedCount">0</span> مورد)</h4>
                 <button onclick="resetExcelImport()" style="background: none; border: none; color: var(--error-color); cursor: pointer; font-size: 0.82rem;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg> تغییر فایل</button>
             </div>
             
@@ -1360,8 +1360,8 @@ function renderKanbanBoard(allItems) {
         const me = window.currentUserFullName;
         const mine = me ? colItems.filter(i => i.project_manager === me || (Array.isArray(i.assigned_colleagues) && i.assigned_colleagues.includes(me))).length : 0;
         let html = '';
-        if (overdue) html += `<span class="col-meta col-meta-overdue" title="${escapeHtml(window.toPersianDigits(overdue) + ' مورد از تاریخ انتشار گذشته')}">⏰ ${window.toPersianDigits(overdue)}</span>`;
-        if (mine) html += `<span class="col-meta col-meta-mine" title="${escapeHtml(window.toPersianDigits(mine) + ' مورد مربوط به شما')}">👤 ${window.toPersianDigits(mine)}</span>`;
+        if (overdue) html += `<span class="col-meta col-meta-overdue" title="${escapeHtml(window.toPersianDigits(overdue) + ' مورد از تاریخ انتشار گذشته')}"><i class=ai data-ic=alarm-clock></i> ${window.toPersianDigits(overdue)}</span>`;
+        if (mine) html += `<span class="col-meta col-meta-mine" title="${escapeHtml(window.toPersianDigits(mine) + ' مورد مربوط به شما')}"><i class=ai data-ic=user></i> ${window.toPersianDigits(mine)}</span>`;
         return html;
     }
 
@@ -1438,7 +1438,7 @@ function renderKanbanBoard(allItems) {
                 
                 let teamHtml = '';
                 if (item.assigned_colleagues && item.assigned_colleagues.length > 0) {
-                    teamHtml = `<div style="margin-top: 4px; font-size: 0.75rem; color: var(--text-gray);">👥 تیم: ${escapeHtml(Array.isArray(item.assigned_colleagues) ? item.assigned_colleagues.join('، ') : item.assigned_colleagues)}</div>`;
+                    teamHtml = `<div style="margin-top: 4px; font-size: 0.75rem; color: var(--text-gray);"><i class=ai data-ic=users></i> تیم: ${escapeHtml(Array.isArray(item.assigned_colleagues) ? item.assigned_colleagues.join('، ') : item.assigned_colleagues)}</div>`;
                 }
 
                 const isEvent = item.title && item.title.includes('پست مناسبتی');
@@ -1458,7 +1458,7 @@ function renderKanbanBoard(allItems) {
                         </div>
                         ${isEvent ? `<span style="position:absolute; top:-10px; right:-10px; background:linear-gradient(135deg, #d946ef, #a855f7); color:white; font-size:0.7rem; padding:4px 10px; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.15); font-weight:bold;"><svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5.8 11.3 2 22l10.7-3.79'/><path d='M4 3h.01'/><path d='M22 8h.01'/><path d='M15 2h.01'/><path d='M22 20h.01'/><path d='m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10'/><path d='m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17'/><path d='m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7'/><path d='M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z'/></svg> مناسبت تقویمی</span>` : ''}
                         <div style="${orgBadgeStyle}; display:inline-flex; align-items:center; gap:6px;">
-                            ${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:24px; height:24px; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : '🏢'} 
+                            ${item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:24px; height:24px; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius:50%; object-fit:cover;" loading="lazy">` : '<i class=ai data-ic=building-2></i>'} 
                             <span>${escapeHtml(item.org_name || 'بدون سازمان')}</span>
                         </div>
                         <div style="font-size:1rem; font-weight:bold; color: var(--text-gray); line-height:1.4;">${escapeHtml(item.title)}</div>
@@ -1476,12 +1476,12 @@ function renderKanbanBoard(allItems) {
                                     const bg = hasItem ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
                                     const text = hasItem ? '#166534' : 'var(--error-color)';
                                     const border = hasItem ? '#bbf7d0' : 'rgba(239, 68, 68, 0.3)';
-                                    return `<div style="display:flex; align-items:center; gap:4px; padding:4px 8px; border-radius:6px; background:${bg}; color:${escapeHtml(text)}; border:1px solid ${border}; font-size:0.75rem; font-weight:bold;" title="${escapeHtml(label)}">${icon} ${hasItem ? '✓' : '✗'}</div>`;
+                                    return `<div style="display:flex; align-items:center; gap:4px; padding:4px 8px; border-radius:6px; background:${bg}; color:${escapeHtml(text)}; border:1px solid ${border}; font-size:0.75rem; font-weight:bold;" title="${escapeHtml(label)}">${icon} ${hasItem ? '<i class=ai data-ic=check></i>' : '<i class=ai data-ic=x></i>'}</div>`;
                                 };
-                                let badges = getBadge(!!item.caption, 'کپشن', '📝');
+                                let badges = getBadge(!!item.caption, 'کپشن', '<i class=ai data-ic=notebook-pen></i>');
                                 if (isVideo) {
-                                    badges += getBadge(!!item.video_link, 'ویدئو', '🎬');
-                                    badges += getBadge(!!item.cover_link, 'کاور', '🖼️');
+                                    badges += getBadge(!!item.video_link, 'ویدئو', '<i class=ai data-ic=clapperboard></i>');
+                                    badges += getBadge(!!item.cover_link, 'کاور', '<i class=ai data-ic=image></i>');
                                 }
                                 
                                 warningHtml = `<div style="margin-top:12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -1532,7 +1532,7 @@ function renderKanbanBoard(allItems) {
             if(orgItems.length === 0) return;
             
             const sampleItem = orgItems.find(i => i.org_name === orgName) || {};
-            const orgLogo = sampleItem.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(sampleItem.org_logo))}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">` : '🏢';
+            const orgLogo = sampleItem.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(sampleItem.org_logo))}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">` : '<i class=ai data-ic=building-2></i>';
             const orgColor = safeColor(sampleItem.org_color) || 'var(--primary-color)';
             
             html += `

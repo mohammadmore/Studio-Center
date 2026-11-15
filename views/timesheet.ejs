@@ -8,7 +8,7 @@
     <main class="main-content">
         <div class="page-header-container flex-responsive">
             <div>
-                <h1 class="page-title">⏱️ <span>تایم‌شیت و سودآوری</span></h1>
+                <h1 class="page-title"><i class=ai data-ic=timer></i> <span>تایم‌شیت و سودآوری</span></h1>
                 <p class="page-subtitle">زمان کار روی هر کارت را ثبت کنید تا معلوم شود کدام کارفرما واقعاً سودده است.</p>
             </div>
         </div>
@@ -60,20 +60,20 @@
                         <input class="form-control" id="nDay" data-jdp placeholder="تاریخ (امروز)" style="max-width:140px" aria-label="تاریخ">
                         <input class="form-control" id="nNote" placeholder="توضیح" style="flex:2" aria-label="توضیح">
                         <button type="button" class="wf-btn primary" onclick="addEntry()">ثبت</button>
-                        <button type="button" class="wf-btn" onclick="startTimer()">▶️ شروع تایمر</button></div></div>` : ''}
+                        <button type="button" class="wf-btn" onclick="startTimer()"><i class=ai data-ic=play></i> شروع تایمر</button></div></div>` : ''}
                     <div class="wf-grid" style="margin-bottom:14px">
                         <div class="wf-card wf-stat"><b>${hours(res && res.total_minutes)}</b><span>مجموع ساعت</span></div>
                         ${Object.entries(byOrg).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([o, m]) => `<div class="wf-card wf-stat"><b>${hours(m)}</b><span>${escapeHtml(o)}</span></div>`).join('')}
                     </div>
                     <div class="wf-card"><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>تاریخ</th>${tab === 'all' ? '<th>همکار</th>' : ''}<th>کار</th><th>برند</th><th>مدت</th><th>توضیح</th><th></th></tr></thead><tbody>
-                        ${list.map(t => `<tr><td>${fa(t.date)}</td>${tab === 'all' ? `<td>${escapeHtml(t.colleague_name)}</td>` : ''}<td>${escapeHtml(t.content_title || 'عمومی')}</td><td>${escapeHtml(t.org_name)}</td><td>${hours(t.minutes)} ساعت${t.source === 'timer' ? ' ⏱️' : ''}</td><td>${escapeHtml([t.stage, t.note].filter(Boolean).join(' — '))}</td>
+                        ${list.map(t => `<tr><td>${fa(t.date)}</td>${tab === 'all' ? `<td>${escapeHtml(t.colleague_name)}</td>` : ''}<td>${escapeHtml(t.content_title || 'عمومی')}</td><td>${escapeHtml(t.org_name)}</td><td>${hours(t.minutes)} ساعت${t.source === 'timer' ? ' <i class=ai data-ic=timer></i>' : ''}</td><td>${escapeHtml([t.stage, t.note].filter(Boolean).join(' — '))}</td>
                             <td><button type="button" class="wf-btn sm danger" onclick="delEntry(${t.id})">حذف</button></td></tr>`).join('') || `<tr><td colspan="7" class="muted">زمانی در این بازه ثبت نشده است.</td></tr>`}
                     </tbody></table></div></div>`;
             } else if (tab === 'profit') {
                 const res = await api('/api/profitability?' + range);
                 const list = (res && res.data) || [];
                 pane.innerHTML = `
-                    ${res && res.missing_rates && res.missing_rates.length ? `<div class="wf-card" style="border-color:#f59e0b">⚠️ نرخ ساعتی این همکاران ثبت نشده و هزینه نیروی انسانی‌شان صفر حساب می‌شود: ${escapeHtml(res.missing_rates.join('، '))}</div>` : ''}
+                    ${res && res.missing_rates && res.missing_rates.length ? `<div class="wf-card" style="border-color:#f59e0b"><i class=ai data-ic=triangle-alert></i> نرخ ساعتی این همکاران ثبت نشده و هزینه نیروی انسانی‌شان صفر حساب می‌شود: ${escapeHtml(res.missing_rates.join('، '))}</div>` : ''}
                     <div class="wf-card"><div class="wf-table-wrap"><table class="wf-table"><thead><tr><th>برند</th><th>ساعت کار</th><th>هزینه نیرو</th><th>سایر هزینه‌ها</th><th>درآمد</th><th>سود</th><th>حاشیه سود</th></tr></thead><tbody>
                     ${list.map(r => `<tr><td><b>${escapeHtml(r.org_name)}</b><br><small class="muted">${fa(r.delivered)} محتوای تحویلی</small></td><td>${fa(r.hours)}</td><td>${money(r.labor_cost)}</td><td>${money(r.expenses)}</td>
                         <td>${money(r.revenue)}<br><small class="muted">${r.revenue_source === 'invoices' ? 'از فاکتورها' : 'تخمین از قیمت محتواها'}</small></td>

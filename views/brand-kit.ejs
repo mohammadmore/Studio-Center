@@ -14,7 +14,7 @@
 <% } %>
         <div class="page-header-container flex-responsive">
             <div>
-                <h1 class="page-title">🎨 <span>کیت برند</span></h1>
+                <h1 class="page-title"><i class=ai data-ic=palette></i> <span>کیت برند</span></h1>
                 <p class="page-subtitle">لوگوها، فونت‌ها، پالت رنگ، راهنمای برند و بایدها و نبایدها؛ همیشه در دسترس تیم.</p>
             </div>
             <% if (!clientMode) { %>
@@ -59,14 +59,14 @@
             ${fileKind(l) === 'image' ? `<img src="${escapeHtml(safeUrl(l.url))}" alt="${escapeHtml(l.name)}" style="width:110px;height:110px;object-fit:contain;background:#fff;border:1px solid var(--border-color);border-radius:12px" loading="lazy">` : `<div class="wf-swatch" style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;font-size:2rem">${fileIcon(l)}</div>`}
             <div style="font-size:.75rem;max-width:110px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.name)}</div></a>`).join('');
         document.getElementById('kit').innerHTML = `
-            ${canEdit ? '<div class="wf-actions" style="margin-top:0;margin-bottom:12px"><button type="button" class="btn-primary" onclick="edit()">✏️ ویرایش کیت برند</button></div>' : ''}
+            ${canEdit ? '<div class="wf-actions" style="margin-top:0;margin-bottom:12px"><button type="button" class="btn-primary" onclick="edit()"><i class=ai data-ic=pencil></i> ویرایش کیت برند</button></div>' : ''}
             <div class="wf-grid-2">
                 <div class="wf-card"><h3>لوگوها</h3>${imgs || '<div class="wf-empty-sm">لوگویی ثبت نشده است.</div>'}</div>
                 <div class="wf-card"><h3>پالت رنگ</h3><div class="wf-row">${(k.colors || []).map(c => `<button type="button" class="wf-btn" onclick="copyText(${jsAttr(c.hex)})" title="کپی کد رنگ" style="flex-direction:column;gap:4px;flex:0 0 auto"><span class="wf-swatch" style="background:${escapeHtml(safeColor(c.hex))}"></span><small>${escapeHtml(c.name || '')}</small><small class="ltr">${escapeHtml(c.hex)}</small></button>`).join('') || '<div class="wf-empty-sm">رنگی ثبت نشده است.</div>'}</div></div>
                 <div class="wf-card"><h3>فونت‌ها</h3>${fileListHtml(k.fonts, { download: true, empty: 'فونتی ثبت نشده است.' })}</div>
                 <div class="wf-card"><h3>فایل‌ها و راهنمای برند (PDF، قالب‌ها…)</h3>${fileListHtml(k.files, { download: true, empty: 'فایلی ثبت نشده است.' })}</div>
-                <div class="wf-card"><h3>✅ بایدها</h3>${list(k.dos, 'ثبت نشده')}</div>
-                <div class="wf-card"><h3>⛔ نبایدها</h3>${list(k.donts, 'ثبت نشده')}</div>
+                <div class="wf-card"><h3><i class=ai data-ic=circle-check></i> بایدها</h3>${list(k.dos, 'ثبت نشده')}</div>
+                <div class="wf-card"><h3><i class=ai data-ic=ban></i> نبایدها</h3>${list(k.donts, 'ثبت نشده')}</div>
                 <div class="wf-card"><h3>لحن و صدای برند</h3><div style="white-space:pre-wrap">${escapeHtml(k.tone || '—')}</div></div>
                 <div class="wf-card"><h3>مخاطب</h3><div style="white-space:pre-wrap">${escapeHtml(k.audience || '—')}</div></div>
             </div>
@@ -84,14 +84,14 @@
             <div class="wf-label" style="margin-top:10px">فونت‌ها</div><div id="bkFonts"></div>
             <div class="wf-label" style="margin-top:10px">فایل‌ها و راهنمای برند</div><div id="bkFiles"></div>
             <div class="wf-label" style="margin-top:10px">پالت رنگ</div><div id="bkColors">${(k.colors.length ? k.colors : [{}]).map(colorRow).join('')}</div>
-            <button type="button" class="wf-btn sm" onclick="document.getElementById('bkColors').insertAdjacentHTML('beforeend', __colorRow({}))">➕ رنگ</button>
+            <button type="button" class="wf-btn sm" onclick="document.getElementById('bkColors').insertAdjacentHTML('beforeend', __colorRow({}))"><i class=ai data-ic=plus></i> رنگ</button>
             <label class="wf-label" style="margin-top:10px">بایدها (هر خط یک مورد)<textarea class="form-control" id="bkDos">${escapeHtml((k.dos || []).join('\n'))}</textarea></label>
             <label class="wf-label">نبایدها (هر خط یک مورد)<textarea class="form-control" id="bkDonts">${escapeHtml((k.donts || []).join('\n'))}</textarea></label>
             <label class="wf-label">لحن و صدای برند<textarea class="form-control" id="bkTone">${escapeHtml(k.tone || '')}</textarea></label>
             <label class="wf-label">مخاطب<textarea class="form-control" id="bkAudience">${escapeHtml(k.audience || '')}</textarea></label>
             <label class="wf-label">راهنمای برند<textarea class="form-control" id="bkGuide" rows="8">${escapeHtml(k.guidelines || '')}</textarea></label>
             <div class="wf-label">حساب‌های رسمی</div><div id="bkAcc">${(k.accounts.length ? k.accounts : [{}]).map(accRow).join('')}</div>
-            <button type="button" class="wf-btn sm" onclick="document.getElementById('bkAcc').insertAdjacentHTML('beforeend', __accRow({}))">➕ حساب</button>
+            <button type="button" class="wf-btn sm" onclick="document.getElementById('bkAcc').insertAdjacentHTML('beforeend', __accRow({}))"><i class=ai data-ic=plus></i> حساب</button>
             <div class="wf-actions"><button type="button" class="btn-primary" id="bkSave">ذخیره</button></div>`, { wide: true });
         wfFilePicker(m.q('#bkLogos'), k.logos);
         wfFilePicker(m.q('#bkFonts'), k.fonts);

@@ -3,7 +3,7 @@ import multer from "multer";
 import { mediaAssets, organizations } from "../../store/state.js";
 import { getBlobStore, saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
-import { nextId, toInt } from "../../utils/helpers.js";
+import { nextId, noEmoji, toInt } from "../../utils/helpers.js";
 import { findOrgByRef, recordBulkAdd } from "../../utils/contentUtils.js";
 import { imagePurpose, optimizeImage } from "../../utils/images.js";
 import {
@@ -129,7 +129,7 @@ subRouter.post("/save_media", checkPermission("media"), (req, res) => {
         id: currentId++,
         org_id: numericOrgId,
         asset_name: String(m.asset_name),
-        asset_type: String(m.asset_type || "تصویر / لوگو 🖼️"),
+        asset_type: noEmoji(m.asset_type) || "تصویر / لوگو",
         file_url: m.file_url.trim(),
         created_at: new Date().toLocaleDateString("fa-IR"),
       };
@@ -155,7 +155,7 @@ subRouter.post("/save_media", checkPermission("media"), (req, res) => {
     id: nextId(mediaAssets),
     org_id: org_id ? toInt(org_id) : null,
     asset_name,
-    asset_type,
+    asset_type: noEmoji(asset_type),
     file_url: file_url.trim(),
     created_at: new Date().toLocaleDateString("fa-IR"),
   });

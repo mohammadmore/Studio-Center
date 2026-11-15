@@ -8,17 +8,17 @@
     <main class="main-content">
         <div class="page-header-container flex-responsive">
             <div>
-                <h1 class="page-title">⚖️ <span>بار کاری و ظرفیت تیم</span></h1>
+                <h1 class="page-title"><i class=ai data-ic=scale></i> <span>بار کاری و ظرفیت تیم</span></h1>
                 <p class="page-subtitle">چه کسی چقدر کار دارد؛ با درنظرگرفتن مرخصی‌ها، موعد مراحل، انتشارها و تصویربرداری‌ها.</p>
             </div>
         </div>
         <div class="wf-page" style="max-width:none">
             <div class="wf-toolbar">
-                <button type="button" class="wf-btn" onclick="shift(-7)">→ هفته قبل</button>
+                <button type="button" class="wf-btn" onclick="shift(-7)"><i class=ai data-ic=arrow-right></i> هفته قبل</button>
                 <label class="wf-label" style="margin:0">از<input class="form-control" id="fFrom" data-jdp style="width:130px" onchange="load()"></label>
                 <label class="wf-label" style="margin:0">تا<input class="form-control" id="fTo" data-jdp style="width:130px" onchange="load()"></label>
-                <button type="button" class="wf-btn" onclick="shift(7)">هفته بعد ←</button>
-                <span class="muted" style="font-size:.8rem">🟩 سبک 🟨 متوسط 🟥 سنگین ▨ مرخصی</span>
+                <button type="button" class="wf-btn" onclick="shift(7)">هفته بعد <i class=ai data-ic=arrow-left></i></button>
+                <span class="muted" style="font-size:.8rem"><i class="ai ai-fill" data-ic=square style="color:#10b981"></i> سبک <i class="ai ai-fill" data-ic=square style="color:#f59e0b"></i> متوسط <i class="ai ai-fill" data-ic=square style="color:#ef4444"></i> سنگین ▨ مرخصی</span>
             </div>
             <div id="summary" class="wf-grid" style="margin-bottom:16px"></div>
             <div class="wf-card"><div class="wf-table-wrap" id="matrix"><div class="wf-empty">در حال بارگذاری…</div></div></div>
@@ -59,7 +59,7 @@
                         <td>${r.overdue ? `<span class="wf-chip red">${fa(r.overdue)}</span>` : '—'}</td>
                         ${r.days.map(d => {
                             const level = d.on_leave ? 'leave' : d.count === 0 ? '' : d.count <= 1 ? 'l1' : d.count <= 3 ? 'l2' : 'l3';
-                            const tip = [...d.stages.map(s => '⏰ ' + s.stage + ': ' + s.title), ...d.publishing.map(p => '📢 ' + p.title), ...d.shoots.map(s => '🎬 ' + s.title)].join('\n');
+                            const tip = [...d.stages.map(s => '<i class=ai data-ic=alarm-clock></i> ' + s.stage + ': ' + s.title), ...d.publishing.map(p => '<i class=ai data-ic=megaphone></i> ' + p.title), ...d.shoots.map(s => '<i class=ai data-ic=clapperboard></i> ' + s.title)].join('\n');
                             return `<td><div class="wf-cell ${level}" title="${escapeHtml(tip)}">${d.on_leave ? 'مرخصی' : d.count ? fa(d.count) + (d.hours ? `<br><small>${fa(d.hours)} ساعت</small>` : '') : ''}</div></td>`;
                         }).join('')}</tr>`;
                 }).join('')}

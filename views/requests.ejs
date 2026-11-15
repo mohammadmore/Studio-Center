@@ -8,10 +8,10 @@
     <main class="main-content">
         <div class="page-header-container flex-responsive">
             <div>
-                <h1 class="page-title">📨 <span>درخواست‌ها و بریف‌های کارفرما</span></h1>
+                <h1 class="page-title"><i class=ai data-ic=mail></i> <span>درخواست‌ها و بریف‌های کارفرما</span></h1>
                 <p class="page-subtitle">درخواست‌های رسیده از برندها را بررسی کنید، اطلاعات تکمیلی بخواهید و با یک کلیک به کارت تولید تبدیل کنید.</p>
             </div>
-            <button type="button" class="btn-primary" onclick="openRequestForm()">➕ ثبت درخواست از طرف برند</button>
+            <button type="button" class="btn-primary" onclick="openRequestForm()"><i class=ai data-ic=plus></i> ثبت درخواست از طرف برند</button>
         </div>
 
         <div class="wf-page">
@@ -61,12 +61,12 @@
                 <div class="wf-card" style="cursor:pointer" onclick="openDetail(${r.id})" tabindex="0" onkeydown="if(event.key==='Enter')openDetail(${r.id})">
                     <div class="wf-row between"><b>${escapeHtml(r.title)}</b>${statusChip(r.status_fa, TONE[r.status])}</div>
                     <div class="muted" style="font-size:.85rem;margin:6px 0">${escapeHtml(r.org_name)} — ${escapeHtml(faDateTime(r.created_at))}</div>
-                    ${r.goal ? `<div style="font-size:.88rem">🎯 ${escapeHtml(r.goal.slice(0, 120))}</div>` : ''}
+                    ${r.goal ? `<div style="font-size:.88rem"><i class=ai data-ic=target></i> ${escapeHtml(r.goal.slice(0, 120))}</div>` : ''}
                     <div class="wf-row" style="margin-top:8px">
                         ${r.deadline ? statusChip('مهلت ' + fa(r.deadline), 'amber') : ''}
                         ${r.content_type ? statusChip(r.content_type, '') : ''}
-                        ${(r.attachments || []).length ? statusChip('📎 ' + fa(r.attachments.length), '') : ''}
-                        ${(r.messages || []).length ? statusChip('💬 ' + fa(r.messages.length), '') : ''}
+                        ${(r.attachments || []).length ? `<span class="wf-chip"><i class=ai data-ic=paperclip></i> ${escapeHtml(fa(r.attachments.length))}</span>` : ''}
+                        ${(r.messages || []).length ? `<span class="wf-chip"><i class=ai data-ic=message-circle></i> ${escapeHtml(fa(r.messages.length))}</span>` : ''}
                     </div>
                 </div>`).join('');
         }
@@ -95,9 +95,9 @@
                     <label class="wf-label">مدیر پروژه<select class="form-control" id="rqPm">${optionList(window.allColleagues, 'id', 'full_name', '', '— انتخاب —')}</select></label>
                     <label class="wf-label">مراحل تولید (با کاما جدا کنید)<input class="form-control" id="rqStages" placeholder="ایده و سناریو، تصویربرداری، تدوین"></label>
                     <div class="wf-actions">
-                        <button type="button" class="wf-btn" id="rqInfo">❓ درخواست اطلاعات بیشتر</button>
+                        <button type="button" class="wf-btn" id="rqInfo"><i class=ai data-ic=circle-help></i> درخواست اطلاعات بیشتر</button>
                         <button type="button" class="wf-btn danger" id="rqReject">رد درخواست</button>
-                        <button type="button" class="btn-primary" id="rqConvert">✅ پذیرش و ساخت کارت</button>
+                        <button type="button" class="btn-primary" id="rqConvert"><i class=ai data-ic=circle-check></i> پذیرش و ساخت کارت</button>
                     </div></div>` : ''}
             `, { wide: true });
             m.q('#rqSend').onclick = async () => {

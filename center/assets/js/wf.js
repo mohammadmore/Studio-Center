@@ -137,12 +137,12 @@
   // ---------- files ----------
   window.fileIcon = function (f) {
     var n = String((f && (f.name || f.url)) || "").toLowerCase();
-    if (/\.(mp4|mov|webm|mkv)$/.test(n)) return "🎬";
-    if (/\.(png|jpe?g|gif|webp)$/.test(n)) return "🖼️";
-    if (/\.(mp3|wav)$/.test(n)) return "🎵";
-    if (/\.pdf$/.test(n)) return "📄";
-    if (/\.(zip|rar)$/.test(n)) return "🗜️";
-    return "📎";
+    if (/\.(mp4|mov|webm|mkv)$/.test(n)) return "<i class=ai data-ic=clapperboard></i>";
+    if (/\.(png|jpe?g|gif|webp)$/.test(n)) return "<i class=ai data-ic=image></i>";
+    if (/\.(mp3|wav)$/.test(n)) return "<i class=ai data-ic=music></i>";
+    if (/\.pdf$/.test(n)) return "<i class=ai data-ic=file-text></i>";
+    if (/\.(zip|rar)$/.test(n)) return "<i class=ai data-ic=file-archive></i>";
+    return "<i class=ai data-ic=paperclip></i>";
   };
   window.fileKind = function (f) {
     var n = String((f && (f.url || f.name)) || "").toLowerCase().split("?")[0];
@@ -175,8 +175,8 @@
       container.innerHTML =
         window.fileListHtml(list, { removable: true }) +
         '<div class="wf-row" style="margin-top:8px">' +
-        '<button type="button" class="wf-btn" data-act="upload">⬆️ آپلود فایل (حتی حجیم)</button>' +
-        '<button type="button" class="wf-btn" data-act="link">🔗 افزودن لینک</button>' +
+        '<button type="button" class="wf-btn" data-act="upload"><i class=ai data-ic=upload></i> آپلود فایل (حتی حجیم)</button>' +
+        '<button type="button" class="wf-btn" data-act="link"><i class=ai data-ic=link></i> افزودن لینک</button>' +
         "</div>";
       container.querySelector('[data-act="upload"]').onclick = async function () {
         var up = await window.asvaPickAndUpload();
@@ -245,8 +245,8 @@
     }
     function render() {
       box.innerHTML = '<select class="form-control" aria-label="نماهای ذخیره‌شده" style="width:auto;padding:12px;border-radius:8px;min-width:150px">' +
-        '<option value="">⭐ نماهای ذخیره‌شده</option>' + views.map(function (v) { return '<option value="' + window.escapeHtml(v.id) + '">' + window.escapeHtml(v.name) + "</option>"; }).join("") +
-        '<option value="__save">➕ ذخیره فیلترهای فعلی…</option>' + (views.length ? '<option value="__delete">🗑️ حذف یک نما…</option>' : "") + "</select>";
+        '<option value="">نماهای ذخیره‌شده</option>' + views.map(function (v) { return '<option value="' + window.escapeHtml(v.id) + '">' + window.escapeHtml(v.name) + "</option>"; }).join("") +
+        '<option value="__save">ذخیره فیلترهای فعلی…</option>' + (views.length ? '<option value="__delete">حذف یک نما…</option>' : "") + "</select>";
       var sel = box.querySelector("select");
       sel.onchange = async function () {
         var val = sel.value;
@@ -262,7 +262,7 @@
             var ul = dm.q("#svList");
             if (!views.length) { ul.innerHTML = '<li class="muted">نمایی باقی نمانده است.</li>'; return; }
             ul.innerHTML = views.map(function (v) {
-              return '<li><span style="flex:1">⭐ ' + window.escapeHtml(v.name) + '</span><button type="button" class="wf-btn sm danger" data-del="' + window.escapeHtml(v.id) + '">حذف</button></li>';
+              return '<li><span style="flex:1"><i class=ai data-ic=star></i> ' + window.escapeHtml(v.name) + '</span><button type="button" class="wf-btn sm danger" data-del="' + window.escapeHtml(v.id) + '">حذف</button></li>';
             }).join("");
             ul.querySelectorAll("[data-del]").forEach(function (b) {
               b.onclick = async function () {

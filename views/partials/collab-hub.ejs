@@ -189,7 +189,7 @@
                     <input type="text" id="newAttachName" class="input-text form-control" style="flex:1; min-width:100px;" placeholder="نام فایل" aria-label="نام فایل">
                     <input type="text" id="newAttachUrl" class="input-text form-control" style="flex:2; min-width:140px;" placeholder="لینک (Google Drive یا ...)" aria-label="لینک فایل">
                     <button class="btn-primary" type="button" onclick="submitAttachment(${id})">افزودن لینک</button>
-                    <button class="btn-outline" type="button" onclick="uploadAttachment(${id})">⬆️ آپلود فایل</button>
+                    <button class="btn-outline" type="button" onclick="uploadAttachment(${id})"><i class=ai data-ic=upload></i> آپلود فایل</button>
                 </div>
                 <div id="attachmentsList">
                     ${attachments.map(a => `
@@ -197,7 +197,7 @@
                             <img src="${escapeHtml(safeUrl(a.avatar) || initialsAvatar(a.uploader))}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border: 1px solid var(--border-color);" alt="${escapeHtml(a.uploader)}">
                             <div style="flex:1;">
                                 <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${escapeHtml(a.uploader)}</span><span style="font-size:0.75rem;">${new Date(a.timestamp).toLocaleString('fa-IR')}</span></div>
-                                <a href="${escapeHtml(safeUrl(a.url))}" target="_blank" style="color:var(--primary-color); text-decoration:none; display:inline-block; margin-top:4px;">🔗 ${escapeHtml(a.name)}</a>
+                                <a href="${escapeHtml(safeUrl(a.url))}" target="_blank" style="color:var(--primary-color); text-decoration:none; display:inline-block; margin-top:4px;"><i class=ai data-ic=link></i> ${escapeHtml(a.name)}</a>
                             </div>
                         </div>
                     `).join('')}
@@ -246,7 +246,7 @@
                 <div style="flex:1;">
                     <div class="comment-header"><span style="font-weight:bold; color:var(--text-dark);">${escapeHtml(c.full_name || c.user)}</span><span style="font-size:0.75rem;">${new Date(c.timestamp).toLocaleString('fa-IR')}</span></div>
                     <div class="comment-text" style="margin-top:4px; white-space:pre-wrap;">${highlightMentions(c.text)}</div>
-                    ${isReply ? '' : `<button type="button" class="wf-btn sm" style="margin-top:4px" onclick="startReply(${jsAttr(c.id)}, ${jsAttr(c.full_name || c.user)})">↩️ پاسخ</button>`}
+                    ${isReply ? '' : `<button type="button" class="wf-btn sm" style="margin-top:4px" onclick="startReply(${jsAttr(c.id)}, ${jsAttr(c.full_name || c.user)})"><i class=ai data-ic=undo-2></i> پاسخ</button>`}
                 </div>
             </div>`;
         return roots.map(root => {

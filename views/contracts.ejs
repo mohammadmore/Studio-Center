@@ -8,7 +8,7 @@
     <main class="main-content">
         <div class="page-header-container flex-responsive">
             <div>
-                <h1 class="page-title">📑 <span>قراردادها و پکیج‌های ماهانه</span></h1>
+                <h1 class="page-title"><i class=ai data-ic=file-signature></i> <span>قراردادها و پکیج‌های ماهانه</span></h1>
                 <p class="page-subtitle">تعهد هر برند در ماه (مثلاً ۱۲ پست، ۸ استوری، ۴ ریلز) در برابر آنچه تحویل شده؛ مازاد و کسری مستقیم به فاکتور می‌رود.</p>
             </div>
         </div>
@@ -58,7 +58,7 @@
                             ${c && !d.active ? statusChip('خارج از بازه قرارداد', 'amber') : ''}
                         </div>
                         <div class="wf-row">
-                            <button type="button" class="wf-btn" onclick="editContract(${d.org_id})">${c ? 'ویرایش قرارداد' : '➕ تعریف قرارداد'}</button>
+                            <button type="button" class="wf-btn" onclick="editContract(${d.org_id})">${c ? 'ویرایش قرارداد' : '<i class=ai data-ic=plus></i> تعریف قرارداد'}</button>
                             ${c ? `<button type="button" class="wf-btn" onclick="bill(${d.org_id}, 'quote')">پیش‌فاکتور این ماه</button><button type="button" class="wf-btn primary" onclick="bill(${d.org_id}, 'invoice')">فاکتور این ماه</button>` : ''}
                             <a class="wf-btn" href="monthly-report?org_id=${d.org_id}&year=${d.year}&month=${d.month}">گزارش ماهانه</a>
                         </div>
@@ -91,7 +91,7 @@
                 </div>
                 <div class="wf-label">سهمیه ماهانه هر نوع محتوا</div>
                 <div id="cQuotas">${(c.quotas.length ? c.quotas : [{}]).map(quotaRow).join('')}</div>
-                <button type="button" class="wf-btn sm" onclick="document.getElementById('cQuotas').insertAdjacentHTML('beforeend', quotaRow({}))">➕ نوع دیگر</button>
+                <button type="button" class="wf-btn sm" onclick="document.getElementById('cQuotas').insertAdjacentHTML('beforeend', quotaRow({}))"><i class=ai data-ic=plus></i> نوع دیگر</button>
                 <div class="wf-label" style="margin-top:10px"><label><input type="checkbox" id="cOver" ${c.charge_overage !== false ? 'checked' : ''}> مازاد بر سهمیه در فاکتور محاسبه شود</label></div>
                 <div class="wf-label"><label><input type="checkbox" id="cShort" ${c.credit_shortfall ? 'checked' : ''}> کسری تحویل از مبلغ فاکتور کم شود</label></div>
                 <label class="wf-label">یادداشت داخلی<textarea class="form-control" id="cNotes">${escapeHtml(c.notes || '')}</textarea></label>

@@ -165,15 +165,15 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
 <body>
 <div class="toolbar" role="toolbar" aria-label="تنظیمات خروجی گزارش">
     <div class="group">
-        <a class="tb" href="reports" title="بازگشت به صفحه‌ی گزارش">→ بازگشت</a>
+        <a class="tb" href="reports" title="بازگشت به صفحه‌ی گزارش"><i class=ai data-ic=arrow-right></i> بازگشت</a>
         <span style="font-weight:700;">تم:</span>
-        <button type="button" id="themeGlass" aria-pressed="true" onclick="setTheme('glass')">✨ شیشه‌ای</button>
-        <button type="button" id="themePlain" aria-pressed="false" onclick="setTheme('plain')">🖨️ ساده (سیاه‌وسفید)</button>
-        <button type="button" onclick="togglePanel()" aria-expanded="false" id="panelBtn">⚙️ تنظیم سربرگ</button>
+        <button type="button" id="themeGlass" aria-pressed="true" onclick="setTheme('glass')"><i class=ai data-ic=sparkles></i> شیشه‌ای</button>
+        <button type="button" id="themePlain" aria-pressed="false" onclick="setTheme('plain')"><i class=ai data-ic=printer></i> ساده (سیاه‌وسفید)</button>
+        <button type="button" onclick="togglePanel()" aria-expanded="false" id="panelBtn"><i class=ai data-ic=settings></i> تنظیم سربرگ</button>
     </div>
     <div class="group">
         <span class="hint">در پنجره‌ی چاپ، مقصد را «Save as PDF» بگذارید.</span>
-        <button type="button" class="primary" onclick="downloadPdf()">⬇️ دانلود PDF</button>
+        <button type="button" class="primary" onclick="downloadPdf()"><i class=ai data-ic=download></i> دانلود PDF</button>
     </div>
 </div>
 
@@ -198,7 +198,7 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
         <label><input type="checkbox" id="showTable" checked> فهرست محتواها</label>
     </div>
     <div class="actions">
-        <button type="button" class="save" onclick="saveLetterhead()"><%= canSaveLetterhead ? '💾 ذخیره به‌عنوان پیش‌فرض استودیو' : '💾 ذخیره برای همین مرورگر' %></button>
+        <button type="button" class="save" onclick="saveLetterhead()"><%= canSaveLetterhead ? '<i class=ai data-ic=save></i> ذخیره به‌عنوان پیش‌فرض استودیو' : '<i class=ai data-ic=save></i> ذخیره برای همین مرورگر' %></button>
         <button type="button" onclick="resetLetterhead()">بازگشت به اطلاعات استودیو</button>
         <span id="saveNote" style="font-size:0.8rem; color:#475569;"></span>
     </div>
@@ -261,13 +261,13 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
     window.saveLetterhead = async function () {
         var cfg = currentLetterhead(), note = $("saveNote");
         if (!CAN_SAVE) {
-            try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); note.textContent = "✓ برای همین مرورگر ذخیره شد."; } catch (e) { note.textContent = "ذخیره نشد."; }
+            try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); note.innerHTML = "<i class=ai data-ic=check></i> برای همین مرورگر ذخیره شد."; } catch (e) { note.textContent = "ذخیره نشد."; }
             return;
         }
         try {
             var r = await fetch("/api/save_studio_info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg) });
             var j = await r.json();
-            note.textContent = j.status === "success" ? "✓ سربرگ به‌عنوان پیش‌فرض همه‌ی گزارش‌ها ذخیره شد." : (j.message || "ذخیره نشد.");
+            if (j.status === "success") note.innerHTML = "<i class=ai data-ic=check></i> سربرگ به‌عنوان پیش‌فرض همه‌ی گزارش‌ها ذخیره شد."; else note.textContent = j.message || "ذخیره نشد.";
             if (j.status === "success") Object.assign(studio, cfg);
         } catch (e) { note.textContent = "خطا در ارتباط با سرور."; }
     };
@@ -358,7 +358,7 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
         if (q.get("status")) filters.push("وضعیت: " + (STATUS_CODE[q.get("status")] || q.get("status")));
         if (q.get("platform")) filters.push("پلتفرم: " + q.get("platform"));
         if (q.get("col") && collectionsById[q.get("col")]) filters.push("مجموعه: " + collectionsById[q.get("col")]);
-        var contactBits = [cfg.report_phone && ("☎ " + '<span dir="ltr">' + esc(fa(cfg.report_phone)) + '</span>'), cfg.report_email && ('<span dir="ltr">' + esc(cfg.report_email) + '</span>'), cfg.report_website && ('<span dir="ltr">' + esc(cfg.report_website) + '</span>'), cfg.report_address && esc(cfg.report_address)].filter(Boolean);
+        var contactBits = [cfg.report_phone && ("<i class=ai data-ic=phone></i> " + '<span dir="ltr">' + esc(fa(cfg.report_phone)) + '</span>'), cfg.report_email && ('<span dir="ltr">' + esc(cfg.report_email) + '</span>'), cfg.report_website && ('<span dir="ltr">' + esc(cfg.report_website) + '</span>'), cfg.report_address && esc(cfg.report_address)].filter(Boolean);
         var brandLogo = safeUrl(org.logo_url);
         var brandColor = plain() ? "#374151" : (safeColor(org.color) || "var(--accent)");
 
@@ -369,7 +369,7 @@ html[data-report-theme="plain"] .bar-row .track, html[data-report-theme="plain"]
             (cfg.report_show_contact && contactBits.length ? '<div class="lh-contact">' + contactBits.map(function (b) { return '<div>' + b + '</div>'; }).join("") + '</div>' : '') +
             '</header>';
         html += '<section class="titlebar"><div class="title-main"><h1>' + esc(title) + '</h1><div class="meta">' +
-            '<span class="chip">📅 ' + esc(rangeText()) + '</span><span class="chip">تاریخ گزارش: ' + esc(today) + '</span>' +
+            '<span class="chip"><i class=ai data-ic=calendar></i> ' + esc(rangeText()) + '</span><span class="chip">تاریخ گزارش: ' + esc(today) + '</span>' +
             filters.map(function (f) { return '<span class="chip">' + esc(f) + '</span>'; }).join("") + '</div></div>' +
             (cfg.report_show_brand ? '<div class="brand">' + (brandLogo ? '<img src="' + esc(brandLogo) + '" alt="">' : '<span class="avatar" style="background:' + brandColor + '">' + esc((org.org_name || "؟").charAt(0)) + '</span>') +
                 '<div style="min-width:0"><div class="label">کارفرما</div><div class="bname">' + esc(org.org_name || "") + '</div></div></div>' : '') +

@@ -117,7 +117,7 @@ function addPreviewBanner(html: string, org: any) {
   const name = String(org?.org_name || "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
   const bar =
     `<div role="status" style="position:sticky;top:0;z-index:2147483646;background:#1e293b;color:#fff;padding:8px 14px;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:.9rem;font-family:inherit">` +
-    `<span>👁️ در حال مشاهده‌ی پنل «${name}» از نگاه کارفرما — فقط مشاهده، تغییری ثبت نمی‌شود</span>` +
+    `<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-left:6px"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>در حال مشاهده‌ی پنل «${name}» از نگاه کارفرما — فقط مشاهده، تغییری ثبت نمی‌شود</span>` +
     `<a href="/client-preview/exit" style="background:#fff;color:#1e293b;border-radius:8px;padding:4px 12px;text-decoration:none;font-weight:bold">بازگشت به پنل استودیو</a></div>`;
   return /<body[^>]*>/i.test(html) ? html.replace(/<body[^>]*>/i, (m) => m + bar) : bar + html;
 }

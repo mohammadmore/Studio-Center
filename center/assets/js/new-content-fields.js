@@ -82,7 +82,7 @@
       var h = id("CollectionHint");
       if (!h) return;
       var t = (id("Collection").value || "").trim();
-      h.textContent = !t ? "" : matchCollection() ? "✓ در همین مجموعه قرار می‌گیرد." : "➕ مجموعه‌ی تازه‌ای با این نام برای همین برند ساخته می‌شود.";
+      h.innerHTML = !t ? "" : matchCollection() ? "<i class=ai data-ic=check></i> در همین مجموعه قرار می‌گیرد." : "<i class=ai data-ic=plus></i> مجموعه‌ی تازه‌ای با این نام برای همین برند ساخته می‌شود.";
     }
 
     function read() {

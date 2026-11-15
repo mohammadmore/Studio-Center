@@ -98,3 +98,11 @@ export function safeUrl(value: unknown) {
   const url = String(value ?? "").trim();
   return /^(https?:\/\/|\/(?!\/)|data:image\/(png|jpe?g|gif|webp);base64,)/i.test(url) ? url : "";
 }
+
+/** Drops emoji from a label (old saved values such as media types used to carry one). */
+export function noEmoji(v: unknown): string {
+  return String(v ?? "")
+    .replace(/(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})️?|️/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}

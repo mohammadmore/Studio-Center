@@ -8,7 +8,7 @@
     <main class="main-content">
         <div class="page-header-container flex-responsive">
             <div>
-                <h1 class="page-title">📣 <span>اعلان‌های خارجی و گردش کار</span></h1>
+                <h1 class="page-title"><i class=ai data-ic=megaphone></i> <span>اعلان‌های خارجی و گردش کار</span></h1>
                 <p class="page-subtitle">ارسال اعلان‌ها با پیامک، ایمیل، تلگرام و بله، تا کارفرما و تیم بدون ورود به سیستم هم باخبر شوند.</p>
             </div>
         </div>
@@ -47,21 +47,21 @@
                 pane.innerHTML = `
                     <div class="wf-card"><label class="wf-label">آدرس اینترنتی سامانه (برای ساخت لینک داخل پیام‌ها)<input class="form-control ltr" id="baseUrl" value="${val(cfg.base_url)}" placeholder="https://panel.example.com"></label></div>
                     <div class="wf-grid-2">
-                        <div class="wf-card">${toggle('sms', '📱 پیامک')}
+                        <div class="wf-card">${toggle('sms', '<i class=ai data-ic=smartphone></i> پیامک')}
                             <label class="wf-label">سرویس‌دهنده<select class="form-control" data-ch="sms" data-k="provider"><option value="kavenegar" ${cfg.sms.provider === 'kavenegar' ? 'selected' : ''}>کاوه‌نگار</option><option value="webhook" ${cfg.sms.provider === 'webhook' ? 'selected' : ''}>وب‌هوک (هر سرویس دیگر)</option></select></label>
                             ${field('sms', 'api_key', 'کلید API', { ph: 'API Key' })}${field('sms', 'sender', 'شماره فرستنده', { ph: '10004346' })}
                             ${field('sms', 'webhook_url', 'آدرس وب‌هوک (فقط حالت وب‌هوک؛ بدنه: to، message)', { ph: 'https://' })}
                             ${testRow('sms', '09121234567')}</div>
-                        <div class="wf-card">${toggle('email', '✉️ ایمیل (SMTP)')}
+                        <div class="wf-card">${toggle('email', '<i class=ai data-ic=mail></i> ایمیل (SMTP)')}
                             ${field('email', 'host', 'سرور SMTP', { ph: 'mail.example.com' })}
                             <div class="wf-grid-2">${field('email', 'port', 'پورت', { type: 'number' })}<label class="wf-label" style="padding-top:26px"><input type="checkbox" data-ch="email" data-k="secure" ${cfg.email.secure ? 'checked' : ''}> اتصال امن (SSL)</label></div>
                             ${field('email', 'user', 'نام کاربری')}${field('email', 'pass', 'رمز عبور', { type: 'password' })}${field('email', 'from', 'فرستنده', { ph: 'Studio <no-reply@example.com>' })}
                             ${testRow('email', 'name@example.com')}</div>
-                        <div class="wf-card">${toggle('telegram', '✈️ ربات تلگرام')}
+                        <div class="wf-card">${toggle('telegram', '<i class=ai data-ic=send></i> ربات تلگرام')}
                             ${field('telegram', 'bot_token', 'توکن ربات (از BotFather)', { ph: '123456:ABC...' })}
                             <p class="muted" style="font-size:.8rem">هر گیرنده باید یک‌بار ربات را استارت کند؛ شناسه گفت‌وگو (chat id) او را در تب مخاطبین وارد کنید.</p>
                             ${testRow('telegram', 'chat id')}</div>
-                        <div class="wf-card">${toggle('bale', '💬 ربات بله')}
+                        <div class="wf-card">${toggle('bale', '<i class=ai data-ic=message-circle></i> ربات بله')}
                             ${field('bale', 'bot_token', 'توکن ربات (از BotFather بله)', { ph: '123456:ABC...' })}
                             ${testRow('bale', 'chat id')}</div>
                     </div>
