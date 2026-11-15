@@ -77,8 +77,9 @@ button[style*="background: var(--warning-color)"], a[style*="background: var(--w
 .gbtn.soft, .btn-danger-light, .btn-delete, .btn-delete-perm, .wf-btn.danger:not(.solid), .btn-edit {
   --t: var(--gb-danger-2);
   background-color: transparent !important;
-  background-image: var(--gb-sheen), linear-gradient(135deg, color-mix(in srgb, var(--t) 18%, transparent), color-mix(in srgb, var(--t) 7%, transparent)) !important;
-  color: var(--t) !important;
+  /* Tint over a frosted base, so the colour reads on the lively backdrop too. */
+  background-image: var(--gb-sheen), linear-gradient(135deg, color-mix(in srgb, var(--t) 18%, transparent), color-mix(in srgb, var(--t) 7%, transparent)), linear-gradient(var(--glass-3, rgba(255,255,255,.85)), var(--glass-3, rgba(255,255,255,.85))) !important;
+  color: color-mix(in srgb, var(--t) 80%, #000) !important;
   border: 1px solid color-mix(in srgb, var(--t) 32%, transparent) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 14px -8px color-mix(in srgb, var(--t) 60%, transparent) !important;
   -webkit-backdrop-filter: blur(8px) saturate(140%);
@@ -89,8 +90,8 @@ button[style*="background: var(--warning-color)"], a[style*="background: var(--w
 .gbtn.soft.success { --t: var(--gb-success-2); }
 .gbtn.soft.warning { --t: var(--gb-warning-2); }
 :is(.gbtn.soft, .btn-danger-light, .btn-delete, .btn-delete-perm, .wf-btn.danger:not(.solid), .btn-edit):hover:not(:disabled) {
-  color: var(--t) !important;
-  background-image: var(--gb-sheen), linear-gradient(135deg, color-mix(in srgb, var(--t) 28%, transparent), color-mix(in srgb, var(--t) 12%, transparent)) !important;
+  color: color-mix(in srgb, var(--t) 80%, #000) !important;
+  background-image: var(--gb-sheen), linear-gradient(135deg, color-mix(in srgb, var(--t) 28%, transparent), color-mix(in srgb, var(--t) 12%, transparent)), linear-gradient(var(--glass-3, rgba(255,255,255,.85)), var(--glass-3, rgba(255,255,255,.85))) !important;
   transform: translateY(-1px);
 }
 /* Low specificity on purpose: rules that make a tinted button solid (template cards) must win. */

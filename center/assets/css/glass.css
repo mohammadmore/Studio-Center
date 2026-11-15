@@ -182,6 +182,14 @@ html, body { overflow-x: clip; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 14px 34px -14px rgba(15, 23, 42, 0.45) !important;
 }
 
+/* Outline and plain buttons sit on a frosted base so their coloured text stays readable. */
+.btn-outline, .wf-btn:not(.primary):not(.success):not(.solid):not(.danger) {
+  background-color: color-mix(in srgb, var(--glass-3) 88%, transparent) !important;
+  -webkit-backdrop-filter: var(--glass-blur-2);
+  backdrop-filter: var(--glass-blur-2);
+  box-shadow: var(--glass-edge), 0 4px 14px -10px rgba(30, 27, 75, 0.35);
+}
+
 /* ───────── Fields ───────── */
 .form-control, .wf-input, .qf-filters select {
   background: color-mix(in srgb, var(--glass-3) 70%, transparent) !important;
