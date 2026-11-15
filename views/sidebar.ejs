@@ -482,6 +482,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     <button type="button" class="wf-btn sm" style="flex:1; white-space:nowrap; padding:4px 6px;" onclick="openMyChannels()" title="دریافت اعلان در تلگرام و بله"><i class=ai data-ic=bell></i> اعلان‌های من</button>
                     <button type="button" class="wf-btn sm" style="flex:1; white-space:nowrap; padding:4px 6px;" onclick="showIcsLink()" title="همگام‌سازی با تقویم گوشی"><i class=ai data-ic=calendar-days></i> تقویم</button>
                 </div>
+                <label class="asva-glass-toggle" title="سطح‌ها به‌جای شیشه‌ای، مات و یک‌دست نمایش داده می‌شوند">
+                    <input type="checkbox" onchange="window.asvaSetReduceGlass && window.asvaSetReduceGlass(this.checked)"> کاهش شفافیت
+                </label>
             </div>
         </div>
     </div>
@@ -2109,6 +2112,8 @@ window.resetShortcuts = async function() {
 };
 </script>
 <style>
+    .asva-glass-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; font-size: 0.78rem; color: var(--text-gray); cursor: pointer; user-select: none; }
+    .asva-glass-toggle input { width: 15px; height: 15px; accent-color: var(--primary-color); }
     .qf-menu-badge { margin-right: auto; background: var(--error-color); color: #fff; font-size: 0.7rem; font-weight: bold; border-radius: 999px; padding: 1px 7px; min-width: 18px; text-align: center; line-height: 1.6; }
     .qf-menu-badge[hidden] { display: none; }
 </style>
@@ -2121,6 +2126,8 @@ window.resetShortcuts = async function() {
         b.hidden = !n;
         b.textContent = n > 99 ? '۹۹+' : (window.toPersianDigits ? window.toPersianDigits(String(n)) : String(n));
     }
+    // "Reduce transparency" box shows the current choice.
+    document.querySelectorAll('.asva-glass-toggle input').forEach(function (c) { c.checked = !!(window.asvaReduceGlass && window.asvaReduceGlass()); });
     window.updateQuickFillBadge = function (n) {
         show(n);
         try { sessionStorage.setItem('asva-qf-count', JSON.stringify({ n: n, at: Date.now() })); } catch (e) {}

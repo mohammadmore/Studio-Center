@@ -876,3 +876,48 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { scan(document.body); });
   else scan(document.body);
 })();
+
+// ---------------------------------------------------------------------------
+// Glass look: "reduce transparency" (per user; the server passes the saved choice, the
+// browser keeps a copy so it applies before the first paint), and the page header that
+// turns to glass once it sticks to the top while scrolling.
+// ---------------------------------------------------------------------------
+(function () {
+  "use strict";
+  var KEY = "asva-reduce-glass";
+  var root = document.documentElement;
+  function apply(on) { root.classList.toggle("reduce-glass", !!on); }
+  var fromServer = typeof window.ASVA_REDUCE_GLASS === "number" ? window.ASVA_REDUCE_GLASS === 1 : null;
+  var local = null;
+  try { local = localStorage.getItem(KEY); } catch (e) {}
+  if (fromServer !== null) {
+    apply(fromServer);
+    try { localStorage.setItem(KEY, fromServer ? "1" : "0"); } catch (e) {}
+  } else if (local !== null) apply(local === "1");
+
+  window.asvaReduceGlass = function () { return root.classList.contains("reduce-glass"); };
+  window.asvaSetReduceGlass = function (on) {
+    apply(on);
+    try { localStorage.setItem(KEY, on ? "1" : "0"); } catch (e) {}
+    try {
+      fetch(window.asvaUrl ? window.asvaUrl("/api/my_ui_prefs") : "/api/my_ui_prefs", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reduce_glass: !!on }),
+      }).catch(function () {});
+    } catch (e) {}
+    document.dispatchEvent(new CustomEvent("asva:glass", { detail: { reduced: !!on } }));
+  };
+
+  function watchHeader() {
+    var header = document.querySelector(".main-content > .page-header-container");
+    if (!header || !window.IntersectionObserver) return;
+    var sentinel = document.createElement("div");
+    sentinel.setAttribute("aria-hidden", "true");
+    sentinel.style.cssText = "height:1px;margin-bottom:-1px;";
+    header.parentNode.insertBefore(sentinel, header);
+    new IntersectionObserver(function (entries) {
+      header.classList.toggle("is-stuck", !entries[0].isIntersecting);
+    }, { rootMargin: "-10px 0px 0px 0px" }).observe(sentinel);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watchHeader);
+  else watchHeader();
+})();

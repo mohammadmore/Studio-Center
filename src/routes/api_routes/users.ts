@@ -296,4 +296,16 @@ subRouter.get("/get_colleagues", (req, res) => {
 
 subRouter.post("/save_user", checkPermission("add-user"), createColleague);
 
+/** Per-user look preferences (e.g. "reduce transparency"); the account is staff or a brand. */
+subRouter.post("/my_ui_prefs", (req: any, res) => {
+  const account = req.account;
+  if (!account) return fail(res, 401, "ابتدا وارد شوید");
+  if (req.previewBy) return fail(res, 403, "در حالت پیش‌نمایش امکان ثبت تغییر نیست");
+  const prefs = account.ui_prefs && typeof account.ui_prefs === "object" ? account.ui_prefs : {};
+  if (typeof req.body.reduce_glass === "boolean") prefs.reduce_glass = req.body.reduce_glass;
+  account.ui_prefs = prefs;
+  saveDatabase();
+  res.json({ status: "success", data: prefs });
+});
+
 export default subRouter;

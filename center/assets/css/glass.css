@@ -1,0 +1,244 @@
+/*
+ * Glass layer (subtle). Loaded on every page after the page's own styles.
+ *
+ * 1. A soft, fixed backdrop of colour blobs made from the studio's main colour
+ *    (--studio-accent, written by the server from the letterhead colour).
+ * 2. Three glass levels:
+ *      level 1 — menu, sticky page header (most see-through, strongest blur)
+ *      level 2 — cards, columns, panels (semi-transparent)
+ *      level 3 — dialogs, drop-downs, toasts, pickers (nearly opaque, so text over
+ *                anything stays readable)
+ *    Every level has a thin light edge, a bright top line and a soft shadow.
+ * 3. "Reduce transparency" (per user, or the OS setting) turns it all solid.
+ * Many pages paint their cards with var(--card-bg); that variable now *is* level-2 glass,
+ * so cards everywhere follow without page-by-page changes.
+ */
+:root {
+  --studio-accent: #6366f1;
+  --studio-accent-2: color-mix(in oklch, var(--studio-accent) 55%, #ec4899);
+  --surface-solid: #ffffff;
+  --glass-1: rgba(255, 255, 255, 0.58);
+  --glass-2: rgba(255, 255, 255, 0.74);
+  --glass-3: rgba(255, 255, 255, 0.90);
+  --glass-line: rgba(255, 255, 255, 0.65);
+  --glass-line-soft: rgba(15, 23, 42, 0.07);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  --glass-drop: 0 10px 30px -12px rgba(30, 27, 75, 0.18);
+  --glass-blur-1: blur(20px) saturate(160%);
+  --glass-blur-2: blur(12px) saturate(140%);
+  --glass-blur-3: blur(24px) saturate(160%);
+  --card-bg: var(--glass-2);
+  --glass-bg: var(--glass-1);
+  --glass-active: var(--glass-3);
+  --glass-border: var(--glass-line);
+  --glass-shadow: var(--glass-drop);
+}
+[data-theme="dark"] {
+  --surface-solid: #0f172a;
+  --glass-1: rgba(15, 23, 42, 0.55);
+  --glass-2: rgba(17, 24, 39, 0.66);
+  --glass-3: rgba(15, 23, 42, 0.92);
+  --glass-line: rgba(255, 255, 255, 0.09);
+  --glass-line-soft: rgba(255, 255, 255, 0.06);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --glass-drop: 0 12px 34px -14px rgba(0, 0, 0, 0.6);
+  --card-bg: var(--glass-2);
+  --glass-bg: var(--glass-1);
+  --glass-active: var(--glass-3);
+  --glass-border: var(--glass-line);
+  --glass-shadow: var(--glass-drop);
+}
+
+/* ───────── 1. Backdrop ───────── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 38% at 88% 6%, color-mix(in srgb, var(--studio-accent) 20%, transparent), transparent 70%),
+    radial-gradient(36% 32% at 6% 38%, color-mix(in srgb, var(--studio-accent-2) 14%, transparent), transparent 70%),
+    radial-gradient(48% 40% at 62% 98%, color-mix(in srgb, var(--studio-accent) 13%, transparent), transparent 72%),
+    radial-gradient(30% 26% at 34% 10%, color-mix(in srgb, var(--studio-accent-2) 9%, transparent), transparent 70%);
+}
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(42% 38% at 88% 6%, color-mix(in srgb, var(--studio-accent) 18%, transparent), transparent 70%),
+    radial-gradient(36% 32% at 6% 38%, color-mix(in srgb, var(--studio-accent-2) 11%, transparent), transparent 70%),
+    radial-gradient(48% 40% at 62% 98%, color-mix(in srgb, var(--studio-accent) 10%, transparent), transparent 72%);
+}
+/* The old fixed corner tints are replaced by the backdrop above. */
+body { background-image: none !important; }
+
+/* ───────── 2a. Level 1: menu and sticky header ───────── */
+#asva-pro-sidebar, .sidebar, .topbar {
+  background: var(--glass-1) !important;
+  -webkit-backdrop-filter: var(--glass-blur-1);
+  backdrop-filter: var(--glass-blur-1);
+  border-left: 1px solid var(--glass-line) !important;
+  box-shadow: var(--glass-edge), -8px 0 30px -18px rgba(30, 27, 75, 0.25) !important;
+}
+#asva-pro-sidebar .asva-menu-link.active {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--studio-accent) 16%, var(--glass-3)), var(--glass-3)) !important;
+  border: 1px solid color-mix(in srgb, var(--studio-accent) 28%, transparent) !important;
+  box-shadow: var(--glass-edge), 0 6px 18px -8px color-mix(in srgb, var(--studio-accent) 55%, transparent) !important;
+}
+#asva-pro-sidebar .asva-menu-link:hover:not(.active) {
+  background: color-mix(in srgb, var(--studio-accent) 8%, var(--glass-2)) !important;
+}
+#asva-pro-sidebar .asva-profile-card {
+  background: var(--glass-2) !important;
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: var(--glass-edge), var(--glass-drop) !important;
+}
+#asva-floating-actions > button, #asva-floating-actions .icon-wrapper > a {
+  background: var(--glass-2) !important;
+  -webkit-backdrop-filter: var(--glass-blur-2);
+  backdrop-filter: var(--glass-blur-2);
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: var(--glass-edge), var(--glass-drop) !important;
+}
+
+/* "hidden" on the body makes it a scroll box and stops sticky headers; "clip" hides the same
+   overflow without that (browsers without "clip" keep "hidden"). */
+html, body { overflow-x: clip; }
+
+/* Sticky page header: stays at the top while scrolling and turns to glass once it sticks. */
+.main-content > .page-header-container {
+  position: sticky;
+  top: 8px;
+  z-index: 40;
+  border-radius: 18px;
+  transition: background 0.25s ease, box-shadow 0.25s ease, padding 0.25s ease;
+}
+.main-content > .page-header-container.is-stuck {
+  /* Content scrolls underneath, so this one is the nearly opaque level. */
+  background: var(--glass-3);
+  -webkit-backdrop-filter: var(--glass-blur-3);
+  backdrop-filter: var(--glass-blur-3);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--glass-edge), var(--glass-drop);
+  padding: 8px 16px 8px 70px;
+}
+
+/* ───────── 2b. Level 2: cards, columns, panels ───────── */
+.wf-card, .elegant-card, .org-card, .action-card, .settings-card, .perm-card, .media-card, .bin-card,
+.leave-card, .template-card, .content-card, .timeline-card, .kpi-card, .chart-box, .table-card, .rt-card,
+.invoice-card, .qf-progress, .folder-bar, .asva-setup, .qf-nudge, .card, .stat-card, .summary-card,
+.invoice-paper, .settings-container, .report-content > div[style*="card-bg"] {
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: var(--glass-edge), var(--glass-drop) !important;
+}
+.wf-card, .elegant-card, .settings-card, .kpi-card, .chart-box, .table-card, .rt-card, .invoice-paper, .settings-container, .asva-setup {
+  -webkit-backdrop-filter: var(--glass-blur-2);
+  backdrop-filter: var(--glass-blur-2);
+}
+/* Kanban: the columns are glass lanes (blurred); the many cards inside are only
+   semi-transparent, without blur, so a long board stays fast. */
+.kanban-column {
+  background: color-mix(in srgb, var(--glass-1) 80%, transparent) !important;
+  -webkit-backdrop-filter: var(--glass-blur-2);
+  backdrop-filter: var(--glass-blur-2);
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: var(--glass-edge), var(--glass-drop) !important;
+}
+.task-card {
+  background: var(--glass-2) !important;
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--glass-edge), 0 4px 14px -8px rgba(30, 27, 75, 0.22) !important;
+}
+.task-card:hover { box-shadow: var(--glass-edge), 0 12px 26px -12px color-mix(in srgb, var(--studio-accent) 45%, transparent) !important; }
+
+/* ───────── 2c. Level 3: dialogs, drop-downs, toasts, pickers ───────── */
+.modal-overlay, .save-mode-overlay {
+  background: rgba(15, 23, 42, 0.38) !important;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.modal-content, .modal-box, .wf-modal, .save-mode-box, .side-drawer, #notif-dropdown, .item-suggest, .omnibar-box, #omnibar .box,
+.multi-select-dropdown, .jdp-container, .asva-shortcuts, #shortcutsModal > div {
+  background: var(--glass-3) !important;
+  -webkit-backdrop-filter: var(--glass-blur-3);
+  backdrop-filter: var(--glass-blur-3);
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: var(--glass-edge), 0 24px 60px -20px rgba(15, 23, 42, 0.45) !important;
+}
+.modal-content, .modal-box, .wf-modal, .save-mode-box { animation: asvaGlassIn 0.22s ease-out; }
+@keyframes asvaGlassIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.global-toast {
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 14px 34px -14px rgba(15, 23, 42, 0.45) !important;
+}
+
+/* ───────── Fields ───────── */
+.form-control, .wf-input, .qf-filters select {
+  background: color-mix(in srgb, var(--glass-3) 70%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--text-gray, #64748b) 22%, transparent) !important;
+  box-shadow: var(--glass-edge);
+}
+.form-control:focus, .wf-input:focus {
+  background: var(--glass-3) !important;
+  border-color: color-mix(in srgb, var(--studio-accent) 60%, transparent) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--studio-accent) 16%, transparent), var(--glass-edge) !important;
+}
+
+/* ───────── Tables ───────── */
+:is(.report-table, .wf-table, .invoice-table, .ver-items) thead th {
+  background: color-mix(in srgb, var(--studio-accent) 9%, var(--glass-3)) !important;
+}
+:is(.report-table, .wf-table, .invoice-table) tbody tr { transition: background 0.15s ease; }
+:is(.report-table, .wf-table, .invoice-table) tbody tr:hover td { background: color-mix(in srgb, var(--studio-accent) 5%, transparent); }
+.table-responsive:not(.rt-card) { border-radius: 14px; }
+
+/* ───────── Chips and badges: tinted glass ───────── */
+.wf-chip, .badge, .qf-chip, .chip, .col-meta, .multi-select-tag {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* ───────── Login page and the brand's portal ───────── */
+.login-card, .wf-client-shell > .wf-card, .client-header {
+  -webkit-backdrop-filter: var(--glass-blur-2);
+  backdrop-filter: var(--glass-blur-2);
+}
+.login-card {
+  background: var(--glass-2) !important;
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: var(--glass-edge), 0 30px 70px -30px color-mix(in srgb, var(--studio-accent) 55%, transparent) !important;
+}
+
+/* ───────── Small screens: lighter blur ───────── */
+@media (max-width: 700px) {
+  :root { --glass-blur-1: blur(12px); --glass-blur-2: blur(8px); --glass-blur-3: blur(14px); }
+  .main-content > .page-header-container.is-stuck { padding: 6px 12px 6px 64px; }
+}
+
+/* ───────── 3. Reduce transparency ───────── */
+html.reduce-glass {
+  --glass-1: var(--surface-solid); --glass-2: var(--surface-solid); --glass-3: var(--surface-solid);
+  --card-bg: var(--surface-solid);
+}
+html.reduce-glass body::before { display: none; }
+html.reduce-glass *, html.reduce-glass *::before, html.reduce-glass *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+@media (prefers-reduced-transparency: reduce) {
+  html:not(.force-glass) {
+    --glass-1: var(--surface-solid); --glass-2: var(--surface-solid); --glass-3: var(--surface-solid);
+    --card-bg: var(--surface-solid);
+  }
+  html:not(.force-glass) body::before { display: none; }
+  html:not(.force-glass) * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
+
+/* Print is never glass. */
+@media print {
+  body::before { display: none !important; }
+  :root, [data-theme="dark"] { --glass-1: #fff; --glass-2: #fff; --glass-3: #fff; --card-bg: #fff; }
+  * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}

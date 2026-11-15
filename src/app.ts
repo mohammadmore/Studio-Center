@@ -89,9 +89,14 @@ function prepareHtml(html: string) {
   const core =
     (BASE ? `<script>window.ASVA_BASE=${JSON.stringify(BASE)};</script>` : "") +
     `<script src="${BASE}/assets/js/core.js?v=${ASSET_VERSION}"></script>`;
-  // Shared button look (glass, gradient per colour); placed last in <head> so it wins over page styles.
-  const buttons = `<link rel="stylesheet" href="${BASE}/assets/css/buttons.css?v=${ASSET_VERSION}">`;
-  if (/<\/head>/i.test(html)) html = html.replace(/<\/head>/i, (m) => buttons + m);
+  // Glass layer and the shared button look; placed last in <head> so they win over page styles.
+  // The studio's main colour (the letterhead colour) tints the glass backdrop.
+  const accent = /^#[0-9a-f]{6}$/i.test(String(settings?.studio_info?.report_accent || "")) ? settings.studio_info.report_accent : "#6366f1";
+  const look =
+    `<style id="asva-accent">:root{--studio-accent:${accent}}</style>` +
+    `<link rel="stylesheet" href="${BASE}/assets/css/glass.css?v=${ASSET_VERSION}">` +
+    `<link rel="stylesheet" href="${BASE}/assets/css/buttons.css?v=${ASSET_VERSION}">`;
+  if (/<\/head>/i.test(html)) html = html.replace(/<\/head>/i, (m) => look + m);
   if (/<meta charset="UTF-8">/i.test(html)) return html.replace(/<meta charset="UTF-8">/i, (m) => m + core);
   if (html.includes("<head>")) return html.replace("<head>", `<head><meta charset="UTF-8">${core}`);
   return core + html;
@@ -296,6 +301,12 @@ export function createApp() {
           html = prepareHtml(
             html.includes("</head>") ? html.replace("</head>", injection + "</head>") : injection + html,
           );
+          // The user's "reduce transparency" choice, applied before the first paint.
+          const prefs = (req as any).account?.ui_prefs;
+          if (prefs && typeof prefs.reduce_glass === "boolean") {
+            const flag = `<script>window.ASVA_REDUCE_GLASS=${prefs.reduce_glass ? 1 : 0};</script>`;
+            html = /<meta charset="UTF-8">/i.test(html) ? html.replace(/<meta charset="UTF-8">/i, (m) => m + flag) : flag + html;
+          }
         }
         if (callback) callback(null, html);
         else res.send(html);

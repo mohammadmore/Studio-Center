@@ -10,6 +10,8 @@
     <div class="wf-row">
         <button type="button" class="wf-btn" onclick="openMyChannels()" title="دریافت اعلان در تلگرام / بله"><i class=ai data-ic=bell></i> تنظیم اعلان‌ها</button>
         <button type="button" class="wf-btn" onclick="(function(){var d=document.documentElement;var n=d.getAttribute('data-theme')==='dark'?'light':'dark';d.setAttribute('data-theme',n);try{localStorage.setItem('theme',n)}catch(e){}})()" aria-label="تغییر حالت روز / شب"><i class=ai data-ic=sun-moon></i></button>
+        <label class="wf-btn" style="cursor:pointer; gap:6px;" title="سطح‌ها به‌جای شیشه‌ای، مات نمایش داده می‌شوند"><input type="checkbox" class="asva-glass-cb" style="width:15px;height:15px;accent-color:var(--primary-color)" onchange="window.asvaSetReduceGlass && window.asvaSetReduceGlass(this.checked)"> کاهش شفافیت</label>
+        <script>document.querySelectorAll('.asva-glass-cb').forEach(function (c) { c.checked = !!(window.asvaReduceGlass && window.asvaReduceGlass()); });</script>
         <a class="wf-btn danger" href="/api/logout">خروج</a>
     </div>
 </div>
