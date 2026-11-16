@@ -5,7 +5,7 @@ import { checkPermission, clientOrgId, isClient } from "../../middleware/auth.js
 import { hasPermission } from "../../utils/authUtils.js";
 import { addNotification, logContentActivity } from "../../utils/logger.js";
 import { nextId, normalizeJalaliDate, safeUrl, toInt } from "../../utils/helpers.js";
-import { cardColleagueIds } from "../../utils/contentUtils.js";
+import { addStageOwnersToTeam, cardColleagueIds } from "../../utils/contentUtils.js";
 import { emitToStaff } from "../../utils/socket.js";
 import {
   assignmentWarnings,
@@ -326,10 +326,19 @@ subRouter.post("/update_stage_plan", (req: any, res) => {
       }
     }
   }
-  logContentActivity(card, req, "مسئول و موعد مراحل را تعیین کرد");
+  // A stage owner is part of the card's team too.
+  const joined = addStageOwnersToTeam(card);
+  logContentActivity(card, req, "مسئول و موعد مراحل را تعیین کرد" + (joined.length ? ` (${joined.join("، ")} به همکاران افزوده شد)` : ""));
   saveDatabase();
   emitToStaff("content_updated", { contentId: card.id, card });
-  res.json({ status: "success", message: "برنامه مراحل ذخیره شد", stage_plan: plan, warnings: assignmentWarnings(assignments) });
+  res.json({
+    status: "success",
+    message: joined.length ? `برنامه مراحل ذخیره شد و ${joined.join("، ")} به همکاران کارت افزوده شد` : "برنامه مراحل ذخیره شد",
+    stage_plan: plan,
+    assigned_colleagues: card.assigned_colleagues || [],
+    joined_team: joined,
+    warnings: assignmentWarnings(assignments),
+  });
 });
 
 /** Availability check used by the UI before assigning people to a date. */

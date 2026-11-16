@@ -6,7 +6,7 @@ import { checkPermission } from "../../middleware/auth.js";
 import { effectiveAvatar, hasPermission } from "../../utils/authUtils.js";
 import { addNotification, logContentActivity } from "../../utils/logger.js";
 import { normalizeJalaliDate, toInt } from "../../utils/helpers.js";
-import { cardColleagueIds, dropManagerFromTeam, resolveColleagueIds } from "../../utils/contentUtils.js";
+import { addStageOwnersToTeam, cardColleagueIds, dropManagerFromTeam, resolveColleagueIds } from "../../utils/contentUtils.js";
 import { emitToStaff } from "../../utils/socket.js";
 import { managerId, stagePlan } from "../../utils/workflowUtils.js";
 import { canEditCard, CONTENT_PERMS, findOrCreateCollection, notifyNewAssignees } from "./contents.js";
@@ -239,7 +239,7 @@ function applyValues(req: any, card: any, values: any) {
         addNotification("مسئولیت مرحله", `مرحله «${stage}» محتوای "${card.title}" به شما سپرده شد.`, "colleague", owner.id, "/my-projects", "assignment", card.id);
       }
     }
-    if (any) done.push("مسئول مراحل");
+    if (any) { done.push("مسئول مراحل"); addStageOwnersToTeam(card); }
   }
   if (allowed.has("publish_date")) {
     const d = normalizeJalaliDate(values.publish_date);

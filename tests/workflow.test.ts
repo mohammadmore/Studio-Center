@@ -1032,4 +1032,19 @@ describe("project manager and team", () => {
     await admin.post("/api/batch_edit_contents").send({ ids: [931], action: "manager", project_manager: "علی" });
     assert.deepEqual(card(931).assigned_colleagues, []);
   });
+  it("adds a stage owner to the card's team", async () => {
+    const admin = await login("admin");
+    state.contents.push({ id: 932, title: "کارت مراحل", org_id: 1, status: "todo", project_manager: "سارا", assigned_colleagues: [], stages: ["سناریو", "تدوین", "تصویربرداری"] });
+    const res = await admin.post("/api/update_stage_plan").send({
+      id: 932,
+      plan: { "سناریو": { owner_id: 1 }, "تدوین": { owner_id: 2 }, "تصویربرداری": { owner_id: 31 } },
+    });
+    assert.equal(res.body.status, "success");
+    const owner2 = state.colleagues.find((c: any) => c.id === 2).full_name;
+    // The system account and the project manager stay out; the other owner joins once.
+    assert.deepEqual(card(932).assigned_colleagues, [owner2]);
+    assert.deepEqual(res.body.assigned_colleagues, [owner2]);
+    await admin.post("/api/update_stage_plan").send({ id: 932, plan: { "تدوین": { owner_id: 2 } } });
+    assert.deepEqual(card(932).assigned_colleagues, [owner2]);
+  });
 });

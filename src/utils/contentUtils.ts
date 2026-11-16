@@ -47,6 +47,31 @@ export function dropManagerFromTeam(card: any) {
   return card;
 }
 
+/**
+ * People made responsible for a stage are also members of the card's team (added once,
+ * never the project manager). Returns the names that were added.
+ */
+export function addStageOwnersToTeam(card: any) {
+  const plan = card?.stage_plan && typeof card.stage_plan === "object" ? card.stage_plan : {};
+  if (!Array.isArray(card.assigned_colleagues)) card.assigned_colleagues = [];
+  const managerIds = card.project_manager ? resolveColleagueIds([card.project_manager]) : [];
+  const teamIds = new Set(resolveColleagueIds(card.assigned_colleagues));
+  const added: string[] = [];
+  for (const stage of Array.isArray(card.stages) ? card.stages : []) {
+    const ownerId = Number(plan[stage]?.owner_id);
+    // The built-in system account (id 1) never joins a team.
+    if (!ownerId || ownerId === 1 || teamIds.has(ownerId) || managerIds.includes(ownerId)) continue;
+    const owner = colleagues.find((c) => c.id == ownerId);
+    if (!owner) continue;
+    const name = String(owner.full_name || owner.username || "").trim();
+    if (!name) continue;
+    card.assigned_colleagues.push(name);
+    teamIds.add(ownerId);
+    added.push(name);
+  }
+  return added;
+}
+
 export function cardColleagueIds(card: any) {
   return resolveColleagueIds([...(card.assigned_colleagues || []), card.project_manager].filter(Boolean));
 }

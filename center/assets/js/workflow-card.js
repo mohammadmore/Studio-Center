@@ -106,7 +106,17 @@
         };
       });
       var res = await window.api("/api/update_stage_plan", { id: it.id, plan: out }, { success: "ذخیره شد" });
-      if (res) { it.stage_plan = res.stage_plan; showWarnings(res.warnings); window.renderWorkflowPanel(it.id); }
+      if (res) {
+        it.stage_plan = res.stage_plan;
+        // Stage owners join the card's team: show it straight away.
+        if (Array.isArray(res.assigned_colleagues)) {
+          it.assigned_colleagues = res.assigned_colleagues;
+          var teamBox = document.getElementById("cardTeamBox");
+          if (teamBox && window.cardTeamHtml) teamBox.innerHTML = window.cardTeamHtml(it);
+        }
+        showWarnings(res.warnings);
+        window.renderWorkflowPanel(it.id);
+      }
     };
   }
 
