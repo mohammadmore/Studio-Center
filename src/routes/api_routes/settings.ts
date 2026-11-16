@@ -9,6 +9,7 @@ import { getBlobStore, saveDatabase } from "../../store/db.js";
 import { checkPermission, isClient } from "../../middleware/auth.js";
 import { nextId, safeUrl, sanitizeIcon, toInt } from "../../utils/helpers.js";
 import { extensionOf, FONT_EXTENSIONS, isSafeFileName, randomFileName } from "../../utils/files.js";
+import { renameStageEverywhere } from "../../utils/stageRename.js";
 
 const DEFAULT_FONT = "vazirmatn";
 const MAX_FONT_BYTES = 5 * 1024 * 1024;
@@ -89,7 +90,12 @@ subRouter.post(
       if (group && settings[group] && Array.isArray(settings[group])) {
         const item = settings[group].find((i) => i.id === id);
         if (item) {
-          if (itemName) item.setting_key = itemName;
+          // A renamed stage is renamed on every card (and wherever else it is stored).
+          let renamedCards = 0;
+          if (group === "stages" && itemName && String(itemName).trim() !== String(item.setting_key || "").trim()) {
+            renamedCards = renameStageEverywhere(item.setting_key, itemName);
+          }
+          if (itemName) item.setting_key = group === "stages" ? String(itemName).trim() : itemName;
           if (price !== void 0 && price !== "") {
             (item as any).price = parseInt(price) || 0;
             (item as any).base_price = parseInt(price) || 0;
@@ -101,8 +107,10 @@ subRouter.post(
           saveDatabase();
           return res.json({
             status: "success",
-            message:
-              "تغییرات ذخیره شد",
+            message: renamedCards
+              ? `تغییرات ذخیره شد؛ نام مرحله در ${renamedCards.toLocaleString("fa-IR")} محتوا هم عوض شد`
+              : "تغییرات ذخیره شد",
+            renamed_cards: renamedCards,
           });
         }
       }

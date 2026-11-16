@@ -1034,6 +1034,34 @@ describe("quick fill", () => {
   });
 });
 
+describe("renaming a stage in settings", () => {
+  it("renames it on every card and wherever else it is stored", async () => {
+    const admin = await login("admin");
+    state.settings.stages = state.settings.stages || [];
+    state.settings.stages.push({ id: 7701, setting_key: "مونتاژ", is_active: 1 });
+    state.contents.push({ id: 7702, title: "کارت مونتاژ", org_id: 1, status: "in_progress", stages: ["سناریو", "مونتاژ "], completed_stages: ["مونتاژ"], stage_plan: { "مونتاژ": { owner_id: 2, due_date: "1405/09/01" } } });
+    state.contents.push({ id: 7703, title: "کارت دیگر", org_id: 1, status: "todo", stages: ["سناریو"] });
+    state.time_entries.push({ id: 7704, colleague_id: 2, content_id: 7702, stage: "مونتاژ", minutes: 30, date: "1405/08/01" });
+    state.collections.push({ id: 7705, title: "مجموعه مونتاژ", org_id: 1, defaults: { stages: ["مونتاژ"], stage_owners: { "مونتاژ": 2 } } });
+    state.batch_operations.unshift({ id: "b7706", type: "batch_edit", previous_states: [{ id: 7702, stages: ["مونتاژ"] }] });
+    const res = await admin.post("/api/manage_settings").send({ action: "edit", group: "stages", id: 7701, key: "تدوین نهایی" });
+    assert.equal(res.body.status, "success");
+    assert.equal(res.body.renamed_cards, 1);
+    const c = card(7702);
+    assert.deepEqual(c.stages, ["سناریو", "تدوین نهایی"]);
+    assert.deepEqual(c.completed_stages, ["تدوین نهایی"]);
+    assert.deepEqual(c.stage_plan, { "تدوین نهایی": { owner_id: 2, due_date: "1405/09/01" } });
+    assert.deepEqual(card(7703).stages, ["سناریو"]);
+    assert.equal(state.time_entries.find((e: any) => e.id === 7704).stage, "تدوین نهایی");
+    const col = state.collections.find((x: any) => x.id === 7705);
+    assert.deepEqual(col.defaults, { stages: ["تدوین نهایی"], stage_owners: { "تدوین نهایی": 2 } });
+    assert.deepEqual(state.batch_operations.find((o: any) => o.id === "b7706").previous_states[0].stages, ["تدوین نهایی"]);
+    // Other setting groups are not touched by this.
+    const other = await admin.post("/api/manage_settings").send({ action: "edit", group: "stages", id: 7701, key: "تدوین نهایی" });
+    assert.equal(other.body.renamed_cards, 0);
+  });
+});
+
 describe("collection defaults", () => {
   it("stores cleaned defaults, inherits them in sub-collections and hides them from clients", async () => {
     const admin = await login("admin");

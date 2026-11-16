@@ -898,7 +898,7 @@
                 });
                 const data = await res.json();
                 if(data.status === 'success') {
-                    showToast('آیتم ذخیره شد');
+                    showToast(data.renamed_cards ? data.message : 'آیتم ذخیره شد');
                     cancelEdit();
                     loadSettings();
                 } else {
