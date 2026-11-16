@@ -95,6 +95,8 @@ function userState(user: any) {
   if (!me.quick_fill || typeof me.quick_fill !== "object") me.quick_fill = {};
   const st = me.quick_fill;
   if (!st.snoozed || typeof st.snoozed !== "object") st.snoozed = {};
+  // When each card was last shown to this person, so the queue resumes where they left off.
+  if (!st.seen || typeof st.seen !== "object") st.seen = {};
   const today = tehranDay();
   for (const [id, day] of Object.entries(st.snoozed)) if (String(day) < today) delete st.snoozed[id];
   if (st.day !== today) { st.day = today; st.done = 0; }
@@ -135,7 +137,7 @@ function queueFor(user: any, filters: { org?: string; field?: string; mine?: boo
     const mine = cardMine(card, user);
     if (filters.mine && !mine) continue;
     const pub = jalaliToNumber(card.publish_date);
-    list.push({ card, missing, mine, pub, snoozed: !!st?.snoozed[String(card.id)] });
+    list.push({ card, missing, mine, pub, snoozed: !!st?.snoozed[String(card.id)], seen: Number(st?.seen[String(card.id)]) || 0 });
   }
   // Own work first, then what is due soonest (overdue first), then the most incomplete.
   list.sort((a, b) =>
@@ -144,13 +146,17 @@ function queueFor(user: any, filters: { org?: string; field?: string; mine?: boo
     (a.pub ?? 0) - (b.pub ?? 0) ||
     b.missing.length - a.missing.length ||
     a.card.id - b.card.id);
+  // Resume where the person left off: cards not shown yet keep the order above and come
+  // first; cards already seen go after them, the longest-ago seen first.
+  const order = new Map(list.map((x, i) => [x, i]));
+  list.sort((a, b) => (a.seen ? 1 : 0) - (b.seen ? 1 : 0) || a.seen - b.seen || order.get(a)! - order.get(b)!);
   const visible = list.filter((x) => !x.snoozed);
   return {
     total: visible.length,
     mine: visible.filter((x) => x.mine).length,
     snoozed: list.length - visible.length,
     done_today: st?.done || 0,
-    items: visible.map(({ card, missing, mine, pub }) => {
+    items: visible.map(({ card, missing, mine, pub, seen }) => {
       const org = orgById.get(String(card.org_id));
       const col = collections.find((c) => c.id == card.collection_id);
       return {
@@ -168,6 +174,7 @@ function queueFor(user: any, filters: { org?: string; field?: string; mine?: boo
         publish_time: card.publish_time || "",
         platforms: card.publish_platforms || [],
         mine,
+        seen: !!seen,
         overdue: pub !== null && pub < todayNum,
         missing,
       };
@@ -202,6 +209,21 @@ subRouter.post("/quick_fill_snooze", (req: any, res) => {
   st.snoozed[String(card.id)] = tehranDay();
   saveDatabase();
   res.json({ status: "success", message: "تا فردا نشان داده نمی‌شود" });
+});
+
+/** Records that a card was shown; the next visit starts after it. */
+subRouter.post("/quick_fill_seen", (req: any, res) => {
+  const st = userState(req.user);
+  const card = contents.find((c) => c.id == req.body.id);
+  if (!st || !card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
+  st.seen[String(card.id)] = Date.now();
+  // Keep the map small: forget deleted cards and the oldest entries.
+  const ids = new Set(contents.map((c) => String(c.id)));
+  for (const id of Object.keys(st.seen)) if (!ids.has(id)) delete st.seen[id];
+  const keys = Object.keys(st.seen);
+  if (keys.length > 3000) keys.sort((a, b) => st.seen[a] - st.seen[b]).slice(0, keys.length - 3000).forEach((k) => delete st.seen[k]);
+  saveDatabase();
+  res.json({ status: "success" });
 });
 
 const str = (v: unknown, max = 200) => (typeof v === "string" ? v.trim().slice(0, max) : "");

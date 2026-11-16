@@ -1703,6 +1703,14 @@
                 window.__scheduleFields = window.newContentFields(document.getElementById('newScheduleExtras'), {
                     prefix: 'sc', withSchedule: false,
                     getOrgId: () => document.getElementById('scheduleOrg').value,
+                    // The type list has no empty choice: it counts as empty until the user picks one.
+                    defaultTargets: () => ({
+                        content_type: { el: document.getElementById('newScheduleType'), empty: () => !document.getElementById('newScheduleType').dataset.touched },
+                        project_manager: { el: document.getElementById('newScheduleManager') },
+                        team: { box: document.getElementById('newScheduleTeamCheckboxes') },
+                        stages: { box: document.getElementById('newScheduleStages') },
+                        publish_time: { el: document.getElementById('newScheduleTime') },
+                    }),
                 });
             } else {
                 window.__scheduleFields.reset();
@@ -1743,6 +1751,8 @@
                     if (setData.data.content_type) {
                         const tSelect = document.getElementById('newScheduleType');
                         tSelect.innerHTML = '';
+                        delete tSelect.dataset.touched;
+                        tSelect.onchange = () => { tSelect.dataset.touched = '1'; };
                         (setData.data && setData.data.content_type || []).forEach(t => {
                             tSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(t.setting_key)}">${escapeHtml(t.setting_key)}</option>`);
                         });

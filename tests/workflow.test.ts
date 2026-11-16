@@ -1010,6 +1010,54 @@ describe("quick fill", () => {
     const client = await login("brand1");
     assert.equal((await client.get("/api/quick_fill")).status, 403);
   });
+
+  it("continues after the cards already seen; seen ones come back oldest first", async () => {
+    const admin = await login("admin");
+    const ali = await login("ali");
+    const ids = async (agent: any) => (await agent.get("/api/quick_fill")).body.items.map((x: any) => x.id);
+    const start = await ids(admin);
+    assert.ok(start.length >= 3);
+    const [a, b] = start;
+    await admin.post("/api/quick_fill_seen").send({ id: a });
+    await admin.post("/api/quick_fill_seen").send({ id: b });
+    const next = await ids(admin);
+    // The unseen cards keep their order and come first; then a (seen earlier), then b.
+    assert.deepEqual(next.slice(0, start.length - 2), start.slice(2));
+    assert.deepEqual(next.slice(-2), [a, b]);
+    const items = (await admin.get("/api/quick_fill")).body.items;
+    assert.equal(items.find((x: any) => x.id === a).seen, true);
+    assert.equal(items[0].seen, false);
+    // Per person: another colleague's queue is unaffected.
+    const aliIds = await ids(ali);
+    if (aliIds.includes(a)) assert.equal((await ali.get("/api/quick_fill")).body.items.find((x: any) => x.id === a).seen, false);
+    assert.equal((await admin.post("/api/quick_fill_seen").send({ id: 999999 })).status, 404);
+  });
+});
+
+describe("collection defaults", () => {
+  it("stores cleaned defaults, inherits them in sub-collections and hides them from clients", async () => {
+    const admin = await login("admin");
+    const add = await admin.post("/api/manage_collections").send({
+      action: "add", title: "سری پیش‌فرض", org_id: 1,
+      defaults: { content_type: "ریلز", project_manager: "سارا", team: ["سارا", "علی", ""], stages: ["سناریو"], stage_owners: { "سناریو": 2, "تدوین": 1 }, platforms: ["اینستاگرام"], publish_time: "18:00", junk: "x" },
+    });
+    assert.equal(add.body.status, "success");
+    const parent = state.collections.find((c: any) => c.id === add.body.data.id);
+    // The manager is not in the default team; the system account is never a default owner.
+    assert.deepEqual(parent.defaults, { content_type: "ریلز", project_manager: "سارا", team: ["علی"], stages: ["سناریو"], platforms: ["اینستاگرام"], publish_time: "18:00", stage_owners: { "سناریو": 2 } });
+    const child = await admin.post("/api/manage_collections").send({ action: "add", title: "فصل دوم", org_id: 1, parent_id: parent.id, defaults: { content_type: "پوستر" } });
+    const list = (await admin.get("/api/get_collections")).body.data;
+    const eff = list.find((c: any) => c.id === child.body.data.id).effective_defaults;
+    assert.equal(eff.content_type, "پوستر");
+    assert.equal(eff.project_manager, "سارا");
+    assert.equal(eff._from.project_manager, "سری پیش‌فرض");
+    // Clearing every field removes the defaults.
+    await admin.post("/api/manage_collections").send({ action: "edit", id: child.body.data.id, defaults: { content_type: "" } });
+    assert.equal(state.collections.find((c: any) => c.id === child.body.data.id).defaults, undefined);
+    const client = await login("brand1");
+    const seen = (await client.get("/api/get_collections")).body.data;
+    assert.ok(seen.every((c: any) => c.defaults === undefined && c.effective_defaults === undefined));
+  });
 });
 
 describe("project manager and team", () => {

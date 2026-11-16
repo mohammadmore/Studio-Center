@@ -384,7 +384,7 @@ if (item.collection_id) {
 }
 const colRadios = (window.allCollections || []).map(c => `
             <label class="col-radio-item" data-org-id="${c.org_id || ''}" style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
-                <input type="radio" name="edit_col_radio" value="${escapeHtml(c.title)}" ${escapeHtml(currentCollectionTitle === c.title ? 'checked' : '')} onchange="document.getElementById('edit_collection_title').value = this.value">
+                <input type="radio" name="edit_col_radio" value="${escapeHtml(c.title)}" ${escapeHtml(currentCollectionTitle === c.title ? 'checked' : '')} onchange="document.getElementById('edit_collection_title').value = this.value; window.offerEditDefaults && window.offerEditDefaults()">
                 <span class="col-title" style="font-size:0.9rem;">${escapeHtml(c.title)}</span>
             </label>
         `).join('');
@@ -415,7 +415,7 @@ const colRadios = (window.allCollections || []).map(c => `
                 <div>
                     <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> مجموعه:</strong>
                     <div style="margin-top:4px; border:1px solid #ddd; border-radius:6px; padding:8px; background: var(--card-bg);">
-                        <input type="text" id="edit_collection_title" value="${escapeHtml(currentCollectionTitle)}" placeholder="تایپ مجموعه جدید یا جست‌وجو..." onkeyup="filterCol()" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:4px; margin-bottom:8px; font-size:0.85rem;">
+                        <input type="text" id="edit_collection_title" value="${escapeHtml(currentCollectionTitle)}" placeholder="تایپ مجموعه جدید یا جست‌وجو..." onkeyup="filterCol()" onchange="window.offerEditDefaults && window.offerEditDefaults()" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:4px; margin-bottom:8px; font-size:0.85rem;">
                         <div id="col_radio_list" style="max-height:160px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:8px;">
                             ${colRadios}
                         </div>
@@ -450,13 +450,13 @@ const colRadios = (window.allCollections || []).map(c => `
                 </div>
                 <div>
                     <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> پلتفرم‌های انتشار:</strong>
-                    <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px;">
+                    <div id="edit_platforms_box" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px;">
                         ${platOptions}
                     </div>
                 </div>
                 <div style="grid-column:span 2;">
                     <strong style="color: var(--text-gray); font-size:0.85rem;"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='M12 11h4'/><path d='M12 16h4'/><path d='M8 11h.01'/><path d='M8 16h.01'/></svg> مراحل تولید لازم:</strong>
-                    <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px; background: rgba(128, 128, 128, 0.05); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                    <div id="edit_stages_box" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px; background: rgba(128, 128, 128, 0.05); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
                         ${stagesOptions}
                     </div>
                 </div>
@@ -558,6 +558,9 @@ const colRadios = (window.allCollections || []).map(c => `
 
     document.getElementById('detailsContent').innerHTML = html;
     if (window.renderWorkflowPanel) window.renderWorkflowPanel(id);
+    // A card in a collection is offered the collection's defaults on its empty fields.
+    delete document.getElementById('detailsContent').dataset.cdCol;
+    if (editMode && window.offerEditDefaults) window.offerEditDefaults();
     document.getElementById('detailsContent').onchange = () => { window.hasUnsavedChanges = true; };
     document.getElementById('detailsContent').oninput = () => { window.hasUnsavedChanges = true; };
 
@@ -676,6 +679,30 @@ async function saveAllEditFields(id, closeAfterSave = false) {
 }
 window.saveAllEditFields = saveAllEditFields;
 
+
+/** «پیش‌فرض مجموعه» on the edit form: offered on empty fields, applied only after «تایید». */
+window.offerEditDefaults = function () {
+    const scope = document.getElementById('detailsContent');
+    const input = document.getElementById('edit_collection_title');
+    if (!scope || !input || !window.collectionDefaults) return;
+    const title = input.value.trim();
+    const orgId = (document.getElementById('edit_org_id') || {}).value || '';
+    const cols = (window.allCollections || []).filter(c => c.title === title);
+    const col = cols.find(c => orgId && String(c.org_id) === String(orgId)) || cols.find(c => !c.org_id) || cols[0];
+    // Leaving the box fires "change" again: the same collection keeps its open suggestions.
+    const key = col ? String(col.id) : '';
+    if (scope.dataset.cdCol === key) return;
+    scope.dataset.cdCol = key;
+    const defaults = col ? window.collectionDefaults.of(col) : null;
+    window.collectionDefaults.offer(scope, defaults, {
+        content_type: { el: document.getElementById('edit_content_type') },
+        project_manager: { el: document.getElementById('edit_project_manager') },
+        team: { box: document.getElementById('team_checkbox_list') },
+        publish_time: { el: document.getElementById('edit_publish_time'), anchor: document.getElementById('edit_publish_time').parentElement },
+        platforms: { box: document.getElementById('edit_platforms_box') },
+        stages: { box: document.getElementById('edit_stages_box') },
+    });
+};
 
 window.filterCol = function() {
     const term = document.getElementById('edit_collection_title').value.toLowerCase();

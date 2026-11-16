@@ -37,6 +37,21 @@
         .drag-hint-touch { display: none; }
         @media (pointer: coarse) { .drag-hint-mouse { display: none; } .drag-hint-touch { display: inline; } }
         @media (pointer: coarse), (max-width: 768px) { .collection-card { min-height: 215px; } }
+        /* «پیش‌فرض‌های محتوا» of a collection */
+        .col-defaults { margin-top: 18px; border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 14px; background: rgba(128,128,128,0.04); }
+        .col-defaults summary { cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px; list-style: none; }
+        .col-defaults summary::-webkit-details-marker { display: none; }
+        .col-defaults summary .count { margin-inline-start: auto; font-size: 0.75rem; color: #fff; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 999px; padding: 1px 10px; }
+        .col-defaults summary .count[hidden] { display: none; }
+        .col-defaults .hint { font-size: 0.8rem; color: var(--text-gray); line-height: 1.8; margin: 8px 0; }
+        .col-defaults .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .col-defaults label.t { display: block; font-size: 0.85rem; font-weight: bold; margin: 12px 0 6px; }
+        .cd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .cd-chips label { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--border-color); border-radius: 999px; font-size: 0.85rem; cursor: pointer; background: var(--card-bg); }
+        .cd-stage { display: grid; grid-template-columns: minmax(120px, 1fr) 1.2fr; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 0.88rem; }
+        .cd-stage label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .cd-inherit { font-size: 0.78rem; color: #6d28d9; }
+        [data-theme="dark"] .cd-inherit { color: #c4b5fd; }
         @media (max-width: 600px) { .folder-bar { padding: 8px; } .folder-actions { width: 100%; } .folder-actions button { flex: 1 1 calc(50% - 6px); } }
     </style>
 </head>
@@ -112,6 +127,20 @@
                     </select>
                 </div>
                 
+                <details class="col-defaults" id="colDefaults">
+                    <summary><i class=ai data-ic=sparkles></i> پیش‌فرض‌های محتوای این مجموعه <small style="font-weight:normal; color:var(--text-gray)">(اختیاری)</small><span class="count" id="cdCount" hidden></span></summary>
+                    <p class="hint">محتوایی که در این مجموعه قرار بگیرد، این مقادیر را روی جاهای خالی‌اش با قاب رنگی به‌صورت پیشنهاد می‌بیند و هر کدام فقط با «تایید» وارد کارت می‌شود. زیرمجموعه‌ها هر چه را خالی بگذارند از مجموعه‌ی بالاتر می‌گیرند.</p>
+                    <div class="grid3">
+                        <div><label class="t" for="cdType">نوع محتوا</label><select id="cdType" class="form-control"></select></div>
+                        <div><label class="t" for="cdManager">مدیر پروژه</label><select id="cdManager" class="form-control" onchange="cdManagerChanged()"></select></div>
+                        <div><label class="t" for="cdTime">ساعت انتشار</label><input type="time" id="cdTime" class="form-control"></div>
+                    </div>
+                    <label class="t">همکاران</label><div class="cd-chips" id="cdTeam"></div>
+                    <label class="t">مراحل تولید و مسئول هر مرحله</label><div id="cdStages"></div>
+                    <label class="t">پلتفرم‌های انتشار</label><div class="cd-chips" id="cdPlatforms"></div>
+                    <div class="hint" id="cdInheritNote"></div>
+                </details>
+
                 <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: flex-end;">
                     <button type="button" class="btn-outline"  onclick="document.getElementById('addModal').style.display='none'" >انصراف</button>
                     <button type="submit" class="btn btn-primary">ذخیره مجموعه</button>
@@ -569,7 +598,79 @@
                 parentSelect.value = cur ? cur.id : '';
                 document.getElementById('org_id').value = cur && cur.org_id ? cur.org_id : '';
             }
+            const own = id ? (colById(id).defaults || null) : null;
+            renderDefaultsForm(own);
+            parentSelect.onchange = () => renderInheritNote();
+            renderInheritNote();
+            document.getElementById('colDefaults').open = !!own;
             setTimeout(() => document.getElementById('title').focus(), 50);
+        }
+
+        // ───────── Collection defaults form ─────────
+        // Names are stored trimmed; compare them the same way (spaces and ي/ك ignored).
+        const cdNorm = (s) => String(s == null ? '' : s).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim();
+        const cdPeople = () => (window.allColleagues || []).map(c => ({ id: c.id, name: cdNorm(c.full_name || c.username) }));
+        const cdActive = (list) => (list || []).filter(x => x && x.is_active !== 0).map(x => x.setting_key);
+        function renderDefaultsForm(d) {
+            d = d || {};
+            const opt = (v, label, sel) => `<option value="${escapeHtml(v)}"${sel ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+            const people = cdPeople();
+            const s = window.allSettings || {};
+            document.getElementById('cdType').innerHTML = opt('', '— بدون پیش‌فرض —') + cdActive(s.content_type).map(t => opt(t, t, t === d.content_type)).join('');
+            document.getElementById('cdManager').innerHTML = opt('', '— بدون پیش‌فرض —') + people.map(p => opt(p.name, p.name, p.name === cdNorm(d.project_manager))).join('');
+            document.getElementById('cdTime').value = d.publish_time || '';
+            const chip = (name, v, on) => `<label><input type="checkbox" name="${name}" value="${escapeHtml(v)}"${on ? ' checked' : ''}> ${escapeHtml(v)}</label>`;
+            document.getElementById('cdTeam').innerHTML = people.map(p => chip('cd_team', p.name, (d.team || []).some(n => cdNorm(n) === p.name))).join('') || '<span class="hint">همکاری ثبت نشده است.</span>';
+            document.getElementById('cdPlatforms').innerHTML = cdActive(s.platform).map(p => chip('cd_platform', p, (d.platforms || []).includes(p))).join('') || '<span class="hint">پلتفرمی تعریف نشده است.</span>';
+            const owners = d.stage_owners || {};
+            document.getElementById('cdStages').innerHTML = cdActive(s.stages).map(st => `<div class="cd-stage">
+                    <label><input type="checkbox" name="cd_stage" value="${escapeHtml(st)}"${(d.stages || []).includes(st) ? ' checked' : ''}> ${escapeHtml(st)}</label>
+                    <select class="form-control" data-cd-owner="${escapeHtml(st)}" aria-label="مسئول ${escapeHtml(st)}">${opt('', '— مسئول پیش‌فرض —')}${people.map(p => opt(p.id, p.name, String(owners[st]) === String(p.id))).join('')}</select>
+                </div>`).join('') || '<span class="hint">مرحله‌ای تعریف نشده است.</span>';
+            cdManagerChanged();
+            document.getElementById('colDefaults').oninput = cdCount;
+            document.getElementById('colDefaults').onchange = cdCount;
+            cdCount();
+        }
+        /** The default manager is not offered as a default team member. */
+        function cdManagerChanged() {
+            const m = document.getElementById('cdManager').value;
+            document.querySelectorAll('#cdTeam input').forEach(cb => {
+                const hide = !!m && cb.value === m;
+                cb.closest('label').style.display = hide ? 'none' : '';
+                if (hide) cb.checked = false;
+            });
+        }
+        function readDefaultsForm() {
+            const vals = (sel) => [...document.querySelectorAll(sel)].map(c => c.value);
+            const stage_owners = {};
+            document.querySelectorAll('[data-cd-owner]').forEach(s => { if (s.value) stage_owners[s.dataset.cdOwner] = Number(s.value); });
+            return {
+                content_type: document.getElementById('cdType').value,
+                project_manager: document.getElementById('cdManager').value,
+                publish_time: document.getElementById('cdTime').value,
+                team: vals('input[name="cd_team"]:checked'),
+                stages: vals('input[name="cd_stage"]:checked'),
+                platforms: vals('input[name="cd_platform"]:checked'),
+                stage_owners,
+            };
+        }
+        function cdCount() {
+            const d = readDefaultsForm();
+            const n = Object.values(d).filter(v => Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : !!v).length;
+            const el = document.getElementById('cdCount');
+            el.hidden = !n;
+            el.textContent = n ? window.toPersianDigits(n) + ' مورد' : '';
+        }
+        /** What this collection would inherit from the chosen parent. */
+        function renderInheritNote() {
+            const parent = colById(document.getElementById('parent_id').value);
+            const d = parent && parent.effective_defaults;
+            const note = document.getElementById('cdInheritNote');
+            if (!d) { note.innerHTML = ''; return; }
+            const names = { content_type: 'نوع محتوا', project_manager: 'مدیر پروژه', team: 'همکاران', stages: 'مراحل', stage_owners: 'مسئول مراحل', platforms: 'پلتفرم‌ها', publish_time: 'ساعت انتشار' };
+            const keys = Object.keys(names).filter(k => d[k] !== undefined);
+            note.innerHTML = keys.length ? `<span class="cd-inherit"><i class=ai data-ic=corner-down-left></i> هر چه اینجا خالی بماند از «${escapeHtml(parent.title)}» گرفته می‌شود: ${escapeHtml(keys.map(k => names[k]).join('، '))}</span>` : '';
         }
 
         function translateStatus(s) {
@@ -599,7 +700,8 @@
                 id: id ? parseInt(id) : null,
                 title: document.getElementById('title').value,
                 org_id: document.getElementById('org_id').value,
-                parent_id: document.getElementById('parent_id').value
+                parent_id: document.getElementById('parent_id').value,
+                defaults: readDefaultsForm()
             };
             const res = await postJson('/api/manage_collections', payload);
             if (res.status === 'success') {

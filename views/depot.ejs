@@ -143,10 +143,20 @@ async function openAddContentModal() {
         ? stages.map(s => `<label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" value="${escapeHtml(s.setting_key)}"> ${escapeHtml(s.setting_key)}</label>`).join('')
         : '<span style="color: var(--text-gray); font-size: 0.85rem;">مرحله‌ای در تنظیمات ← مراحل تولید تعریف نشده است.</span>';
     document.querySelectorAll('#newComponentsCount .comp-count').forEach(i => i.value = '');
+    const typeSel = document.getElementById('newType');
+    delete typeSel.dataset.touched;
+    typeSel.onchange = () => { typeSel.dataset.touched = '1'; };
     if (!window.__newContentFields) {
         window.__newContentFields = window.newContentFields(document.getElementById('newContentExtras'), {
             prefix: 'nc', withSchedule: true,
             getOrgId: () => document.getElementById('newOrg').value,
+            // The type list has no empty choice: it counts as empty until the user picks one.
+            defaultTargets: () => ({
+                content_type: { el: document.getElementById('newType'), empty: () => !document.getElementById('newType').dataset.touched },
+                project_manager: { el: document.getElementById('newManager') },
+                team: { box: document.getElementById('newTeamCheckboxes') },
+                stages: { box: document.getElementById('newStages') },
+            }),
         });
     } else {
         window.__newContentFields.reset();

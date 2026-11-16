@@ -20,6 +20,8 @@
    *   withSchedule  also show status, publish date and time
    *   settings()    settings object (content types, platforms)
    *   collections() list of collections
+   *   defaultTargets() the page's own fields that a collection's defaults may fill
+   *                 (see collection-defaults.js); offered when a collection is chosen
    */
   window.newContentFields = function (container, opts) {
     var p = opts.prefix;
@@ -54,6 +56,7 @@
         '</div>';
       container.innerHTML = html;
       id("Collection").addEventListener("input", hint);
+      id("Collection").addEventListener("change", offerDefaults);
       refreshCollections();
     }
 
@@ -85,6 +88,22 @@
       h.innerHTML = !t ? "" : matchCollection() ? "<i class=ai data-ic=check></i> در همین مجموعه قرار می‌گیرد." : "<i class=ai data-ic=plus></i> مجموعه‌ی تازه‌ای با این نام برای همین برند ساخته می‌شود.";
     }
 
+    /** The chosen collection's defaults, offered on the empty fields (each needs «تایید»). */
+    var offeredFor = null;
+    function offerDefaults() {
+      if (!window.collectionDefaults) return;
+      var m = matchCollection();
+      // Leaving the box fires "change" again: the same collection keeps its open suggestions
+      // (re-offering would replace the button the user is about to press).
+      var key = m ? String(m.id) : "";
+      if (key === offeredFor) return;
+      offeredFor = key;
+      var scope = container.closest(".modal-box, form, .modal-overlay") || container.parentElement;
+      var d = window.collectionDefaults.of(m);
+      var targets = Object.assign({ platforms: { box: id("Platforms") } }, opts.withSchedule ? { publish_time: { el: id("PublishTime") } } : {}, opts.defaultTargets ? opts.defaultTargets() : {});
+      window.collectionDefaults.offer(scope, d, targets);
+    }
+
     function read() {
       var data = {
         publish_platforms: Array.from(id("Platforms").querySelectorAll("input:checked")).map(function (c) { return c.value; }),
@@ -104,7 +123,12 @@
       return data;
     }
 
-    function reset() { render(); }
+    function reset() {
+      var scope = container.closest(".modal-box, form, .modal-overlay");
+      if (scope && window.collectionDefaults) window.collectionDefaults.clear(scope);
+      offeredFor = null;
+      render();
+    }
 
     render();
     return { read: read, reset: reset, refreshCollections: refreshCollections };

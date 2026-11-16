@@ -13,6 +13,7 @@ import { hasPermission, normalizePasswordInput, passwordConfirmProblem, password
 import { nextId, safeColor, safeUrl, toInt } from "../../utils/helpers.js";
 import { findOrgByRef, moveToRecycleBin, recordBulkAdd } from "../../utils/contentUtils.js";
 import { isUsernameTaken } from "./users.js";
+import { cleanCollectionDefaults, effectiveCollectionDefaults } from "../../utils/collectionDefaults.js";
 
 const subRouter = express.Router();
 
@@ -25,10 +26,13 @@ subRouter.get("/get_collections", (req, res) => {
   const orgId = isClient(req) ? clientOrgId(req) : req.query.org_id;
   let cols = collections;
   if (orgId) cols = cols.filter((c) => c.org_id == orgId);
+  const client = isClient(req);
   const data = cols.map((c) => {
     const org = organizations.find((o) => o.id == c.org_id);
+    // Default team and owners are internal to the studio.
+    const { defaults, ...rest } = c;
     return {
-      ...c,
+      ...(client ? rest : { ...c, effective_defaults: effectiveCollectionDefaults(c.id) }),
       org_name: org ? org.org_name : "بدون سازمان",
       org_color: org ? org.color : "#3b82f6",
       org_logo: org ? org.logo_url : "",
@@ -113,7 +117,9 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
       parent_id: parentId,
       created_at: persianDate(),
       is_active: 1,
-    };
+    } as any;
+    const defaults = cleanCollectionDefaults(req.body.defaults);
+    if (defaults) item.defaults = defaults;
     collections.push(item);
     saveDatabase();
     return res.json({ status: "success", message: "مجموعه اضافه شد", data: item });
@@ -123,6 +129,11 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
     if (!col) return res.status(404).json({ status: "error", message: "مجموعه یافت نشد" });
     const { parent_id } = req.body;
     if (title) col.title = String(title);
+    if (req.body.defaults !== undefined) {
+      const defaults = cleanCollectionDefaults(req.body.defaults);
+      if (defaults) col.defaults = defaults;
+      else delete col.defaults;
+    }
     if (parent_id !== undefined) {
       const parentId = parent_id ? toInt(parent_id) : null;
       // A collection can't become its own (grand)parent.

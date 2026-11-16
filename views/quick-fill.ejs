@@ -58,6 +58,7 @@
             background: linear-gradient(var(--glass-3, var(--card-bg)), var(--glass-3, var(--card-bg))) padding-box, linear-gradient(135deg, #3b82f6, #8b5cf6) border-box; }
         .qf-prefill-tag { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; font-weight: bold; color: #fff; padding: 2px 10px; border-radius: 999px;
             background: linear-gradient(135deg, #3b82f6, #8b5cf6); box-shadow: 0 4px 12px -6px #6d28d9; cursor: help; }
+        select.suggested { outline: 2px dashed #8b5cf6; outline-offset: 2px; }
         .qf-opt.suggested { outline: 2px dashed #8b5cf6; outline-offset: 2px; background: color-mix(in srgb, #8b5cf6 12%, var(--card-bg)); }
         .qf-suggest-val { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; outline: 2px dashed #8b5cf6; outline-offset: 2px; background: color-mix(in srgb, #8b5cf6 12%, var(--card-bg)); font-size: 0.86rem; margin-bottom: 8px; }
         .qf-confirm, .qf-dismiss { border: none; border-radius: 999px; padding: 3px 12px; font: inherit; font-size: 0.76rem; font-weight: bold; cursor: pointer; }
@@ -201,6 +202,11 @@
         startTotal = queue.length;
         idx = 0;
         if (keepId) { const i = queue.findIndex(x => x.id === keepId); if (i > 0) idx = i; }
+        // The server puts unseen cards first; if the first one was already seen, all were.
+        else if (queue.length && queue[0].seen && window.showToast && !loadQueue.toldRound) {
+            loadQueue.toldRound = true;
+            window.showToast('همه‌ی کارت‌ها را یک دور دیده‌اید؛ از کارتی که زودتر از همه دیدید دوباره شروع می‌شود.', 'info');
+        }
         renderProgress();
         await renderCard();
     }
@@ -277,6 +283,7 @@
         const orgHtml = org ? `<span class="qf-org">${org.logo ? `<img src="${esc(window.safeUrl ? window.safeUrl(org.logo) : org.logo)}" alt="">` : `<span class="dot" style="background:${esc(window.safeColor ? (window.safeColor(org.color) || 'var(--primary-color)') : 'var(--primary-color)')}"></span>`}${esc(org.name)}</span>` : '<span class="qf-org">بدون برند</span>';
         const chips = [
             item.mine ? '<span class="qf-chip mine"><i class=ai data-ic=user></i> کار شما</span>' : '',
+            item.seen ? '<span class="qf-chip" title="این کارت را قبلاً در «تکمیل سریع» دیده‌اید"><i class=ai data-ic=eye></i> قبلاً دیده‌اید</span>' : '',
             `<span class="qf-chip">${esc(STATUS[item.status] || item.status)}</span>`,
             item.content_type ? `<span class="qf-chip">${esc(item.content_type)}</span>` : '',
             item.collection ? `<span class="qf-chip"><i class=ai data-ic=folder></i> ${esc(item.collection.title)}</span>` : '',
@@ -296,6 +303,13 @@
         if (window.jalaliDatepicker && $('qfDate')) { try { jalaliDatepicker.startWatch({ persianDigits: true, time: false, hideAfterChange: true, autoHide: true }); } catch (e) {} }
         wireCard(card, item);
         updatePending(null);
+        // Remember that this card was shown: the next visit continues after it.
+        if (!item.seen) {
+            item.seen = true;
+            fetch('/api/quick_fill_seen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id }) }).catch(() => {});
+        }
+        if (item.collection) await addCollectionDefaults(item, item.collection.id);
+        if ($('qfCard') !== card) return;
         applyPrefill(card, item);
         readDraft(card);
         // Typing fields get the focus; with only choice buttons the card itself does (keys still work).
@@ -327,8 +341,8 @@
             } else if (multi) opt.classList.toggle('on');
             readDraft(card);
         });
-        card.addEventListener('input', () => readDraft(card));
-        card.addEventListener('change', () => readDraft(card));
+        card.addEventListener('input', (e) => { readDraft(card); if (e.target.id === 'qfCol') collectionPicked(card, item); });
+        card.addEventListener('change', (e) => { readDraft(card); if (e.target.id === 'qfCol') collectionPicked(card, item); });
         $('qfSave').onclick = () => save(item);
         $('qfSkip').onclick = () => skip('left');
         $('qfLater').onclick = () => later(item);
@@ -500,6 +514,7 @@
             for (const h of o.hits) {
                 const pf = prefills[h.x.id] || (prefills[h.x.id] = { values: {}, from: item.title, why: h.why });
                 pf.values[o.key] = o.value;
+                if (pf.src) delete pf.src[o.key];
                 pf.from = item.title;
                 pf.why = h.why;
             }
@@ -512,23 +527,81 @@
         };
     }
 
+    // ───────── «پیش‌فرض مجموعه»: the card's collection suggests its default values ─────────
+    // Shown like a similar-card suggestion (gradient frame) and applied only after «تایید».
+    const DEFAULT_TO_FIELD = { content_type: 'content_type', project_manager: 'project_manager', team: 'team', stages: 'stages', platforms: 'platforms', stage_owners: 'stage_owners', publish_time: 'publish_date' };
+    async function addCollectionDefaults(item, colId) {
+        const cols = await collectionsOf(item.org && item.org.id);
+        let col = cols.find(c => String(c.id) === String(colId));
+        if (!col) col = (await collectionsOf('')).find(c => String(c.id) === String(colId));
+        const d = col && col.effective_defaults;
+        if (!d) return;
+        const from = d._from || {};
+        Object.entries(DEFAULT_TO_FIELD).forEach(([dk, fk]) => {
+            let value = d[dk];
+            if (value === undefined || !item.missing.includes(fk)) return;
+            if (dk === 'stage_owners') {
+                // Only stages of this card that still have no owner.
+                const v = {};
+                (item.stage_owners_missing || []).forEach(st => { if (value[st] && people.some(p => String(p.id) === String(value[st]))) v[st] = value[st]; });
+                if (!Object.keys(v).length) return;
+                value = v;
+            }
+            if (dk === 'publish_time') { if (item.publish_time) return; value = { publish_time: value }; }
+            const pf = prefills[item.id] || (prefills[item.id] = { values: {}, from: '', why: [], src: {} });
+            pf.src = pf.src || {};
+            if (pf.values[fk] !== undefined) return; // a suggestion from a similar card stays
+            pf.values[fk] = value;
+            pf.src[fk] = { kind: 'collection', col: col.id, label: 'پیش‌فرض مجموعه', tip: `پیش‌فرض مجموعه «${from[dk] || col.title}»` };
+        });
+    }
+    /** A collection typed or confirmed on the card brings that collection's defaults. */
+    async function collectionPicked(card, item) {
+        const inp = $('qfCol');
+        const cols = colsByOrg[String((item.org && item.org.id) || '')] || [];
+        const match = inp ? cols.find(c => c.title === inp.value.trim()) : null;
+        const id = match ? match.id : null;
+        if (card.dataset.cdCol === String(id)) return;
+        card.dataset.cdCol = String(id);
+        // Suggestions of the previously picked collection go away.
+        const pf = prefills[item.id];
+        if (pf && pf.src) Object.keys(pf.values).forEach(k => { if (pf.src[k] && pf.src[k].kind === 'collection' && k !== 'collection') resolveSuggestion(card, item, k, false); });
+        if (!id) return;
+        await addCollectionDefaults(item, id);
+        if ($('qfCard') === card) { applyPrefill(card, item); readDraft(card); }
+    }
+
     /** Marks a pre-filled field and selects its value; the user still confirms by saving. */
     function applyPrefill(card, item) {
         const pf = prefills[item.id];
         if (!pf) return;
-        const tip = `از کارت «${pf.from}» — مشابه در: ${pf.why.join('، ')}`;
         Object.entries(pf.values).forEach(([key, value]) => {
             const field = card.querySelector(`.qf-field[data-key="${key}"]`);
             if (!field || field.classList.contains('qf-prefilled')) return;
+            const src = pf.src && pf.src[key];
+            const tip = src ? src.tip : `از کارت «${pf.from}» — مشابه در: ${pf.why.join('، ')}`;
             field.classList.add('qf-prefilled');
             const lbl = field.querySelector('.lbl');
-            if (lbl) lbl.insertAdjacentHTML('beforeend', `<span class="qf-prefill-tag" title="${esc(tip)}"><i class=ai data-ic=sparkles></i> ${esc(PREFILL_LABEL)}</span>
+            if (lbl) lbl.insertAdjacentHTML('beforeend', `<span class="qf-prefill-tag" title="${esc(tip)}"><i class=ai data-ic=sparkles></i> ${esc(src ? src.label : PREFILL_LABEL)}</span>
                 <button type="button" class="qf-confirm" data-confirm="${key}" title="این پیشنهاد وارد کارت شود"><i class=ai data-ic=check></i> تایید</button>
                 <button type="button" class="qf-dismiss" data-dismiss="${key}">نه</button>`);
+            if (src && src.kind === 'collection' && lbl) lbl.insertAdjacentHTML('afterend', `<div class="qf-why">${esc(tip)}</div>`);
             // Only marked as a suggestion: nothing is selected until the user confirms it.
             if (key === 'collection') {
                 const col = Object.values(colsByOrg).flat().find(c => String(c.id) === String(value));
                 field.querySelector('.lbl').insertAdjacentHTML('afterend', `<div class="qf-suggest-val"><i class=ai data-ic=folder></i> ${esc(col ? col.title : String(value))}</div>`);
+                return;
+            }
+            if (key === 'stage_owners') {
+                Object.entries(value).forEach(([st, pid]) => {
+                    const sel = [...field.querySelectorAll('[data-owner]')].find(s => s.dataset.owner === st);
+                    if (sel && !sel.value) { sel.classList.add('suggested'); sel.title = 'پیشنهاد: ' + personName(people.find(p => String(p.id) === String(pid)) || {}); }
+                });
+                field.querySelector('.lbl').insertAdjacentHTML('afterend', `<div class="qf-suggest-val"><i class=ai data-ic=user></i> ${esc(Object.entries(value).map(([st, pid]) => st + ': ' + personName(people.find(p => String(p.id) === String(pid)) || { full_name: '?' })).join('، '))}</div>`);
+                return;
+            }
+            if (key === 'publish_date' && value && value.publish_time) {
+                field.querySelector('.lbl').insertAdjacentHTML('afterend', `<div class="qf-suggest-val"><i class=ai data-ic=clock></i> ساعت ${esc(fa(value.publish_time))}</div>`);
                 return;
             }
             const vals = Array.isArray(value) ? value : [value];
@@ -540,7 +613,7 @@
         const n = card ? card.querySelectorAll('.qf-field.qf-prefilled').length : 0;
         const box = $('qfPending');
         box.hidden = !n;
-        box.textContent = n ? `${fa(n)} پیشنهاد از کارت مشابه هنوز تایید نشده؛ تا تایید نکنید وارد کارت نمی‌شود.` : '';
+        box.textContent = n ? `${fa(n)} پیشنهاد هنوز تایید نشده؛ تا تایید نکنید وارد کارت نمی‌شود.` : '';
     }
     /** "Confirm": the suggested value becomes the field's value. "No": the suggestion goes away. */
     function resolveSuggestion(card, item, key, accept) {
@@ -553,14 +626,20 @@
                 const col = Object.values(colsByOrg).flat().find(c => String(c.id) === String(value));
                 const inp = field.querySelector('#qfCol');
                 if (inp) { inp.value = col ? col.title : String(value); inp.dispatchEvent(new Event('input', { bubbles: true })); }
+            } else if (key === 'stage_owners') {
+                field.querySelectorAll('[data-owner]').forEach(s => { if (value[s.dataset.owner] && !s.value) s.value = String(value[s.dataset.owner]); });
+            } else if (key === 'publish_date' && value && value.publish_time) {
+                const tm = field.querySelector('#qfTime');
+                if (tm && !tm.value) tm.value = value.publish_time;
             } else {
                 const single = field.querySelector('[data-single]');
                 if (single) single.querySelectorAll('.qf-opt').forEach(o => o.classList.remove('on'));
                 field.querySelectorAll('.qf-opt.suggested').forEach(o => o.classList.add('on'));
             }
         }
-        field.querySelectorAll('.qf-opt.suggested').forEach(o => o.classList.remove('suggested'));
-        field.querySelectorAll('.qf-prefill-tag, .qf-confirm, .qf-dismiss, .qf-suggest-val').forEach(el => el.remove());
+        field.querySelectorAll('.suggested').forEach(o => o.classList.remove('suggested'));
+        field.querySelectorAll('.qf-prefill-tag, .qf-confirm, .qf-dismiss, .qf-suggest-val, .qf-why').forEach(el => el.remove());
+        if (pf.src) delete pf.src[key];
         field.classList.remove('qf-prefilled');
         if (accept) {
             field.classList.add('qf-confirmed');

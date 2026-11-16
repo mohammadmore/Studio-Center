@@ -94,6 +94,13 @@
     }).join("") +
       (editable ? '<div class="wf-actions"><button type="button" class="wf-btn primary" id="wfSavePlan">ذخیره مسئولان و موعدها</button></div>' : "") +
       '<p class="muted" style="font-size:.78rem;margin-top:8px">با تیک خوردن هر مرحله، مسئول مرحله بعد خودکار خبردار می‌شود. یک روز مانده به موعد یادآوری و پس از موعد به مدیر پروژه ارجاع داده می‌شود.</p>';
+    // The collection's default owners are offered on stages that have none (confirm each).
+    var cd = editable && window.collectionDefaults && window.collectionDefaults.of(it.collection_id);
+    if (cd && cd.stage_owners) {
+      var owners = {};
+      pane.querySelectorAll(".wf-stage-row").forEach(function (row) { owners[stages[Number(row.getAttribute("data-stage"))]] = row.querySelector('[data-f="owner"]'); });
+      window.collectionDefaults.offer(pane, cd, { stage_owners: { owners: owners } });
+    }
     var btn = pane.querySelector("#wfSavePlan");
     if (btn) btn.onclick = async function () {
       var out = {};
