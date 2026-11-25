@@ -5,7 +5,7 @@ import { checkPermission } from "../../middleware/auth.js";
 import { hasPermission } from "../../utils/authUtils.js";
 import { addDaysToJalali, jalaliDiffDays, nextId, normalizeJalaliDate, todayJalali, toInt } from "../../utils/helpers.js";
 import { cardColleagueIds } from "../../utils/contentUtils.js";
-import { DELIVERED_STATUSES, isFinished, openCardsOf, shootsOn } from "../../utils/workflowUtils.js";
+import { DELIVERED_STATUSES, openCardsOf, openWorkOf, shootsOn } from "../../utils/workflowUtils.js";
 import { docType, priceOf, toNumber } from "./finances.js";
 
 /** Timesheets, profitability per brand and the team's workload. */
@@ -223,14 +223,8 @@ subRouter.get("/workload", checkPermission("workload"), (req, res) => {
     .filter((c) => c.is_active !== 0 && c.is_active !== false)
     .map((c) => {
       const open = openCardsOf(c.id);
-      const stages: any[] = [];
-      for (const card of contents) {
-        if (isFinished(card)) continue;
-        for (const [stage, plan] of Object.entries<any>(card.stage_plan || {})) {
-          if (plan?.owner_id != c.id || (card.completed_stages || []).includes(stage)) continue;
-          stages.push({ content_id: card.id, title: card.title, stage, due_date: plan.due_date || "", estimated_hours: plan.estimated_hours || null });
-        }
-      }
+      const work = openWorkOf(c.id);
+      const stages = work.stages.map(({ card, stage, plan }) => ({ content_id: card.id, title: card.title, stage, due_date: normalizeJalaliDate(plan?.due_date) || "", estimated_hours: plan?.estimated_hours || null }));
       const perDay = days.map((d) => {
         const due = stages.filter((s) => s.due_date === d);
         const publishing = open.filter((card) => normalizeJalaliDate(card.publish_date) === d && cardColleagueIds(card).includes(c.id));
@@ -257,6 +251,10 @@ subRouter.get("/workload", checkPermission("workload"), (req, res) => {
         avatar_url: c.avatar_url || "",
         status: c.status || "active",
         capacity: Number(c.capacity) || null,
+        // One number for "open work" (stages + team cards without a stage of their own).
+        open_work: work.total,
+        open_stages: work.stages.length,
+        team_cards: work.teamCards.length,
         open_cards: open.length,
         overdue: stages.filter((s) => s.due_date && s.due_date < today).length,
         stages_in_range: stages.filter((s) => s.due_date >= from && s.due_date <= to).length,
@@ -266,7 +264,7 @@ subRouter.get("/workload", checkPermission("workload"), (req, res) => {
         days: perDay,
       };
     })
-    .sort((a, b) => b.open_cards - a.open_cards);
+    .sort((a, b) => b.open_work - a.open_work);
   res.json({ status: "success", from, to, days, data });
 });
 

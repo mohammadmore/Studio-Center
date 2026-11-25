@@ -184,6 +184,14 @@
     body.asva-sidebar-open { padding-right: 260px !important; }
     body.asva-sidebar-open #asva-pro-sidebar { transform: translateX(0); }
     body.asva-sidebar-open #asva-floating-actions { right: 275px; }
+    /* Page content keeps clear of the floating icon column (toggle, notifications, search,
+       theme), which otherwise covered titles, buttons and search boxes at the top right. */
+    @media (min-width: 769px) {
+        .main-content { padding-right: max(70px, var(--main-pad-right, 0px)) !important; }
+    }
+    /* The pages' quick-search boxes follow the theme (they showed as a dark bar). */
+    .global-search-input { background: var(--card-bg) !important; color: var(--text-dark) !important; box-sizing: border-box; min-width: 0; }
+    .global-search-input::placeholder { color: var(--text-gray); }
     @media (max-width: 768px) {
         body.asva-sidebar-open { padding-right: 0 !important; }
         body.asva-sidebar-open #asva-floating-actions { right: 275px; }
@@ -372,6 +380,9 @@
 document.addEventListener('DOMContentLoaded', function () {
     var main = document.querySelector('.main-content');
     if (!main || !window.fetch) return;
+    // Only on the dashboard (it took a lot of room at the top of other pages too).
+    var here = window.asvaAppPath ? window.asvaAppPath(location.pathname) : location.pathname;
+    if (!/\/dashboard\/?$/.test(here)) return;
     var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
     var fa = function (n) { return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[d]; }); };
     fetch('/api/setup_status', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (res) {
@@ -381,14 +392,27 @@ document.addEventListener('DOMContentLoaded', function () {
         box.className = 'asva-setup';
         box.setAttribute('aria-label', 'راه‌اندازی سیستم');
         box.innerHTML = '<div class="asva-setup-head"><h3><i class=ai data-ic=rocket></i> راه‌اندازی استودیو — ' + fa(d.done) + ' از ' + fa(d.total) + ' مرحله انجام شده</h3>' +
-            '<button type="button" class="asva-setup-x" title="این کارت دیگر نمایش داده نشود">بعداً، نمایش نده</button></div>' +
+            '<span style="display:flex; gap:6px;"><button type="button" class="asva-setup-x" data-fold title="جمع/باز کردن">جمع کن</button>' +
+            '<button type="button" class="asva-setup-x" data-hide title="این کارت دیگر نمایش داده نشود">بعداً، نمایش نده</button></span></div>' +
             '<div class="asva-setup-bar"><span style="width:' + Math.round(d.done / d.total * 100) + '%"></span></div>' +
             '<ul class="asva-setup-list">' + d.steps.map(function (s) {
                 return '<li><a href="' + esc(s.href) + '" class="' + (s.done ? 'done' : '') + '"><span class="ic">' + (s.done ? '<i class=ai data-ic=check></i>' : '') + '</span><span><b>' + esc(s.title) + '</b>' + (s.done ? '' : '<small>' + esc(s.hint) + '</small>') + '</span></a></li>';
             }).join('') + '</ul>';
         var header = main.querySelector('.page-header-container, .dashboard-header, .content-header, .header-panel');
         if (header && header.parentNode === main) header.insertAdjacentElement('afterend', box); else main.insertBefore(box, main.firstChild);
-        box.querySelector('.asva-setup-x').onclick = function () {
+        // Folded to one line (remembered in this browser).
+        var foldKey = 'asva-setup-folded';
+        var setFold = function (on) {
+            box.querySelectorAll('.asva-setup-bar, .asva-setup-list').forEach(function (el) { el.style.display = on ? 'none' : ''; });
+            box.querySelector('[data-fold]').textContent = on ? 'باز کن' : 'جمع کن';
+            box.style.padding = on ? '10px 16px' : '';
+            try { localStorage.setItem(foldKey, on ? '1' : '0'); } catch (e) {}
+        };
+        var folded = false;
+        try { folded = localStorage.getItem(foldKey) === '1'; } catch (e) {}
+        setFold(folded);
+        box.querySelector('[data-fold]').onclick = function () { folded = !folded; setFold(folded); };
+        box.querySelector('[data-hide]').onclick = function () {
             box.remove();
             fetch('/api/save_studio_info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setup_dismissed: true }) });
             if (typeof showToast === 'function') showToast('کارت راه‌اندازی پنهان شد. هر زمان خواستید از تنظیمات پایه دوباره نمایشش دهید.', 'info');

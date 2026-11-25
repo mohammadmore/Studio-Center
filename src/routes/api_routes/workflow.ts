@@ -306,10 +306,14 @@ subRouter.post("/update_stage_plan", (req: any, res) => {
       due_date: due,
       estimated_hours: Number(entry.estimated_hours) > 0 ? Number(entry.estimated_hours) : previous.estimated_hours || null,
     };
-    // A new date means new reminders.
+    // A new date means new reminders. A date changed here is the user's own (no longer the
+    // automatic one counted from the publish date); clearing it keeps it empty.
     if (previous.due_date !== due) {
       delete plan[stage].reminded_on;
       delete plan[stage].overdue_notified_on;
+      delete plan[stage].due_auto;
+      if (!due) plan[stage].no_auto_due = true;
+      else delete plan[stage].no_auto_due;
     }
     if (owner) {
       assignments.push({ colleague_id: owner.id, date: due, label: stage });

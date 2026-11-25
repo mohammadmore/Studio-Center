@@ -783,6 +783,7 @@
             }
 
             if (currentGroup === 'stages') setTimeout(renderUnlistedStages, 0);
+            if (currentGroup === 'content_type') setTimeout(renderStageDueTemplate, 0);
             Array.from(items).forEach(item => {
                 const formatMoney = new Intl.NumberFormat('fa-IR').format(item.base_price || 0);
                 const priceBadge = (currentGroup === 'content_type' && item.base_price > 0) 
@@ -847,6 +848,30 @@
                         </div>`).join('')}
                 </div>`);
         }
+        // Default due dates of stages: days between consecutive stages per content type,
+        // counted back from the card's publish date (0 = no automatic due dates).
+        function renderStageDueTemplate() {
+            const container = document.getElementById('dataListContainer');
+            if (currentGroup !== 'content_type' || !container || document.getElementById('stageDueBox')) return;
+            const tpl = allSettings.stage_due_template || {};
+            const types = (allSettings.content_type || []).filter(t => t.is_active !== 0).map(t => t.setting_key);
+            const fa = (n) => window.toPersianDigits ? window.toPersianDigits(n) : n;
+            container.insertAdjacentHTML('beforeend', `
+                <div id="stageDueBox" style="margin-top:18px; border:1px solid var(--border-color); border-radius:12px; padding:14px;">
+                    <div style="font-weight:bold; margin-bottom:4px;"><i class=ai data-ic=calendar-days></i> موعد پیش‌فرض مراحل</div>
+                    <div style="font-size:0.82rem; color:var(--text-gray); margin-bottom:10px; line-height:1.8;">وقتی کارتی تاریخ انتشار دارد، مراحلی که موعد ندارند خودکار موعد می‌گیرند: آخرین مرحله روز انتشار و هر مرحله‌ی قبل، این تعداد روز زودتر. موعدی که دستی تعیین شود دست نمی‌خورد. صفر یعنی خاموش.</div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:8px;">
+                        ${types.map(t => `<label style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; border:1px solid var(--border-color); border-radius:8px;"><span>${escapeHtml(t)}</span><span><input type="text" inputmode="numeric" class="form-control stage-gap" data-type="${escapeHtml(t)}" value="${fa(tpl[t] ?? 1)}" style="width:60px; text-align:center; display:inline-block;"> روز</span></label>`).join('')}
+                    </div>
+                    <div style="margin-top:10px;"><button class="btn-primary" onclick="saveStageDueTemplate()">ذخیره</button></div>
+                </div>`);
+        }
+        window.saveStageDueTemplate = async function () {
+            const template = {};
+            document.querySelectorAll('.stage-gap').forEach(i => { template[i.dataset.type] = parseInt(window.toEnglishDigits ? window.toEnglishDigits(i.value) : i.value, 10) || 0; });
+            const r = await window.api('/api/stage_due_template', { template }, { success: 'ذخیره شد' });
+            if (r) { allSettings.stage_due_template = template; }
+        };
         window.mergeStage = async function (from, to) {
             if (!to) { showToast('مرحله‌ی معادل را از فهرست انتخاب کنید', 'error'); return; }
             if (!(await window.customConfirm(`«${from}» در همه‌ی محتواها به «${to}» تبدیل شود؟`))) return;

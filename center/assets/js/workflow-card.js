@@ -504,6 +504,18 @@
     if ($("pmPlatformName")) $("pmPlatformName").textContent = platform + (m.fetched_at ? " — آخرین دریافت آمار: " + window.faDateTime(m.fetched_at) : "");
     window.togglePmDetails();
     $("platformMetricsModal").style.display = "flex";
+    // «دریافت آنلاین آمار» only works with a connected account (or a public platform).
+    var live = $("pmLiveBtn"), hint = $("pmLiveHint");
+    if (live) { live.disabled = true; live.title = ""; }
+    if (hint) hint.style.display = "none";
+    fetch("/api/live_stats_available?content_id=" + encodeURIComponent(id) + "&platform=" + encodeURIComponent(platform), { cache: "no-store" })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (!live || $("pmItemId").value != id) return;
+        live.disabled = !d.available;
+        live.title = d.available ? "" : (d.reason || "");
+        live.style.opacity = d.available ? "" : ".5";
+        if (hint) { hint.textContent = d.available ? "" : d.reason || ""; hint.style.display = d.available ? "none" : "block"; }
+      }, function () {});
   };
   window.togglePlatformPublished = window.togglePlatformPublished || function (id, platform) { window.openPlatformMetrics(id, platform); };
   window.closePlatformMetricsModal = function () { $("platformMetricsModal").style.display = "none"; };

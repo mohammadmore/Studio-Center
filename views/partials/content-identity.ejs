@@ -57,10 +57,11 @@
                     <input type="text" id="pmPostLink" class="form-control" placeholder="https://instagram.com/p/..." style="direction: ltr; text-align: left;">
                 </div>
                 
+                <div id="pmLiveHint" style="display:none; font-size:0.8rem; color:#b45309; margin:-6px 0 10px; line-height:1.7;"></div>
                 <div id="pmStatsContainer" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h4 style="margin:0; font-size: 0.95rem; color: var(--text-gray);">بازخورد و آمار <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></h4>
-                        <button type="button" class="btn-outline" style="padding: 2px 8px; font-size: 0.75rem; border-color: var(--primary-color); color: var(--primary-color);" onclick="window.fetchLiveStats(event)"> دریافت آنلاین آمار</button>
+                        <button type="button" class="btn-outline" style="padding: 2px 8px; font-size: 0.75rem; border-color: var(--primary-color); color: var(--primary-color);" id="pmLiveBtn" onclick="window.fetchLiveStats(event)"> دریافت آنلاین آمار</button>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div>

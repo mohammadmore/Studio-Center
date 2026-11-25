@@ -38,13 +38,14 @@
             const res = await api(`/api/workload?from=${latin(fromEl.value)}&to=${latin(toEl.value)}`);
             if (!res) return;
             const rows = res.data || [];
-            const busiest = rows.slice().sort((a, b) => b.open_cards - a.open_cards)[0];
+            // «کار باز» = open stages + team cards without a stage of one's own (same number everywhere).
+            const busiest = rows.slice().sort((a, b) => b.open_work - a.open_work)[0];
             document.getElementById('summary').innerHTML = [
-                ['کارهای باز تیم', fa(rows.reduce((s, r) => s + r.open_cards, 0))],
+                ['کارهای باز تیم', fa(rows.reduce((s, r) => s + r.open_work, 0))],
                 ['مراحل عقب‌افتاده', fa(rows.reduce((s, r) => s + r.overdue, 0))],
                 ['ساعت تخمینی این بازه', fa(rows.reduce((s, r) => s + r.estimated_hours, 0))],
                 ['ساعت ثبت‌شده این بازه', fa(Math.round(rows.reduce((s, r) => s + r.logged_hours, 0)))],
-                ['پرکارترین', busiest ? escapeHtml(busiest.name) + ' (' + fa(busiest.open_cards) + ')' : '—'],
+                ['پرکارترین', busiest && busiest.open_work ? escapeHtml(busiest.name) + ' (' + fa(busiest.open_work) + ')' : '—'],
             ].map(([l, v]) => `<div class="wf-card wf-stat"><b>${v}</b><span>${l}</span></div>`).join('');
             const head = res.days.map(d => {
                 const wd = (() => { try { const p = d.split('/').map(Number); const g = jalaali.toGregorian(p[0], p[1], p[2]); return new Date(g.gy, g.gm - 1, g.gd).toLocaleDateString('fa-IR', { weekday: 'short' }); } catch (e) { return ''; } })();
@@ -53,9 +54,10 @@
             document.getElementById('matrix').innerHTML = `<table class="wf-table wf-matrix"><thead><tr><th>همکار</th><th>کار باز</th><th>عقب‌افتاده</th>${head}</tr></thead><tbody>
                 ${rows.map(r => {
                     const cap = r.capacity || 12;
-                    const heavy = r.open_cards >= cap;
-                    return `<tr><td style="white-space:nowrap"><b>${escapeHtml(r.name)}</b>${r.status === 'on_leave' ? ' ' + statusChip('مرخصی', 'amber') : ''}${r.no_date ? `<br><small class="muted">${fa(r.no_date)} مرحله بدون موعد</small>` : ''}</td>
-                        <td>${heavy ? `<span class="wf-chip red" title="ظرفیت ${fa(cap)}">${fa(r.open_cards)}</span>` : fa(r.open_cards)}</td>
+                    const heavy = r.open_work >= cap;
+                    const breakdown = `${fa(r.open_stages)} مرحله` + (r.team_cards ? ` + ${fa(r.team_cards)} کارت بدون مرحله‌ی سپرده` : '');
+                    return `<tr><td style="white-space:nowrap"><b>${escapeHtml(r.name)}</b>${r.status === 'on_leave' ? ' ' + statusChip('مرخصی', 'amber') : ''}${r.no_date ? `<br><small class="muted">${fa(r.no_date)} از ${fa(r.open_stages)} مرحله بدون موعد</small>` : ''}</td>
+                        <td title="${escapeHtml(breakdown)}">${heavy ? `<span class="wf-chip red" title="ظرفیت ${fa(cap)}">${fa(r.open_work)}</span>` : fa(r.open_work)}<br><small class="muted">${breakdown}</small></td>
                         <td>${r.overdue ? `<span class="wf-chip red">${fa(r.overdue)}</span>` : '—'}</td>
                         ${r.days.map(d => {
                             const level = d.on_leave ? 'leave' : d.count === 0 ? '' : d.count <= 1 ? 'l1' : d.count <= 3 ? 'l2' : 'l3';

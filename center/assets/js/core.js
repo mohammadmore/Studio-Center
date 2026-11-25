@@ -477,6 +477,28 @@
     return dedupeKey ? request.then(function (r) { return r.clone(); }) : request;
   };
 
+  // ---------- shared lists ----------
+  // Pages keep the brand and collection lists in window.allOrgs / window.allCollections for
+  // their forms. After a change anywhere (a brand added in another tab) they are re-read, so
+  // every form offers the same, complete list.
+  var refreshTimer = null;
+  function refreshSharedLists() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function () {
+      if (Array.isArray(window.allOrgs)) {
+        window.fetch("/api/get_orgs", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && Array.isArray(d.data)) window.allOrgs = d.data;
+        }, function () {});
+      }
+      if (Array.isArray(window.allCollections)) {
+        window.fetch("/api/get_collections", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && Array.isArray(d.data)) window.allCollections = d.data;
+        }, function () {});
+      }
+    }, 400);
+  }
+  window.asvaRefreshSharedLists = refreshSharedLists;
+
   // ---------- search ----------
   // «تولد کیان‌منتور (۲۸ آذر ۱۴۰۴)» must find the card whether it is typed with a half-space
   // or a space, Arabic or Persian ی/ک, Persian or Latin digits, with or without brackets.
@@ -539,6 +561,39 @@
     }
     if (!r.ok) notify("تاریخ نامعتبر است. آن را به شکل ۱۴۰۵/۰۹/۰۳ بنویسید یا از تقویم انتخاب کنید.", "error");
   }, true);
+
+  // ---------- example dates in placeholders ----------
+  // Placeholders such as «1403/05/10» looked like old data: every example date shows today
+  // (and an example year, this year), also in forms drawn later.
+  var todayParts = (function () {
+    try {
+      var s = new Intl.DateTimeFormat("fa-IR-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      var m = /(\d{4})\D(\d{2})\D(\d{2})/.exec(s);
+      return m ? { y: m[1], m: m[2], d: m[3] } : null;
+    } catch (e) { return null; }
+  })();
+  var toFaDigits = function (s) { return String(s).replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; }); };
+  var DATE_RE = /([0-9۰-۹]{4})\s*[\/\-.]\s*([0-9۰-۹]{1,2})\s*[\/\-.]\s*([0-9۰-۹]{1,2})/;
+  var YEAR_RE = /(سال[^0-9۰-۹]{0,12})(1[34][0-9]{2}|۱[۳۴][۰-۹]{2})/;
+  function freshPlaceholder(el) {
+    if (!todayParts || !el.placeholder || el.dataset.phFresh) return;
+    var ph = el.placeholder, next = ph;
+    if (DATE_RE.test(ph)) next = ph.replace(DATE_RE, toFaDigits(todayParts.y + "/" + todayParts.m + "/" + todayParts.d));
+    else if (YEAR_RE.test(ph)) next = ph.replace(YEAR_RE, function (_m, pre) { return pre + toFaDigits(todayParts.y); });
+    el.dataset.phFresh = "1";
+    if (next !== ph) el.placeholder = next;
+  }
+  function freshPlaceholders(root) {
+    if (!root || !root.querySelectorAll) return;
+    if (root.matches && root.matches("input[placeholder], textarea[placeholder]")) freshPlaceholder(root);
+    root.querySelectorAll("input[placeholder], textarea[placeholder]").forEach(freshPlaceholder);
+  }
+  document.addEventListener("DOMContentLoaded", function () {
+    freshPlaceholders(document.body);
+    new MutationObserver(function (list) {
+      list.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) freshPlaceholders(n); }); });
+    }).observe(document.body, { childList: true, subtree: true });
+  });
 
   // Forms without a JS handler: block a second submit while the page is leaving.
   document.addEventListener("submit", function (e) {
@@ -711,6 +766,7 @@
       // Someone changed data: forget cached lists so the next load is fresh.
       socket.on("cache_bust", function () {
         cacheClear();
+        refreshSharedLists();
         window.dispatchEvent(new CustomEvent("asva:data_changed"));
       });
       socket.on("notification", function (n) {

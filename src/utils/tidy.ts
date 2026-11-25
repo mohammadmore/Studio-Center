@@ -1,5 +1,44 @@
 import { collections, colleagues, contents, organizations, settings } from "../store/state.js";
-import { normalizeJalaliDate, toLatinDigits } from "./helpers.js";
+import { addDaysToJalali, normalizeJalaliDate, todayJalali, toLatinDigits } from "./helpers.js";
+
+const FINISHED = ["done", "published", "archived", "ready_to_publish", "scheduled", "approved_by_client"];
+
+/** Days between consecutive stages for a content type (settings → stage due template); 0 = off. */
+export function stageGapDays(type: unknown) {
+  const tpl = settings.stage_due_template && typeof settings.stage_due_template === "object" ? settings.stage_due_template : {};
+  const v = tpl[String(type || "").trim()] ?? tpl["*"];
+  const n = Number(v);
+  return v === undefined || v === null || v === "" || !Number.isFinite(n) ? 1 : Math.max(0, Math.min(30, Math.round(n)));
+}
+
+/**
+ * Stages without a due date get one counted back from the card's publish date (the last
+ * stage on the publish date, each earlier one a few days before, per content type). Such
+ * dates are marked automatic and move with the publish date; dates set by hand are kept.
+ * Only for cards still in production whose publish date has not passed.
+ */
+export function applyDefaultStageDues(card: any, today = todayJalali()) {
+  const date = normalizeJalaliDate(card?.publish_date);
+  const stages: string[] = Array.isArray(card?.stages) ? card.stages : [];
+  if (!date || !stages.length || FINISHED.includes(card.status) || card.is_archived || date < today) return false;
+  const gap = stageGapDays(card.content_type);
+  if (!gap) return false;
+  const done: string[] = Array.isArray(card.completed_stages) ? card.completed_stages : [];
+  if (!card.stage_plan || typeof card.stage_plan !== "object") card.stage_plan = {};
+  let changed = false;
+  stages.forEach((stage, i) => {
+    if (done.includes(stage)) return;
+    const p = card.stage_plan[stage] || {};
+    if ((p.due_date && !p.due_auto) || p.no_auto_due) return; // set (or cleared) by hand
+    let due = addDaysToJalali(date, -(stages.length - 1 - i) * gap);
+    if (due < today) due = today;
+    if (p.due_date !== due || !p.due_auto) {
+      card.stage_plan[stage] = { ...p, due_date: due, due_auto: true };
+      changed = true;
+    }
+  });
+  return changed;
+}
 
 /**
  * Stored names and choices are compared as exact text all over the app (a card's type with
@@ -67,6 +106,7 @@ export function tidyCard(card: any) {
     const d = normalizeJalaliDate(card.publish_date);
     if (d) card.publish_date = d;
   }
+  applyDefaultStageDues(card);
   if (typeof card.publish_time === "string" && card.publish_time) {
     const m = /^(\d{1,2}):(\d{2})/.exec(toLatinDigits(card.publish_time));
     if (m) card.publish_time = `${m[1].padStart(2, "0")}:${m[2]}`;
@@ -97,6 +137,12 @@ export function tidyAll() {
     }
   }
   for (const o of organizations) {
+    // One form for the active flag (some imports stored "1"/true, which some lists ignored).
+    if (o && o.is_active !== 0 && o.is_active !== 1) {
+      const off = o.is_active === false || o.is_active === "0" || o.is_active === "false";
+      o.is_active = off ? 0 : 1;
+      changed = true;
+    }
     if (typeof o?.org_name === "string") {
       const v = clean(o.org_name);
       if (v !== o.org_name && v) { o.org_name = v; changed = true; }

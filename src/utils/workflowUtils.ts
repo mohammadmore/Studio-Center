@@ -10,7 +10,7 @@ export const FINISHED_STATUSES = ["done", "published", "archived", "ready_to_pub
 export const DELIVERED_STATUSES = ["approved_by_client", "ready_to_publish", "scheduled", "published", "done"];
 
 export function isFinished(card: any) {
-  return FINISHED_STATUSES.includes(card?.status);
+  return FINISHED_STATUSES.includes(card?.status) || !!card?.is_archived;
 }
 
 export function colleagueName(id: any) {
@@ -95,6 +95,31 @@ export function openCardsOf(colleagueId: number) {
   });
 }
 
+/**
+ * A person's open work, counted one way everywhere (workload page, "busiest", capacity
+ * warnings): each unfinished stage they own on a card still in production, plus each such
+ * card they are on the team of without owning any of its stages. Finished, published and
+ * archived cards do not count.
+ */
+export function openWorkOf(colleagueId: number) {
+  const stages: { card: any; stage: string; plan: any }[] = [];
+  const teamCards: any[] = [];
+  for (const card of contents) {
+    if (isFinished(card)) continue;
+    const plan = card.stage_plan && typeof card.stage_plan === "object" ? card.stage_plan : {};
+    const cardStages: string[] = Array.isArray(card.stages) ? card.stages : [];
+    const done: string[] = Array.isArray(card.completed_stages) ? card.completed_stages : [];
+    let owns = false;
+    for (const stage of cardStages) {
+      if (plan[stage]?.owner_id != colleagueId) continue;
+      owns = true;
+      if (!done.includes(stage)) stages.push({ card, stage, plan: plan[stage] });
+    }
+    if (!owns && cardColleagueIds(card).includes(colleagueId)) teamCards.push(card);
+  }
+  return { stages, teamCards, total: stages.length + teamCards.length };
+}
+
 const OVERLOAD_THRESHOLD = 12;
 
 /**
@@ -120,7 +145,7 @@ export function assignmentWarnings(assignments: { colleague_id: any; date?: stri
     const key = `load:${a.colleague_id}`;
     if (!seen.has(key)) {
       seen.add(key);
-      const open = openCardsOf(Number(a.colleague_id)).length;
+      const open = openWorkOf(Number(a.colleague_id)).total;
       const capacity = Number(colleagues.find((c) => c.id == a.colleague_id)?.capacity) || OVERLOAD_THRESHOLD;
       if (open >= capacity) warnings.push(`${name} هم‌اکنون ${open.toLocaleString("fa-IR")} کار باز دارد (ظرفیت: ${capacity.toLocaleString("fa-IR")}).`);
     }

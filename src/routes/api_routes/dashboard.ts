@@ -1,5 +1,5 @@
 import express from "express";
-import { applyStats, fetchPostStats } from "../../utils/stats.js";
+import { applyStats, fetchPostStats, findToken, needsToken, platformKind } from "../../utils/stats.js";
 import { saveDatabase } from "../../store/db.js";
 import { collections, contents, mediaAssets, organizations } from "../../store/state.js";
 import { checkPermission } from "../../middleware/auth.js";
@@ -103,51 +103,48 @@ subRouter.get("/get_dashboard_stats", checkPermission("dashboard"), (req, res) =
   const rawEventsList = filteredContents
     .filter((c) => c.status === "raw")
     .map((c) => c.title);
+  // Finished = approved or further along; a revision = sent back by the client (now, or any
+  // of its review versions). (It used to count only "done" and treated the todo queue as revisions.)
+  const FINISHED = ["done", "approved_by_client", "ready_to_publish", "scheduled", "published"];
+  const wasRevised = (c: any) =>
+    c.status === "needs_revision" || (Array.isArray(c.review_versions) && c.review_versions.some((v: any) => v?.client?.status === "rejected"));
   const orgCounts = filteredContents.reduce((acc, c) => {
     acc[c.org_id] = acc[c.org_id] || { total: 0, done: 0, revision: 0 };
     acc[c.org_id].total++;
-    if (c.status === "done") acc[c.org_id].done++;
-    if (c.status === "todo") acc[c.org_id].revision++;
+    if (FINISHED.includes(c.status)) acc[c.org_id].done++;
+    if (wasRevised(c)) acc[c.org_id].revision++;
     return acc;
-  }, {});
+  }, {} as Record<string, { total: number; done: number; revision: number }>);
+  const orgName = (orgId: string) => organizations.find((o) => o.id == orgId)?.org_name || "بدون کارفرما";
   const completionDetails = Object.keys(orgCounts).map((orgId) => {
-    const org = organizations.find((o) => o.id == orgId);
     const stats = orgCounts[orgId];
-    const percent = Math.round((stats.done / stats.total) * 100);
-    return `${org ? org.org_name : "نامشخص"}: ${percent}٪`;
+    return `${orgName(orgId)}: ${Math.round((stats.done / stats.total) * 100)}٪`;
   });
   const revisionDetails = Object.keys(orgCounts).map((orgId) => {
-    const org = organizations.find((o) => o.id == orgId);
     const stats = orgCounts[orgId];
-    const percent = Math.round((stats.revision / stats.total) * 100);
-    return `${org ? org.org_name : "نامشخص"}: ${percent}٪ اصلاحیه`;
+    return `${orgName(orgId)}: ${Math.round((stats.revision / stats.total) * 100)}٪ اصلاحیه`;
   });
   let totalContentForCalc = 0;
   let totalDoneForCalc = 0;
   let totalRevisionForCalc = 0;
-  let worstOrg = { name: "ندارد", rate: -1 };
-  let bestOrg = { name: "ندارد", rate: -1 };
-  Object.keys(orgCounts).forEach((orgId) => {
-    const org = organizations.find((o) => o.id == orgId);
-    const stats = orgCounts[orgId];
-    totalContentForCalc += stats.total;
-    totalDoneForCalc += stats.done;
-    totalRevisionForCalc += stats.revision;
-    const revisionRate = Math.round((stats.revision / stats.total) * 100);
-    if (revisionRate > worstOrg.rate) {
-      worstOrg = {
-        name: org ? org.org_name : "نامشخص",
-        rate: revisionRate,
-      };
-    }
-    const completionRate = Math.round((stats.done / stats.total) * 100);
-    if (completionRate > bestOrg.rate) {
-      bestOrg = {
-        name: org ? org.org_name : "نامشخص",
-        rate: completionRate,
-      };
-    }
-  });
+  const realOrgs = Object.keys(orgCounts).filter((id) => organizations.some((o) => o.id == id));
+  for (const id of Object.keys(orgCounts)) {
+    totalContentForCalc += orgCounts[id].total;
+    totalDoneForCalc += orgCounts[id].done;
+    totalRevisionForCalc += orgCounts[id].revision;
+  }
+  // "Best" and "most revisions" only mean something when two or more clients are compared
+  // and there is something to compare (otherwise one client was both best and worst).
+  let worstOrg: string | null = null;
+  let bestOrg: string | null = null;
+  if (realOrgs.length >= 2) {
+    const rate = (id: string, k: "done" | "revision") => orgCounts[id][k] / orgCounts[id].total;
+    const byRevision = realOrgs.filter((id) => orgCounts[id].revision > 0).sort((a, b) => rate(b, "revision") - rate(a, "revision"));
+    const byDone = realOrgs.filter((id) => orgCounts[id].done > 0).sort((a, b) => rate(b, "done") - rate(a, "done"));
+    if (byRevision.length) worstOrg = orgName(byRevision[0]);
+    if (byDone.length) bestOrg = orgName(byDone[0]);
+    if (bestOrg && bestOrg === worstOrg) worstOrg = byRevision[1] ? orgName(byRevision[1]) : null;
+  }
   const overallRevisionRate =
     totalContentForCalc > 0
       ? Math.round((totalRevisionForCalc / totalContentForCalc) * 100)
@@ -160,11 +157,14 @@ subRouter.get("/get_dashboard_stats", checkPermission("dashboard"), (req, res) =
     status: "success",
     kpis: {
       total_content: filteredContents.length,
+      scope_label: filter === "month" ? "محتواهای این ماه" : filter === "week" ? "محتواهای این هفته" : "مجموع محتواهای سیستم",
+      scope_hint: filter === "month" ? "کارت‌هایی که تاریخ انتشارشان در این ماه است" : filter === "week" ? "کارت‌هایی که تاریخ انتشارشان در این هفته است" : "",
+      system_total: contents.length,
       raw_events: filteredContents.filter((c) => c.status === "raw").length,
       overall_revision_rate: overallRevisionRate,
       overall_completion_rate: overallCompletionRate,
-      worst_org: worstOrg.name,
-      best_org: bestOrg.name,
+      worst_org: worstOrg,
+      best_org: bestOrg,
     },
     details: {
       total: totalDetails.length
@@ -192,6 +192,19 @@ subRouter.get("/get_dashboard_stats", checkPermission("dashboard"), (req, res) =
     platforms,
   };
   res.json(response);
+});
+
+/** Can stats of this card's post on this platform be fetched (connected account, supported)? */
+subRouter.get("/live_stats_available", checkPermission(["depot", "dashboard", "reports"]), (req, res) => {
+  const card = contents.find((c) => c.id == req.query.content_id);
+  const platform = String(req.query.platform || "");
+  const kind = platformKind(platform);
+  if (!kind) return res.json({ status: "success", available: false, reason: "دریافت خودکار آمار برای این پلتفرم پشتیبانی نمی‌شود؛ آمار را دستی وارد کنید." });
+  if (needsToken(kind) && !findToken(card?.org_id, platform)) {
+    const name = kind === "instagram" ? "اینستاگرام" : "یوتیوب";
+    return res.json({ status: "success", available: false, reason: `ابتدا حساب ${name} این کارفرما را در «سلامت توکن‌ها» وصل کنید.` });
+  }
+  res.json({ status: "success", available: true });
 });
 
 subRouter.post("/fetch_live_stats", checkPermission(["depot", "dashboard", "reports"]), async (req, res) => {

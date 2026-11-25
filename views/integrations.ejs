@@ -38,7 +38,22 @@
         }
         const val = (v) => escapeHtml(v === undefined || v === null ? '' : v);
         const toggle = (ch, label) => `<label class="wf-row" style="gap:6px"><input type="checkbox" data-ch="${ch}" data-k="enabled" ${cfg[ch].enabled ? 'checked' : ''}> <b>${label}</b></label>`;
-        const field = (ch, k, label, opts = {}) => `<label class="wf-label">${label}<input class="form-control ${opts.ltr === false ? '' : 'ltr'}" data-ch="${ch}" data-k="${k}" type="${opts.type || 'text'}" value="${val(cfg[ch][k])}" placeholder="${val(opts.ph || '')}" autocomplete="off"></label>`;
+        // Browsers must not fill the panel login into these boxes: no autofill (read-only until
+        // focused, "new-password" for secrets). A stored secret is never shown, only "set".
+        const SECRET = ['api_key', 'pass', 'bot_token'];
+        const field = (ch, k, label, opts = {}) => {
+            const secret = SECRET.includes(k);
+            const isSet = secret && cfg[ch][k + '_set'];
+            const ph = isSet ? 'تنظیم شده — برای تغییر، مقدار تازه بنویسید' : (opts.ph || '');
+            return `<label class="wf-label">${label}${isSet ? ` <span class="wf-chip green" style="font-size:.72rem">تنظیم شده</span> <a href="#" class="muted" style="font-size:.75rem" onclick="event.preventDefault(); clearSecret(this, '${ch}', '${k}')">پاک کردن</a>` : ''}<input class="form-control ${opts.ltr === false ? '' : 'ltr'}" data-ch="${ch}" data-k="${k}" type="${secret && k === 'pass' ? 'password' : (opts.type || 'text')}" value="${secret ? '' : val(cfg[ch][k])}" placeholder="${val(ph)}" name="asva-${ch}-${k}-${Date.now()}" autocomplete="${secret ? 'new-password' : 'off'}" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly')"></label>`;
+        };
+        window.clearSecret = (a, ch, k) => {
+            const input = a.parentElement.querySelector('input');
+            input.dataset.clear = '1';
+            input.value = '';
+            input.placeholder = 'با ذخیره، پاک می‌شود';
+            a.textContent = 'پاک می‌شود';
+        };
         const testRow = (ch, ph) => `<div class="wf-row"><input class="form-control ltr" id="test_${ch}" placeholder="${ph}" style="flex:1" aria-label="گیرنده آزمایشی"><button type="button" class="wf-btn" onclick="testChannel('${ch}')">ارسال آزمایشی</button></div>`;
         async function render() {
             const pane = document.getElementById('pane');
@@ -99,6 +114,7 @@
                 const ch = el.getAttribute('data-ch'), k = el.getAttribute('data-k');
                 out[ch] = out[ch] || {};
                 out[ch][k] = el.type === 'checkbox' ? el.checked : el.value;
+                if (el.dataset.clear === '1') out[ch]['clear_' + k] = true;
             });
             const res = await api('/api/integrations', { config: out }, { success: 'ذخیره شد' });
             if (res) { cfg = res.data; render(); }

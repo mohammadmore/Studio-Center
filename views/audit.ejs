@@ -129,6 +129,9 @@
                 <label style="font-size: 0.85rem; color: var(--text-gray); white-space: nowrap;">تا:</label>
                 <input type="date" class="form-control" id="endDate" onchange="filterLogs()">
             </div>
+            <label style="flex: 0 0 auto; display:flex; align-items:center; gap:6px; font-size:0.85rem; color:var(--text-gray); cursor:pointer; white-space:nowrap;" title="هر بار باز شدن یک صفحه یک ردیف «بازدید از صفحه…» ثبت می‌شود">
+                <input type="checkbox" id="showVisits" onchange="filterLogs()"> بازدید صفحه‌ها هم
+            </label>
             <div style="flex: 0; min-width: 100px;">
                 <button type="button" onclick="clearFilters()" style="width: 100%; padding: 10px; border: none; border-radius: 8px; background: var(--border-color); color: var(--text-gray); font-weight: bold; cursor: pointer;">حذف فیلتر‌ها</button>
             </div>
@@ -345,6 +348,8 @@ container.insertAdjacentHTML('beforeend', `
                     </div>
                 `);
             });
+            // Page visits are hidden until asked for (only changes to data by default).
+            filterLogs();
         }
 
         function clearFilters() {
@@ -383,6 +388,9 @@ container.insertAdjacentHTML('beforeend', `
                 const jDate = log.getAttribute('data-jdate'); // format YYYY/MM/DD
                 
                 let textMatch = text.includes(query);
+                // By default only changes to data are listed; page visits on request.
+                const isVisit = /بازدید از صفحه/.test(log.innerText);
+                if (isVisit && !document.getElementById('showVisits').checked) { log.style.display = 'none'; return; }
                 let userMatch = userFilter === '' || (username || '').trim() === userFilter.trim();
                 
                 let dateMatch = true;

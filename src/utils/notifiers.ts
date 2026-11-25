@@ -68,16 +68,20 @@ export function getIntegrationConfig(): any {
   return integrations[0];
 }
 
-function mask(value: unknown) {
-  const s = String(value || "");
-  return s ? `••••${s.slice(-4)}` : "";
-}
 
 /** The config with secrets masked, safe to send to the browser. */
+/**
+ * The settings as shown on the page. A stored secret (SMTP password, API key, bot token) is
+ * never sent back, not even in part: only whether it is set (`<field>_set`).
+ */
 export function publicIntegrationConfig() {
   const cfg = JSON.parse(JSON.stringify(getIntegrationConfig()));
   for (const ch of CHANNELS) {
-    for (const f of SECRET_FIELDS) if (cfg[ch] && f in cfg[ch]) cfg[ch][f] = mask(decryptSecret(cfg[ch][f]));
+    for (const f of SECRET_FIELDS) {
+      if (!cfg[ch] || !(f in cfg[ch])) continue;
+      cfg[ch][`${f}_set`] = !!decryptSecret(cfg[ch][f]);
+      cfg[ch][f] = "";
+    }
   }
   return cfg;
 }
@@ -92,7 +96,11 @@ export function updateIntegrationConfig(input: any) {
     if (!src || typeof src !== "object") continue;
     for (const [key, value] of Object.entries(src)) {
       if (!(key in cfg[ch])) continue;
-      if (SECRET_FIELDS.includes(key) && typeof value === "string" && value.startsWith("••••")) continue;
+      // An empty (or old masked) secret means "keep it"; clearing it is an explicit choice.
+      if (SECRET_FIELDS.includes(key) && (typeof value !== "string" || !value.trim() || value.startsWith("••••"))) {
+        if (src[`clear_${key}`] === true) cfg[ch][key] = "";
+        continue;
+      }
       if (typeof cfg[ch][key] === "boolean") cfg[ch][key] = value === true || value === "true" || value === 1;
       else if (typeof cfg[ch][key] === "number") cfg[ch][key] = Number(value) || cfg[ch][key];
       else if (SECRET_FIELDS.includes(key)) cfg[ch][key] = encryptSecret(String(value ?? "").trim());

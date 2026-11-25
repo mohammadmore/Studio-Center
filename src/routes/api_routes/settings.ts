@@ -455,6 +455,19 @@ subRouter.post(
   },
 );
 
+// ───────── Default stage due dates, counted back from the publish date ─────────
+subRouter.post("/stage_due_template", checkPermission("settings"), (req, res) => {
+  const input = req.body.template && typeof req.body.template === "object" ? req.body.template : {};
+  const out: Record<string, number> = {};
+  for (const [type, days] of Object.entries(input).slice(0, 200)) {
+    const n = Number(days);
+    if (String(type).trim() && Number.isFinite(n)) out[String(type).trim()] = Math.max(0, Math.min(30, Math.round(n)));
+  }
+  settings.stage_due_template = out;
+  saveDatabase(); // applied to cards in production when stored (see utils/tidy.ts)
+  res.json({ status: "success", message: "فاصله‌ی موعد مراحل ذخیره شد" });
+});
+
 // ───────── Stage names used on cards but missing from the stages list ─────────
 // Older cards carry stages such as «طراحی کاور» or «آپلود نهایی» that are not in the list.
 // They are listed with how many cards use them, and can be merged into a listed stage

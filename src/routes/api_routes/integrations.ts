@@ -1,3 +1,4 @@
+import bcrypt from "bcrypt";
 import crypto from "crypto";
 import express from "express";
 import { colleagues, contents, invoices, organizations, outbox } from "../../store/state.js";
@@ -12,6 +13,7 @@ import {
   DEFAULT_EVENTS,
   EVENT_LABELS,
   publicIntegrationConfig,
+  SECRET_FIELDS,
   sendOne,
   updateIntegrationConfig,
   type Channel,
@@ -63,8 +65,20 @@ subRouter.get("/integrations", checkPermission("integrations"), (req, res) => {
   });
 });
 
-subRouter.post("/integrations", checkPermission("integrations"), (req, res) => {
-  updateIntegrationConfig(req.body.config || {});
+subRouter.post("/integrations", checkPermission("integrations"), async (req: any, res) => {
+  // A browser may fill the panel login into these fields: the panel password is never
+  // accepted as a mail password, key or token.
+  const hash = req.account?.passwordHash;
+  const config = req.body.config || {};
+  for (const ch of Object.keys(config)) {
+    for (const f of SECRET_FIELDS) {
+      const v = config[ch]?.[f];
+      if (hash && typeof v === "string" && v.trim() && !v.startsWith("••••") && (await bcrypt.compare(v.trim(), hash))) {
+        return fail(res, 400, "این رمز ورود شما به پنل است، نه رمز این سرویس. مرورگر آن را خودکار پر کرده؛ رمز درست سرویس را بنویسید.");
+      }
+    }
+  }
+  updateIntegrationConfig(config);
   saveDatabase();
   res.json({ status: "success", message: "تنظیمات اعلان‌های خارجی ذخیره شد", data: publicIntegrationConfig() });
 });

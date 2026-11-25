@@ -197,10 +197,15 @@ subRouter.post("/manage_collections", checkPermission("collections"), (req: any,
   res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
 });
 
+export function isInactive(o: any) {
+  return o?.is_active === 0 || o?.is_active === false || o?.is_active === "0" || o?.is_active === "false";
+}
+
 const PUBLIC_ORG_FIELDS = ["id", "org_name", "industry", "logo_url", "color", "is_active"];
 
 subRouter.get("/get_orgs", (req: any, res) => {
-  let list = organizations.filter((o) => o.is_active === 1 || o.is_active === true);
+  // Same rule as the organisations page: only an organisation switched off is left out.
+  let list = organizations.filter((o) => !isInactive(o));
   if (isClient(req)) {
     list = list.filter((o) => o.id == clientOrgId(req));
   }

@@ -469,8 +469,14 @@ describe("external notifications, calendars and reports", () => {
     const admin = await login("admin");
     await admin.post("/api/integrations").send({ config: { sms: { enabled: true, api_key: "SECRET-KEY-1234" } } });
     const cfg = await admin.get("/api/integrations");
-    assert.equal(cfg.body.data.sms.api_key, "••••1234");
-    await admin.post("/api/integrations").send({ config: { sms: { api_key: "••••1234" } } });
+    // Not even part of a secret goes back to the page: only that it is set.
+    assert.equal(cfg.body.data.sms.api_key, "");
+    assert.equal(cfg.body.data.sms.api_key_set, true);
+    assert.doesNotMatch(JSON.stringify(cfg.body), /1234/);
+    await admin.post("/api/integrations").send({ config: { sms: { api_key: "" } } });
+    // The panel password filled in by the browser is refused.
+    const autofilled = await admin.post("/api/integrations").send({ config: { email: { user: "admin", pass: PASSWORD } } });
+    assert.equal(autofilled.status, 400);
     // Stored encrypted, kept when the masked value comes back, and readable by the server.
     assert.match(state.integrations[0].sms.api_key, /^enc:v1:/);
     assert.doesNotMatch(JSON.stringify(state.integrations), /SECRET-KEY-1234/);
@@ -1202,5 +1208,59 @@ describe("field-test fixes, part 2", () => {
     const it = withPub.body.items.find((x: any) => x.id === 9603);
     assert.ok(it);
     assert.equal(it.overdue, false);
+  });
+});
+
+describe("field-test fixes, part 3", () => {
+  it("gives stages default due dates counted back from the publish date, keeping manual ones", async () => {
+    const { applyDefaultStageDues } = await import("../src/utils/tidy.js");
+    const c: any = { id: 9701, status: "in_progress", content_type: "ریلز", publish_date: "1499/01/10", stages: ["نگارش", "تدوین", "انتشار"], completed_stages: [], stage_plan: { "تدوین": { owner_id: 2, due_date: "1499/01/01" } } };
+    applyDefaultStageDues(c, "1405/01/01");
+    assert.equal(c.stage_plan["نگارش"].due_date, "1499/01/08");
+    assert.equal(c.stage_plan["تدوین"].due_date, "1499/01/01"); // set by hand: kept
+    assert.equal(c.stage_plan["انتشار"].due_date, "1499/01/10");
+    c.publish_date = "1499/01/20";
+    applyDefaultStageDues(c, "1405/01/01");
+    assert.equal(c.stage_plan["انتشار"].due_date, "1499/01/20"); // automatic ones follow the date
+    const old: any = { status: "in_progress", publish_date: "1400/01/01", stages: ["نگارش"], stage_plan: {} };
+    assert.equal(applyDefaultStageDues(old, "1405/01/01"), false); // past date: no flood of overdue alerts
+  });
+
+  it("counts open work one way and leaves finished cards out", async () => {
+    const { openWorkOf } = await import("../src/utils/workflowUtils.js");
+    state.contents.push(
+      { id: 9702, title: "باز", org_id: 1, status: "in_progress", stages: ["الف", "ب"], completed_stages: ["الف"], stage_plan: { "الف": { owner_id: 2 }, "ب": { owner_id: 2 } } },
+      { id: 9703, title: "منتشر", org_id: 1, status: "published", stages: ["الف"], stage_plan: { "الف": { owner_id: 2 } } },
+    );
+    const w = openWorkOf(2);
+    assert.ok(w.stages.some((s) => s.card.id === 9702 && s.stage === "ب"));
+    assert.ok(!w.stages.some((s) => s.card.id === 9702 && s.stage === "الف"));
+    assert.ok(!w.stages.some((s) => s.card.id === 9703));
+    const admin = await login("admin");
+    const row = (await admin.get("/api/workload")).body.data.find((r: any) => r.colleague_id === 2);
+    assert.equal(row.open_work, row.open_stages + row.team_cards);
+    assert.ok(row.no_date <= row.open_stages);
+  });
+
+  it("report cards name their scope and compare clients only when there is something to compare", async () => {
+    const admin = await login("admin");
+    const month = await admin.get("/api/get_dashboard_stats?filter=month");
+    assert.equal(month.body.kpis.scope_label, "محتواهای این ماه");
+    assert.ok(month.body.kpis.system_total >= month.body.kpis.total_content);
+    const all = await admin.get("/api/get_dashboard_stats?filter=all");
+    if (all.body.kpis.best_org && all.body.kpis.worst_org) assert.notEqual(all.body.kpis.best_org, all.body.kpis.worst_org);
+  });
+});
+
+describe("field-test fixes, part 4", () => {
+  it("offers every active brand in the forms, whatever form its active flag was stored in", async () => {
+    const admin = await login("admin");
+    state.organizations.push({ id: 9801, org_name: "استارزفمیلی", is_active: "1" }, { id: 9802, org_name: "خاموش", is_active: 0 });
+    const list = (await admin.get("/api/get_orgs")).body.data;
+    assert.ok(list.some((o: any) => o.id === 9801));
+    assert.ok(!list.some((o: any) => o.id === 9802));
+    const { tidyAll } = await import("../src/utils/tidy.js");
+    tidyAll();
+    assert.equal(state.organizations.find((o: any) => o.id === 9801)!.is_active, 1);
   });
 });

@@ -83,7 +83,7 @@
 
         <div class="kpi-grid">
             <div class="kpi-card kpi-blue" onclick="openStatsModal('total')">
-                <span class="kpi-title">مجموع محتوا‌های سیستم</span>
+                <span class="kpi-title" id="kpi-total-title">مجموع محتوا‌های سیستم</span>
                 <span class="kpi-value" id="kpi-total"><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M5 22h14'/><path d='M5 2h14'/><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/></svg></span>
             </div>
             <div class="kpi-card kpi-purple" onclick="openStatsModal('raw')">
@@ -162,8 +162,16 @@
                     document.getElementById('kpi-raw').innerText = window.toPersianDigits(data.kpis.raw_events);
                     document.getElementById('kpi-revision').innerText = window.toPersianDigits(data.kpis.overall_revision_rate) + '٪';
                     document.getElementById('kpi-completion').innerText = window.toPersianDigits(data.kpis.overall_completion_rate) + '٪';
-                    document.getElementById('kpi-worst-org').innerText = '↓ پرهزینه‌ترین کارفرما: ' + data.kpis.worst_org;
-                    document.getElementById('kpi-best-org').innerText = '↑ بهترین کارفرما: ' + data.kpis.best_org;
+                    // The card's title follows the filter ("this month" is not "the whole system").
+                    const totalTitle = document.getElementById('kpi-total-title');
+                    totalTitle.innerText = data.kpis.scope_label || 'مجموع محتواهای سیستم';
+                    totalTitle.title = data.kpis.scope_hint ? data.kpis.scope_hint + ' — در کل سیستم ' + window.toPersianDigits(data.kpis.system_total) + ' کارت هست' : '';
+                    // Best / most revisions only when there is a comparison to make.
+                    const worst = document.getElementById('kpi-worst-org'), best = document.getElementById('kpi-best-org');
+                    worst.style.display = data.kpis.worst_org ? '' : 'none';
+                    best.style.display = data.kpis.best_org ? '' : 'none';
+                    if (data.kpis.worst_org) worst.innerText = '↓ بیشترین اصلاحیه: ' + data.kpis.worst_org;
+                    if (data.kpis.best_org) best.innerText = '↑ بیشترین تکمیل: ' + data.kpis.best_org;
 
                     // رسم نمودار گلوگاه‌ها (Bar Chart)
                     const statuses = Object.keys(data.bottlenecks).length > 0 ? Object.keys(data.bottlenecks) : ['هیچ دیتایی نیست'];
