@@ -121,18 +121,25 @@ function avatarOf(name: unknown) {
   return c ? { id: c.id, name: c.full_name || c.username, avatar_url: effectiveAvatar(c) || "" } : name ? { id: null, name: String(name), avatar_url: "" } : null;
 }
 
-function queueFor(user: any, filters: { org?: string; field?: string; mine?: boolean }) {
+function queueFor(user: any, filters: { org?: string; field?: string; mine?: boolean; published?: boolean }) {
   const rules = quickFillRules();
   const st = userState(user);
   const orgById = new Map(organizations.map((o) => [String(o.id), o]));
   const todayNum = Number(tehranDayJalali());
   const list: any[] = [];
+  let publishedHidden = 0;
   for (const card of contents) {
     if (!card || card.status === "archived" || card.is_archived) continue;
     if (!canEditCard({ user }, card)) continue;
     if (filters.org && String(card.org_id) !== String(filters.org)) continue;
+    // Published cards (often only missing a detail like the manager) come only when asked for.
+    const skipPublished = !filters.published && card.status === "published";
     const missing = missingFields(card, user, rules);
     if (!missing.length) continue;
+    if (skipPublished) {
+      publishedHidden++;
+      continue;
+    }
     if (filters.field && !missing.includes(filters.field as FieldKey)) continue;
     const mine = cardMine(card, user);
     if (filters.mine && !mine) continue;
@@ -155,6 +162,7 @@ function queueFor(user: any, filters: { org?: string; field?: string; mine?: boo
     total: visible.length,
     mine: visible.filter((x) => x.mine).length,
     snoozed: list.length - visible.length,
+    published_hidden: publishedHidden,
     done_today: st?.done || 0,
     items: visible.map(({ card, missing, mine, pub, seen }) => {
       const org = orgById.get(String(card.org_id));
@@ -175,7 +183,8 @@ function queueFor(user: any, filters: { org?: string; field?: string; mine?: boo
         platforms: card.publish_platforms || [],
         mine,
         seen: !!seen,
-        overdue: pub !== null && pub < todayNum,
+        // "Past its date" only means something for a card that is not out yet.
+        overdue: pub !== null && pub < todayNum && !["published", "archived"].includes(card.status),
         missing,
       };
     }),
@@ -193,7 +202,7 @@ function jalaliCompact(date: Date) {
 }
 
 subRouter.get("/quick_fill", (req: any, res) => {
-  const q = queueFor(req.user, { org: req.query.org ? String(req.query.org) : "", field: req.query.field ? String(req.query.field) : "", mine: req.query.mine === "1" });
+  const q = queueFor(req.user, { org: req.query.org ? String(req.query.org) : "", field: req.query.field ? String(req.query.field) : "", mine: req.query.mine === "1", published: req.query.published === "1" });
   res.json({ status: "success", fields: QUICK_FIELDS.map(({ key, label }) => ({ key, label })), ...q });
 });
 
@@ -238,7 +247,7 @@ function applyValues(req: any, card: any, values: any) {
     const id = toInt(values.collection);
     const col = id ? collections.find((c) => c.id == id) : null;
     if (col) card.collection_id = col.id;
-    else if (str(values.collection)) card.collection_id = findOrCreateCollection(str(values.collection), card.org_id).id;
+    else if (str(values.collection)) card.collection_id = findOrCreateCollection(str(values.collection), card.org_id, values.collection_parent_id).id;
     if (card.collection_id) done.push("مجموعه");
   }
   if (allowed.has("project_manager") && str(values.project_manager)) { card.project_manager = str(values.project_manager); done.push("مدیر پروژه"); }

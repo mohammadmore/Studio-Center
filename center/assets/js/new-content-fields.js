@@ -67,8 +67,8 @@
         (platforms.length
           ? platforms.map(function (x) { return '<label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" value="' + esc(x.setting_key) + '"> ' + esc(x.setting_key) + '</label>'; }).join("")
           : '<span style="color:var(--text-gray); font-size:0.85rem;">پلتفرمی در تنظیمات پایه تعریف نشده است.</span>') + '</div>';
-      html += '<label style="' + label + '" for="' + p + 'Caption">کپشن / توضیحات</label>' +
-        '<textarea id="' + p + 'Caption" rows="3" placeholder="متن کپشن یا توضیح تولید (اختیاری)" style="' + field + ' resize:vertical;"></textarea>';
+      html += '<label style="' + label + '" for="' + p + 'Caption">متن کپشن</label>' +
+        '<textarea id="' + p + 'Caption" rows="3" placeholder="همان «متن کپشن» کارت (اختیاری)" style="' + field + ' resize:vertical;"></textarea>';
       html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">' +
         '<div><label style="' + label + '" for="' + p + 'Video">لینک فایل ویدیو</label><input id="' + p + 'Video" dir="ltr" placeholder="https://..." style="' + field + '"></div>' +
         '<div><label style="' + label + '" for="' + p + 'Cover">لینک کاور</label><input id="' + p + 'Cover" dir="ltr" placeholder="https://..." style="' + field + '"></div>' +
@@ -79,32 +79,40 @@
       refreshCollections();
     }
 
-    /** Collections offered for the chosen brand (and those without a brand). */
+    var pathOf = function (c) { return window.asvaCollectionPath ? window.asvaCollectionPath(c.id, cols()) : c.title; };
+    var norm = function (s) { return String(s || "").replace(/\s+/g, " ").trim(); };
+    /** Collections offered for the chosen brand (and those without a brand), by full path. */
     function refreshCollections() {
       var list = id("CollectionList");
       if (!list) return;
       var org = opts.getOrgId ? String(opts.getOrgId() || "") : "";
-      var titles = {};
+      var paths = {};
       cols().filter(function (c) { return !org || !c.org_id || String(c.org_id) === org; })
-        .forEach(function (c) { titles[c.title] = true; });
-      list.innerHTML = Object.keys(titles).sort(function (a, b) { return a.localeCompare(b, "fa"); })
-        .map(function (t) { return '<option value="' + esc(t) + '"></option>'; }).join("");
+        .forEach(function (c) { paths[pathOf(c)] = c.title; });
+      list.innerHTML = Object.keys(paths).sort(function (a, b) { return a.localeCompare(b, "fa"); })
+        .map(function (p) { return '<option value="' + esc(p) + '"></option>'; }).join("");
       hint();
     }
 
+    /** By full path («الف › ب › ج») or, when it is unique enough, by the collection's own name. */
     function matchCollection() {
-      var t = (id("Collection").value || "").trim();
+      var t = norm(id("Collection").value);
       if (!t) return null;
       var org = opts.getOrgId ? String(opts.getOrgId() || "") : "";
-      var same = cols().filter(function (c) { return c.title === t; });
+      var inOrg = function (c) { return !org || !c.org_id || String(c.org_id) === org; };
+      var byPath = cols().filter(function (c) { return inOrg(c) && norm(pathOf(c)) === t; });
+      if (byPath.length) return byPath[0];
+      var same = cols().filter(function (c) { return norm(c.title) === t; });
       return same.find(function (c) { return org && String(c.org_id) === org; }) || same.find(function (c) { return !c.org_id; }) || same[0] || null;
     }
 
     function hint() {
       var h = id("CollectionHint");
       if (!h) return;
-      var t = (id("Collection").value || "").trim();
-      h.innerHTML = !t ? "" : matchCollection() ? "<i class=ai data-ic=check></i> در همین مجموعه قرار می‌گیرد." : "<i class=ai data-ic=plus></i> مجموعه‌ی تازه‌ای با این نام برای همین برند ساخته می‌شود.";
+      var t = norm(id("Collection").value);
+      var m = t ? matchCollection() : null;
+      h.innerHTML = !t ? "" : m ? "<i class=ai data-ic=check></i> در «" + esc(pathOf(m)) + "» قرار می‌گیرد."
+        : "<i class=ai data-ic=info></i> مجموعه‌ای با این نام نیست؛ موقع ذخیره می‌پرسیم که ساخته شود یا نه (و کجا).";
     }
 
     /** The chosen collection's defaults, offered on the empty fields (each needs «تایید»). */
@@ -130,8 +138,12 @@
         video_link: id("Video").value.trim(),
         cover_link: id("Cover").value.trim(),
       };
-      var t = (id("Collection").value || "").trim();
-      if (t) { var m = matchCollection(); data.collection_id = m ? m.id : t; }
+      var t = norm(id("Collection").value);
+      if (t) {
+        var m = matchCollection();
+        if (m) data.collection_id = m.id;
+        else data.__newCollection = t.split(" › ").pop();
+      }
       if (opts.withSchedule) {
         data.status = id("Status").value;
         var d = (id("PublishDate").value || "").trim();
@@ -139,6 +151,22 @@
         var tm = id("PublishTime").value;
         if (tm) data.publish_time = tm;
       }
+      return data;
+    }
+
+    /**
+     * read(), but a collection name that does not exist yet is created only after the user
+     * confirms it (and picks its parent). Resolves to null when they go back to fix it.
+     */
+    async function readConfirmed() {
+      var data = read();
+      if (!data.__newCollection) return data;
+      var org = opts.getOrgId ? opts.getOrgId() : "";
+      var ok = window.confirmNewCollection ? await window.confirmNewCollection(data.__newCollection, org, cols()) : { parent_id: null };
+      if (!ok) { id("Collection").focus(); return null; }
+      data.collection_id = data.__newCollection;
+      if (ok.parent_id) data.collection_parent_id = ok.parent_id;
+      delete data.__newCollection;
       return data;
     }
 
@@ -150,6 +178,6 @@
     }
 
     render();
-    return { read: read, reset: reset, refreshCollections: refreshCollections };
+    return { read: read, readConfirmed: readConfirmed, reset: reset, refreshCollections: refreshCollections };
   };
 })();

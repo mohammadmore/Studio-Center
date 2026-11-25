@@ -488,9 +488,11 @@
     $("pmDefaultDate").value = it.publish_date || "";
     $("pmDefaultTime").value = it.publish_time || "";
     $("pmStatus").value = m.status || ((it.published_platforms || []).indexOf(platform) !== -1 ? "published" : "pending");
-    $("pmDate").value = m.date || "";
-    $("pmTime").value = m.time || "";
-    $("pmAutoFill").checked = false;
+    // Date and time start from the card's own publish date and time.
+    var toFa = function (v) { return window.toPersianDigits ? window.toPersianDigits(v) : v; };
+    $("pmDate").value = toFa(m.date || it.publish_date || "");
+    $("pmTime").value = m.time || it.publish_time || "";
+    window.checkPmDateMatch();
     $("pmPostLink").value = m.post_link || "";
     $("pmViews").value = m.views != null ? m.views : "";
     $("pmLikes").value = m.likes != null ? m.likes : "";
@@ -505,11 +507,12 @@
   };
   window.togglePlatformPublished = window.togglePlatformPublished || function (id, platform) { window.openPlatformMetrics(id, platform); };
   window.closePlatformMetricsModal = function () { $("platformMetricsModal").style.display = "none"; };
+  // Every field stays visible (they used to appear only after choosing a status).
   window.togglePmDetails = function () {
     var st = $("pmStatus").value;
-    $("pmDetailsSection").style.display = st === "pending" ? "none" : "block";
-    $("pmFeedbackSection").style.display = st === "published" ? "block" : "none";
-    $("pmDateLabel").textContent = st === "scheduled" ? "زمان‌بندی" : "انتشار";
+    $("pmDetailsSection").style.display = "block";
+    $("pmFeedbackSection").style.display = "block";
+    $("pmDateLabel").textContent = st === "scheduled" ? "زمان‌بندی" : st === "published" ? "انتشار" : "انتشار (برنامه)";
   };
   window.checkPmDateMatch = function () {
     $("pmAutoFill").checked = latin($("pmDate").value) === latin($("pmDefaultDate").value) && $("pmTime").value === $("pmDefaultTime").value;
@@ -539,11 +542,15 @@
   };
   window.savePlatformMetrics = async function () {
     var id = $("pmItemId").value, platform = $("pmPlatform").value;
+    var date = window.asvaCheckJalali ? window.asvaCheckJalali($("pmDate").value) : { ok: true, value: latin($("pmDate").value) };
+    if (!date.ok) { window.showToast("تاریخ نامعتبر است؛ مثلاً ۱۴۰۵/۰۹/۰۳", "error"); $("pmDate").focus(); return; }
+    var link = $("pmPostLink").value.trim();
+    if (link && !/^https?:\/\/[^\s/]+\.[^\s]+$/i.test(link)) { window.showToast("لینک پست باید یک نشانی کامل باشد، مثلاً https://instagram.com/p/...", "error"); $("pmPostLink").focus(); return; }
     var it = (window.allDepotItems || []).find(function (i) { return i.id == id; });
     var prev = (it && it.platform_metrics && it.platform_metrics[platform]) || {};
     var data = Object.assign({}, prev, {
       status: $("pmStatus").value,
-      date: latin($("pmDate").value),
+      date: date.value,
       time: $("pmTime").value,
       post_link: $("pmPostLink").value.trim(),
       views: num($("pmViews").value),

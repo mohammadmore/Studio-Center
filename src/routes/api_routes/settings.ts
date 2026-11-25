@@ -455,4 +455,37 @@ subRouter.post(
   },
 );
 
+// ───────── Stage names used on cards but missing from the stages list ─────────
+// Older cards carry stages such as «طراحی کاور» or «آپلود نهایی» that are not in the list.
+// They are listed with how many cards use them, and can be merged into a listed stage
+// (renamed everywhere, keeping owners, due dates and ticks) or added to the list.
+function listedStages() {
+  return new Set((Array.isArray(settings.stages) ? settings.stages : []).filter((s: any) => s && s.is_active !== 0).map((s: any) => String(s.setting_key).trim()));
+}
+
+subRouter.get("/unlisted_stages", checkPermission("settings"), (req, res) => {
+  const listed = listedStages();
+  const counts = new Map<string, number>();
+  for (const card of contents) {
+    const names = new Set<string>([
+      ...(Array.isArray(card.stages) ? card.stages : []),
+      ...(Array.isArray(card.completed_stages) ? card.completed_stages : []),
+      ...Object.keys(card.stage_plan && typeof card.stage_plan === "object" ? card.stage_plan : {}),
+    ].map((s: any) => String(s).trim()).filter(Boolean));
+    for (const n of names) if (!listed.has(n)) counts.set(n, (counts.get(n) || 0) + 1);
+  }
+  const data = [...counts.entries()].map(([name, cards]) => ({ name, cards })).sort((a, b) => b.cards - a.cards || a.name.localeCompare(b.name, "fa"));
+  res.json({ status: "success", data });
+});
+
+subRouter.post("/merge_stage", checkPermission("settings"), (req, res) => {
+  const from = String(req.body.from || "").trim();
+  const to = String(req.body.to || "").trim();
+  if (!from || !to || from === to) return res.status(400).json({ status: "error", message: "مرحله‌ی مبدا و مقصد را انتخاب کنید" });
+  if (!listedStages().has(to)) return res.status(400).json({ status: "error", message: "مرحله‌ی مقصد باید در فهرست مراحل باشد" });
+  const cards = renameStageEverywhere(from, to);
+  saveDatabase();
+  res.json({ status: "success", cards, message: `«${from}» در ${cards.toLocaleString("fa-IR")} محتوا به «${to}» تبدیل شد` });
+});
+
 export default subRouter;

@@ -302,7 +302,7 @@ subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) =
   // A collection is chosen by id, or typed as a new title (created for the card's brand).
   const col = req.body.collection_id;
   if (typeof col === "string" && col.trim() && toInt(col) === null) {
-    newContent.collection_id = findOrCreateCollection(col.trim().slice(0, 200), validOrgId).id;
+    newContent.collection_id = findOrCreateCollection(col.trim().slice(0, 200), validOrgId, req.body.collection_parent_id).id;
   } else if (col) {
     const colId = toInt(col);
     if (colId && collections.some((c) => c.id === colId)) newContent.collection_id = colId;
@@ -863,13 +863,17 @@ subRouter.post("/toggle_stage", (req, res) => {
   return res.json({ status: "success", message: "مرحله به‌روزرسانی شد", completed_stages: card.completed_stages, suggest_publish: suggestPublish });
 });
 
-export function findOrCreateCollection(title: string, orgId: any) {
-  let col = collections.find((c) => c.title === title && c.org_id == orgId);
+export function findOrCreateCollection(title: string, orgId: any, parentId?: unknown) {
+  title = String(title).replace(/\s+/g, " ").trim();
+  let col = collections.find((c) => String(c.title).trim() === title && c.org_id == orgId);
   if (!col) {
+    // A new collection may be put inside another one (chosen by the user when confirming).
+    const parent = parentId ? collections.find((c) => c.id == parentId) : null;
     col = {
       id: nextId(collections),
       title,
-      org_id: orgId ?? null,
+      org_id: orgId ?? parent?.org_id ?? null,
+      parent_id: parent ? parent.id : null,
       created_at: new Intl.DateTimeFormat("fa-IR", {
         year: "numeric",
         month: "2-digit",
@@ -1076,7 +1080,7 @@ subRouter.post("/update_content_details", (req: any, res) => {
     if (org_id !== undefined) card.org_id = org_id ? toInt(org_id) : null;
     if (collection_id !== undefined) {
       if (typeof collection_id === "string" && collection_id.trim() && toInt(collection_id) === null) {
-        card.collection_id = findOrCreateCollection(collection_id.trim(), card.org_id).id;
+        card.collection_id = findOrCreateCollection(collection_id.trim(), card.org_id, req.body.collection_parent_id).id;
       } else {
         card.collection_id = collection_id ? toInt(collection_id) : null;
       }

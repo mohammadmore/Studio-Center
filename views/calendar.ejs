@@ -1276,7 +1276,7 @@
                         } else {
                             let blockColor = safeColor(item.org_color) || 'var(--primary-color)';
                             let logoHtml = item.org_logo ? `<img alt="" src="${escapeHtml(safeUrl(item.org_logo))}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; display:inline-block; vertical-align:middle; margin-left:2px;" loading="lazy">` : '';
-                            itemsHtml += `<div class="desktop-event-item" style="font-size: 0.75rem; background: color-mix(in srgb, ${blockColor} 8%, transparent); border-right: 3px solid ${blockColor}; padding: 3px 5px; border-radius: 4px; margin-bottom: 2px; color: var(--text-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" title="${escapeHtml(item.title || item.content_type)}" onclick="event.stopPropagation(); window.openContentDetails(${item.id})">${logoHtml} ${escapeHtml(item.title || item.content_type)}</div>`;
+                            itemsHtml += `<div class="desktop-event-item" style="font-size: 0.75rem; background: color-mix(in srgb, ${blockColor} 8%, transparent); border-right: 3px solid ${blockColor}; padding: 3px 5px; border-radius: 4px; margin-bottom: 2px; color: var(--text-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" title="${escapeHtml((item.title || item.content_type) + (item.collection_id && window.asvaCollectionPath(item.collection_id) ? ' — مجموعه: ' + window.asvaCollectionPath(item.collection_id) : ''))}" onclick="event.stopPropagation(); window.openContentDetails(${item.id})">${logoHtml} ${escapeHtml(item.title || item.content_type)}${(() => { const p = item.collection_id ? window.asvaCollectionPath(item.collection_id) : ''; return p ? ` <span style="opacity:.7">· ${escapeHtml(p.split(' › ').pop())}</span>` : ''; })()}</div>`;
                         }
                     });
                     if (hiddenCount > 0) {
@@ -1339,6 +1339,7 @@
                                         <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-color); display: flex; align-items: center; gap: 8px;">
                                             <input type="checkbox" class="batch-checkbox" value="${ev.id}" onclick="event.stopPropagation(); toggleBatchSelect(this.value, this.checked)" style="accent-color: var(--primary-color); transform: scale(1.2);">
                                             ${escapeHtml(ev.title || ev.content_type || orgName)}
+                                            ${ev.collection_id && window.asvaCollectionPath(ev.collection_id) ? `<span style="font-size:0.78rem; font-weight:normal; color:var(--text-gray);"><i class=ai data-ic=folder></i> ${escapeHtml(window.asvaCollectionPath(ev.collection_id))}</span>` : ''}
                                         </div>
                                         <span style="background: ${ev.is_published ? 'rgba(16, 185, 129, 0.1)' : 'rgba(128,128,128,0.1)'}; color: ${ev.is_published ? '#16a34a' : 'var(--text-gray)'}; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;">
                                             ${ev.is_published ? 'منتشر شده' : 'در حال تدوین'}
@@ -1818,7 +1819,8 @@
             <div style="padding: 10px; background: var(--card-bg); border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: 0.2s;" 
                  onclick="selectContent(this, ${c.id})" class="org-content-item">
                 <strong>${escapeHtml(c.title)}</strong>
-                <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 5px;">وضعیت: ${escapeHtml(c.status)} | نوع: ${escapeHtml(c.content_type)}</div>
+                ${c.collection_id && window.asvaCollectionPath(c.collection_id) ? `<div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 3px;"><i class=ai data-ic=folder></i> ${escapeHtml(window.asvaCollectionPath(c.collection_id))}</div>` : ''}
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 5px;">وضعیت: ${escapeHtml((window.STATUS_LABELS_FA || {})[c.status] || c.status)} | نوع: ${escapeHtml(c.content_type)}</div>
             </div>
         `);
     });
@@ -1853,8 +1855,8 @@ function selectContent(element, id) {
         }
 
         function filterOrgContents() {
-            const term = document.getElementById('searchOrgContents').value.toLowerCase();
-            const filtered = currentOrgContents.filter(c => c.title.toLowerCase().includes(term));
+            const term = document.getElementById('searchOrgContents').value;
+            const filtered = currentOrgContents.filter(c => window.asvaSearchMatch(c.title + ' ' + (c.collection_id ? window.asvaCollectionPath(c.collection_id) : ''), term));
             renderOrgContents(filtered);
         }
 
@@ -1940,7 +1942,8 @@ function selectContent(element, id) {
 
                 // «تعداد ایجاد»: the same card is created that many times on this day.
                 const count = Math.min(30, Math.max(1, parseInt(window.toEnglishDigits(document.getElementById('newScheduleCount').value)) || 1));
-                const extras = window.__scheduleFields ? window.__scheduleFields.read() : {};
+                const extras = window.__scheduleFields ? await window.__scheduleFields.readConfirmed() : {};
+                if (!extras) return; // went back to fix the collection name
                 try {
                     let created = 0, lastError = '';
                     for (let i = 0; i < count; i++) {

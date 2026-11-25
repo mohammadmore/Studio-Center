@@ -149,5 +149,38 @@
 
   function pending(scope) { return scope ? scope.querySelectorAll(".cd-bar").length : 0; }
 
+  /**
+   * A collection name that does not exist yet is never created silently (a typo would make a
+   * duplicate): the user confirms and picks where it goes. Resolves to {parent_id} or null.
+   */
+  window.confirmNewCollection = function (title, orgId, lists) {
+    return new Promise(function (resolve) {
+      var all = (lists || []).concat(window.allCollections || []);
+      var seen = {};
+      var cols = all.filter(function (c) {
+        if (!c || seen[c.id] || c.status === "archived") return false;
+        seen[c.id] = 1;
+        return !orgId || !c.org_id || String(c.org_id) === String(orgId);
+      }).map(function (c) { return { id: c.id, path: window.asvaCollectionPath ? window.asvaCollectionPath(c.id, all) : c.title }; })
+        .sort(function (a, b) { return a.path.localeCompare(b.path, "fa"); });
+      var done = false;
+      var m = window.wfModal("مجموعه‌ی تازه",
+        '<p style="margin-top:0;line-height:1.9">مجموعه‌ای به نام <b>«' + esc(title) + '»</b> برای این برند وجود ندارد. اگر اسم را درست نوشته‌اید، آن را بسازید؛ وگرنه برگردید و از فهرست انتخاب کنید.</p>' +
+        '<label class="wf-label">داخل کدام مجموعه باشد؟<select class="form-control" id="ncParentPick"><option value="">سطح اول (همه‌ی مجموعه‌ها)</option>' +
+        cols.map(function (c) { return '<option value="' + c.id + '">' + esc(c.path) + "</option>"; }).join("") + "</select></label>" +
+        '<div class="wf-actions"><button type="button" class="wf-btn" data-no>نه، برمی‌گردم</button><button type="button" class="btn-primary" data-yes>بله، مجموعه را بساز</button></div>',
+        { onClose: function () { if (!done) { done = true; resolve(null); } } });
+      // Above the form it was opened from (those dialogs sit very high).
+      m.el.style.setProperty("z-index", "2147483647", "important");
+      m.q("[data-no]").onclick = function () { m.close(); };
+      m.q("[data-yes]").onclick = function () {
+        var v = m.q("#ncParentPick").value;
+        done = true;
+        m.close();
+        resolve({ parent_id: v ? Number(v) : null });
+      };
+    });
+  };
+
   window.collectionDefaults = { of: of, offer: offer, clear: clear, pending: pending, sameName: same };
 })();

@@ -782,6 +782,7 @@
                 return;
             }
 
+            if (currentGroup === 'stages') setTimeout(renderUnlistedStages, 0);
             Array.from(items).forEach(item => {
                 const formatMoney = new Intl.NumberFormat('fa-IR').format(item.base_price || 0);
                 const priceBadge = (currentGroup === 'content_type' && item.base_price > 0) 
@@ -816,6 +817,46 @@
                 `);
             });
         }
+
+        // Stage names used on cards but not in the list (older names such as «طراحی کاور»):
+        // merge each into a listed stage, or add it to the list.
+        async function renderUnlistedStages() {
+            const container = document.getElementById('dataListContainer');
+            if (currentGroup !== 'stages' || !container) return;
+            const r = await fetch('/api/unlisted_stages', { cache: 'no-store' }).then(x => x.json()).catch(() => ({}));
+            const rows = (r && r.data) || [];
+            if (currentGroup !== 'stages' || !rows.length) return;
+            const listed = (allSettings.stages || []).filter(s => s.is_active !== 0).map(s => s.setting_key);
+            const fa = (n) => window.toPersianDigits ? window.toPersianDigits(n) : n;
+            const guess = (name) => listed.find(s => name.includes(s) || s.includes(name.split(' ')[0])) || '';
+            container.insertAdjacentHTML('beforeend', `
+                <div id="unlistedStages" style="margin-top:18px; border:1px dashed #d97706; border-radius:12px; padding:14px; background: rgba(217,119,6,0.06);">
+                    <div style="font-weight:bold; margin-bottom:4px;"><i class=ai data-ic=triangle-alert></i> مراحلی که روی کارت‌ها هست ولی در این فهرست نیست</div>
+                    <div style="font-size:0.82rem; color:var(--text-gray); margin-bottom:10px; line-height:1.8;">هر کدام را با معادل استانداردش یکی کنید (مسئول، موعد و تیک آن مرحله حفظ می‌شود) یا به فهرست اضافه کنید.</div>
+                    ${rows.map((row, i) => `
+                        <div class="data-item" style="gap:8px; flex-wrap:wrap;">
+                            <strong>${escapeHtml(row.name)} <small style="color:var(--text-gray); font-weight:normal;">(${fa(row.cards)} محتوا)</small></strong>
+                            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                <select class="form-control" id="mergeTo${i}" style="width:auto; min-width:150px;">
+                                    <option value="">— معادل در فهرست —</option>
+                                    ${listed.map(s => `<option value="${escapeHtml(s)}" ${s === guess(row.name) ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                                </select>
+                                <button class="gbtn soft info" onclick="mergeStage(${jsAttr(row.name)}, document.getElementById('mergeTo${i}').value)">یکی کن</button>
+                                <button class="gbtn soft neutral" onclick="addUnlistedStage(${jsAttr(row.name)})">افزودن به فهرست</button>
+                            </div>
+                        </div>`).join('')}
+                </div>`);
+        }
+        window.mergeStage = async function (from, to) {
+            if (!to) { showToast('مرحله‌ی معادل را از فهرست انتخاب کنید', 'error'); return; }
+            if (!(await window.customConfirm(`«${from}» در همه‌ی محتواها به «${to}» تبدیل شود؟`))) return;
+            const r = await window.api('/api/merge_stage', { from, to }, { success: 'انجام شد' });
+            if (r) await loadSettings();
+        };
+        window.addUnlistedStage = async function (name) {
+            const r = await window.api('/api/manage_settings', { action: 'add', group: 'stages', name }, { success: 'به فهرست مراحل اضافه شد' });
+            if (r) await loadSettings();
+        };
 
         async function reorderSetting(id, direction) {
             try {

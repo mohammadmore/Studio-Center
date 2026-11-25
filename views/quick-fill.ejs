@@ -126,6 +126,7 @@
             <select id="qfOrg" class="form-control" aria-label="برند"><option value="">همه‌ی برندها</option></select>
             <select id="qfField" class="form-control" aria-label="نوع جای خالی"><option value="">همه‌ی جاهای خالی</option></select>
             <label class="toggle"><input type="checkbox" id="qfMine"> فقط کارهای من</label>
+            <label class="toggle" title="کارت‌های منتشرشده‌ای که چیزی (مثلاً مدیر پروژه) ندارند"><input type="checkbox" id="qfPublished"> منتشرشده‌ها هم <span id="qfPubCount"></span></label>
         </div>
     </div>
 
@@ -158,7 +159,7 @@
     // Values that make sense to repeat on the next cards of the same brand.
     const SHAREABLE = ['content_type', 'collection', 'project_manager', 'stages', 'team', 'platforms'];
 
-    let queue = [], idx = 0, fields = [], doneToday = 0, startTotal = 0;
+    let queue = [], idx = 0, fields = [], doneToday = 0, startTotal = 0, initialField = '';
     let settingsData = {}, people = [], colsByOrg = {}, draft = {};
 
     const active = (list) => (list || []).filter(x => x && x.is_active !== 0);
@@ -189,15 +190,19 @@
     async function loadQueue(keepId) {
         const p = new URLSearchParams();
         if ($('qfOrg').value) p.set('org', $('qfOrg').value);
-        if ($('qfField').value) p.set('field', $('qfField').value);
+        const field = $('qfField').value || initialField;
+        if (field) p.set('field', field);
         if ($('qfMine').checked) p.set('mine', '1');
+        if ($('qfPublished').checked) p.set('published', '1');
         const r = await fetch('/api/quick_fill?' + p, { cache: 'no-store' }).then(r => r.json());
         if (r.status !== 'success') { $('qfStage').innerHTML = `<div class="qf-done"><p>${esc(r.message || 'بارگذاری نشد')}</p></div>`; return; }
         if (!fields.length) {
             fields = r.fields;
             $('qfField').insertAdjacentHTML('beforeend', fields.map(f => `<option value="${f.key}">${esc(f.label)}</option>`).join(''));
+            if (initialField) { $('qfField').value = initialField; initialField = ''; }
         }
         queue = r.items;
+        $('qfPubCount').textContent = r.published_hidden ? '(' + fa(r.published_hidden) + ')' : '';
         doneToday = r.done_today || 0;
         startTotal = queue.length;
         idx = 0;
@@ -265,6 +270,13 @@
         return `<div class="qf-field" data-key="${key}"><div class="lbl"><i class=ai data-ic=${ICON[key] || 'circle'}></i> ${esc(label)}</div>${body}</div>`;
     }
 
+    /** As many as the boxes shown: one per stage without an owner, two for date + time. */
+    function gapCount(item, shown) {
+        return shown.reduce((n, k) => n + (k === 'stage_owners' ? Math.max(1, (item.stage_owners_missing || []).length)
+            : k === 'publish_date' ? (item.publish_date ? 0 : 1) + (item.publish_time ? 0 : 1) || 1
+            : k === 'media' ? 2 : 1), 0);
+    }
+
     async function renderCard(direction) {
         const stage = $('qfStage');
         $('qfFloat').hidden = !queue.length;
@@ -294,7 +306,7 @@
                 ${avatarHtml(item.manager)}
                 <div class="qf-manager-name">${item.manager ? 'مدیر پروژه: ' + esc(item.manager.name) : 'هنوز مدیر پروژه ندارد'}</div>
                 <div class="qf-head">${orgHtml}<div class="qf-title">${esc(item.title)}</div><div class="qf-chips">${chips}</div></div>
-                <div class="qf-gaps">${fa(item.missing.length)} جای خالی${shown.length < item.missing.length ? ' (فقط «' + esc((fields.find(f => f.key === focus) || {}).label || '') + '» نمایش داده شده)' : ''} — کارت ${fa(idx + 1)} از ${fa(queue.length)}</div>
+                <div class="qf-gaps">${fa(gapCount(item, shown))} جای خالی${shown.length < item.missing.length ? ' (فقط «' + esc((fields.find(f => f.key === focus) || {}).label || '') + '» نمایش داده شده)' : ''} — کارت ${fa(idx + 1)} از ${fa(queue.length)}</div>
                 ${parts.join('')}
             </article>`;
         stage.innerHTML = html;
@@ -378,7 +390,7 @@
             const cols = colsByOrg[String((item.org && item.org.id) || '')] || [];
             const match = cols.find(c => c.title === col.value.trim());
             d.collection = match ? match.id : col.value.trim();
-            $('qfColHint').textContent = match ? '✓ در همین مجموعه قرار می‌گیرد.' : 'مجموعه‌ی تازه‌ای با این نام برای همین برند ساخته می‌شود.';
+            $('qfColHint').textContent = match ? '✓ در همین مجموعه قرار می‌گیرد.' : 'مجموعه‌ای با این نام نیست؛ موقع ذخیره می‌پرسیم که ساخته شود یا نه (و کجا).';
         } else if ($('qfColHint')) $('qfColHint').textContent = '';
         const owners = {};
         card.querySelectorAll('[data-owner]').forEach(s => { if (s.value) owners[s.dataset.owner] = s.value; });
@@ -423,8 +435,15 @@
     }
 
     async function save(item) {
-        const values = Object.keys(draft).length ? draft : readDraft($('qfCard'));
+        const values = Object.assign({}, Object.keys(draft).length ? draft : readDraft($('qfCard')));
         if (!Object.keys(values).length) return;
+        // A collection name that does not exist yet is created only after the user confirms it.
+        if (typeof values.collection === 'string' && window.confirmNewCollection) {
+            const orgId = item.org && item.org.id;
+            const ok = await window.confirmNewCollection(values.collection, orgId, colsByOrg[String(orgId || '')] || []);
+            if (!ok) { if ($('qfCol')) $('qfCol').focus(); return; }
+            if (ok.parent_id) values.collection_parent_id = ok.parent_id;
+        }
         $('qfSave').disabled = true;
         let r;
         try {
@@ -654,6 +673,7 @@
     // Keyboard: Enter saves (Ctrl+Enter inside the caption), Esc skips.
     document.addEventListener('keydown', (e) => {
         if (!$('qfCard')) return;
+        if (document.querySelector('.wf-overlay')) return; // a dialog is open (e.g. new collection)
         if (document.querySelector('.jdp-container') && getComputedStyle(document.querySelector('.jdp-container')).display !== 'none' && e.key === 'Escape') return;
         if (e.key === 'Escape') { e.preventDefault(); skip('left'); }
         else if (e.key === 'Enter') {
@@ -665,14 +685,15 @@
         }
     });
 
-    ['qfOrg', 'qfField', 'qfMine'].forEach(id => $(id).addEventListener('change', () => loadQueue()));
+    ['qfOrg', 'qfField', 'qfMine', 'qfPublished'].forEach(id => $(id).addEventListener('change', () => loadQueue()));
     window.addEventListener('DOMContentLoaded', async () => {
         const q = new URLSearchParams(location.search);
         await loadOptions();
         if (q.get('org')) $('qfOrg').value = q.get('org');
         if (q.get('mine') === '1') $('qfMine').checked = true;
+        // A field from the link is used by the first load itself (no second load).
+        initialField = q.get('field') || '';
         await loadQueue();
-        if (q.get('field')) { $('qfField').value = q.get('field'); loadQueue(); }
     });
 })();
 </script>

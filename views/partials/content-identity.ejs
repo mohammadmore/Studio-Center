@@ -40,7 +40,7 @@
             <div class="form-group" style="margin-bottom: 10px;">
                 <label>تاریخ و زمان <span id="pmDateLabel">انتشار</span></label>
                 <div style="display: flex; gap: 10px;">
-                    <input type="text" id="pmDate" class="form-control" data-jdp onchange="window.checkPmDateMatch()" oninput="window.checkPmDateMatch()" placeholder="1402/05/12" style="flex: 2; text-align: left; direction: ltr;">
+                    <input type="text" id="pmDate" class="form-control" data-jdp onchange="window.checkPmDateMatch()" oninput="window.checkPmDateMatch()" placeholder="۱۴۰۵/۰۹/۰۳" style="flex: 2; text-align: left; direction: ltr;">
                     <input type="time" id="pmTime" class="form-control" style="flex: 1;" onchange="window.checkPmDateMatch()" oninput="window.checkPmDateMatch()">
                 </div>
                 <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-gray);">
@@ -53,7 +53,7 @@
                 <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
                 
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <label style="font-size: 0.85rem;">لینک نهایی پست (جهت دریافت آمار)</label>
+                    <label style="font-size: 0.85rem;">لینک نهایی پست (بعد از انتشار؛ برای دریافت آمار)</label>
                     <input type="text" id="pmPostLink" class="form-control" placeholder="https://instagram.com/p/..." style="direction: ltr; text-align: left;">
                 </div>
                 
@@ -145,6 +145,8 @@ window.componentNames = function (item) {
 };
 window.findCollectionByTitle = function (title, orgId) {
     const t = window.cdNormText(title);
+    const byPath = (window.allCollections || []).filter(c => window.cdNormText(window.asvaCollectionPath(c.id)) === t);
+    if (byPath.length) return byPath.find(c => orgId && String(c.org_id) === String(orgId)) || byPath[0];
     const same = (window.allCollections || []).filter(c => window.cdNormText(c.title) === t);
     return same.find(c => orgId && String(c.org_id) === String(orgId)) || same.find(c => !c.org_id) || same[0] || null;
 };
@@ -444,16 +446,18 @@ function openContentDetails(id, editMode = false) {
     } else {
         const orgOptions = (window.allOrgs || []).map(o => `<option value="${o.id}" ${item.org_id == o.id ? 'selected' : ''}>${escapeHtml(o.org_name)}</option>`).join('');
         
+// Collections are shown (and chosen) by their full path, so same-named ones are told apart.
 let currentCollectionTitle = "";
 if (item.collection_id) {
     const fc = (window.allCollections || []).find(c => c.id == item.collection_id || c.title == item.collection_id);
-    if (fc) currentCollectionTitle = fc.title;
+    if (fc) currentCollectionTitle = window.asvaCollectionPath(fc.id) || fc.title;
     else currentCollectionTitle = isNaN(item.collection_id) ? item.collection_id : "";
 }
-const colRadios = (window.allCollections || []).map(c => `
+const colRadios = (window.allCollections || []).filter(c => c.status !== 'archived').map(c => ({ c, path: window.asvaCollectionPath(c.id) || c.title }))
+    .sort((a, b) => a.path.localeCompare(b.path, 'fa')).map(({ c, path }) => `
             <label class="col-radio-item" data-org-id="${c.org_id || ''}" style="display:flex; align-items:center; gap:6px; background:var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer;">
-                <input type="radio" name="edit_col_radio" value="${escapeHtml(c.title)}" ${escapeHtml(currentCollectionTitle === c.title ? 'checked' : '')} onchange="document.getElementById('edit_collection_title').value = this.value; window.offerEditDefaults && window.offerEditDefaults()">
-                <span class="col-title" style="font-size:0.9rem;">${escapeHtml(c.title)}</span>
+                <input type="radio" name="edit_col_radio" value="${escapeHtml(path)}" ${currentCollectionTitle === path ? 'checked' : ''} onchange="document.getElementById('edit_collection_title').value = this.value; window.offerEditDefaults && window.offerEditDefaults()">
+                <span class="col-title" style="font-size:0.9rem;">${escapeHtml(path)}</span>
             </label>
         `).join('');
 
@@ -721,13 +725,21 @@ async function saveAllEditFields(id, closeAfterSave = false) {
         if (closeAfterSave) closeDetailsModal(); else openContentDetails(id, false);
         return;
     }
+    // A collection name that does not exist yet is created only after the user confirms it.
+    let newColParent;
+    if (changed.includes('collection') && now.collection && !window.findCollectionByTitle(now.collection, now.org_id)) {
+        const ok = await window.confirmNewCollection(now.collection.split(' › ').pop(), now.org_id);
+        if (!ok) { document.getElementById('edit_collection_title').focus(); return; }
+        newColParent = ok.parent_id;
+    }
     try {
         const payload = { id };
         changed.forEach(k => {
             if (k === 'collection') {
                 const typed = now.collection;
                 const found = typed ? window.findCollectionByTitle(typed, now.org_id) : null;
-                payload.collection_id = !typed ? null : found ? found.id : typed; // a new title creates the collection
+                payload.collection_id = !typed ? null : found ? found.id : typed.split(' › ').pop();
+                if (!found && typed && newColParent) payload.collection_parent_id = newColParent;
             } else if (k === 'components_count') {
                 // Counts of types not shown in the form are kept as they were.
                 const item = (window.allDepotItems || []).find(i => i.id == id) || {};
@@ -769,8 +781,7 @@ window.offerEditDefaults = function () {
     if (!scope || !input || !window.collectionDefaults) return;
     const title = input.value.trim();
     const orgId = (document.getElementById('edit_org_id') || {}).value || '';
-    const cols = (window.allCollections || []).filter(c => c.title === title);
-    const col = cols.find(c => orgId && String(c.org_id) === String(orgId)) || cols.find(c => !c.org_id) || cols[0];
+    const col = title ? window.findCollectionByTitle(title, orgId) : null;
     // Leaving the box fires "change" again: the same collection keeps its open suggestions.
     const key = col ? String(col.id) : '';
     if (scope.dataset.cdCol === key) return;

@@ -477,6 +477,41 @@
     return dedupeKey ? request.then(function (r) { return r.clone(); }) : request;
   };
 
+  // ---------- search ----------
+  // «تولد کیان‌منتور (۲۸ آذر ۱۴۰۴)» must find the card whether it is typed with a half-space
+  // or a space, Arabic or Persian ی/ک, Persian or Latin digits, with or without brackets.
+  function searchNorm(s) {
+    return String(s == null ? "" : s).toLowerCase()
+      .replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/ۀ/g, "ه").replace(/ة/g, "ه").replace(/[أإآ]/g, "ا")
+      .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06f0); })
+      .replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); })
+      .replace(/[\u064b-\u065f\u0670\u0640]/g, "")
+      .replace(/[\s\u200c\u200d\u200e\u200f()\[\]{}«»"'`،,.:;!?؟\-_/\\|#*+=<>~^&%$@]+/g, "");
+  }
+  window.asvaSearchNorm = searchNorm;
+  window.STATUS_LABELS_FA = { raw: "ورودی خام", todo: "در صف انتظار", doing: "در حال تولید", in_progress: "در حال تولید", review: "ارزیابی استودیو", client_review: "ارزیابی کارفرما", needs_revision: "نیاز به اصلاح", done: "تکمیل شده", approved_by_client: "تایید کارفرما", ready_to_publish: "آماده انتشار", scheduled: "زمان‌بندی شده", published: "منتشر شده", archived: "آرشیو شده" };
+  /** Does text contain the typed term (all of its words, in any order)? */
+  window.asvaSearchMatch = function (text, term) {
+    var t = String(term == null ? "" : term).trim();
+    if (!t) return true;
+    var hay = searchNorm(text);
+    if (hay.indexOf(searchNorm(t)) !== -1) return true;
+    return t.split(/\s+/).every(function (w) { var n = searchNorm(w); return !n || hay.indexOf(n) !== -1; });
+  };
+  /** «پست‌های عمومی › شخصیت‌های معروف › دانا کالینز» for a collection id. */
+  window.asvaCollectionPath = function (colId, list) {
+    list = list || window.allCollections || [];
+    var parts = [], seen = {};
+    var c = list.find(function (x) { return x && String(x.id) === String(colId); });
+    while (c && !seen[c.id] && parts.length < 10) {
+      seen[c.id] = 1;
+      parts.unshift(c.title);
+      var pid = c.parent_id;
+      c = pid ? list.find(function (x) { return x && String(x.id) === String(pid); }) : null;
+    }
+    return parts.join(" › ");
+  };
+
   // ---------- date fields ----------
   // Every Jalali date field accepts ۱۴۰۵/۹/۳, 1405-09-03 ... and shows it as ۱۴۰۵/۰۹/۰۳; an
   // impossible date is marked at once (the server rejects it too, instead of clearing it).

@@ -954,7 +954,8 @@ describe("quick fill", () => {
       { id: 903, title: "کارت منتشرشده", org_id: 2, status: "published", content_type: "پوستر", collection_id: null, caption: "متن", publish_platforms: ["اینستاگرام"] },
     );
     const admin = await login("admin");
-    const q = await admin.get("/api/quick_fill");
+    // Published cards come only when asked for (?published=1).
+    const q = await admin.get("/api/quick_fill?published=1");
     assert.equal(q.body.status, "success");
     const byId = (id: number) => q.body.items.find((x: any) => x.id === id);
     // A raw card is not asked for a video link; a published one is.
@@ -986,9 +987,9 @@ describe("quick fill", () => {
 
     // "Later" hides a card until tomorrow, for this user only.
     await admin.post("/api/quick_fill_snooze").send({ id: 903 });
-    assert.ok(!(await admin.get("/api/quick_fill")).body.items.some((x: any) => x.id === 903));
+    assert.ok(!(await admin.get("/api/quick_fill?published=1")).body.items.some((x: any) => x.id === 903));
     const ali = await login("ali");
-    assert.ok((await ali.get("/api/quick_fill")).body.items.some((x: any) => x.id === 903));
+    assert.ok((await ali.get("/api/quick_fill?published=1")).body.items.some((x: any) => x.id === 903));
   });
 
   it("follows the rules from settings and keeps managers' fields from other colleagues", async () => {
@@ -1171,5 +1172,35 @@ describe("field-test fixes", () => {
     state.contents.push({ id: 9504, title: "منتشرشده", org_id: 1, status: "todo", stages: ["نگارش", "تدوین"], completed_stages: [] });
     await admin.post("/api/add_content").send({ action: "update_status", id: 9504, status: "published" });
     assert.deepEqual(card(9504).completed_stages, ["نگارش", "تدوین"]);
+  });
+});
+
+describe("field-test fixes, part 2", () => {
+  it("lists stage names missing from the list and merges one into a listed stage", async () => {
+    const admin = await login("admin");
+    state.settings.stages = state.settings.stages || [];
+    if (!state.settings.stages.some((s: any) => s.setting_key === "کاور")) state.settings.stages.push({ id: 9601, setting_key: "کاور", is_active: 1 });
+    state.contents.push({ id: 9602, title: "کاور قدیمی", org_id: 1, status: "todo", stages: ["طراحی کاور"], completed_stages: ["طراحی کاور"], stage_plan: { "طراحی کاور": { owner_id: 2 } } });
+    const list = await admin.get("/api/unlisted_stages");
+    assert.ok(list.body.data.some((r: any) => r.name === "طراحی کاور" && r.cards >= 1));
+    assert.equal((await admin.post("/api/merge_stage").send({ from: "طراحی کاور", to: "ناموجود" })).status, 400);
+    const merged = await admin.post("/api/merge_stage").send({ from: "طراحی کاور", to: "کاور" });
+    assert.equal(merged.body.status, "success");
+    assert.deepEqual(card(9602).stages, ["کاور"]);
+    assert.deepEqual(card(9602).completed_stages, ["کاور"]);
+    assert.equal(card(9602).stage_plan["کاور"].owner_id, 2);
+    assert.ok(!(await admin.get("/api/unlisted_stages")).body.data.some((r: any) => r.name === "طراحی کاور"));
+  });
+
+  it("quick fill leaves published cards out unless asked, and never calls them overdue", async () => {
+    const admin = await login("admin");
+    state.contents.push({ id: 9603, title: "منتشرشده بی‌مدیر", org_id: 1, status: "published", content_type: "پوستر", publish_date: "1400/01/03" });
+    const normal = await admin.get("/api/quick_fill");
+    assert.ok(!normal.body.items.some((x: any) => x.id === 9603));
+    assert.ok(normal.body.published_hidden >= 1);
+    const withPub = await admin.get("/api/quick_fill?published=1");
+    const it = withPub.body.items.find((x: any) => x.id === 9603);
+    assert.ok(it);
+    assert.equal(it.overdue, false);
   });
 });

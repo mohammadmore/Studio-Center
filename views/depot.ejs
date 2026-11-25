@@ -204,7 +204,8 @@ async function saveNewContent() {
         }
     });
 
-    const extras = window.__newContentFields ? window.__newContentFields.read() : {};
+    const extras = window.__newContentFields ? await window.__newContentFields.readConfirmed() : {};
+    if (!extras) return; // went back to fix the collection name
     if (extras.publish_date && !(window.isValidJalaliDate ? window.isValidJalaliDate(extras.publish_date) : /^\d{4}\/\d{1,2}\/\d{1,2}$/.test(extras.publish_date))) {
         showToast('تاریخ انتشار را به شکل سال/ماه/روز بنویسید (مثلاً 1405/08/20) یا از تقویم انتخاب کنید.', 'error');
         return;
@@ -623,8 +624,10 @@ async function submitBatchEdit() {
         .col-meta-overdue { background: rgba(239, 68, 68, 0.12); color: var(--error-color); }
         .col-meta-mine { background: rgba(99, 102, 241, 0.12); color: var(--primary-color); }
         .kanban-column:not(.column-collapsed) .col-meta { display: none; }
+        .card-col-path { margin-top: 4px; font-size: 0.74rem; color: var(--text-gray); display: flex; align-items: center; gap: 4px; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .show-more-cards { width: 100%; padding: 12px; margin: 4px 0 8px; border: 1px dashed var(--border-color); border-radius: 10px; background: transparent; color: var(--primary-color); font-weight: bold; cursor: pointer; font-family: inherit; }
         .show-more-cards:hover { background: rgba(99, 102, 241, 0.06); }
+        .show-all-cards { margin-inline-start: 8px; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--primary-color) 14%, transparent); font-size: 0.8rem; }
         .column-collapsed { min-width: 60px !important; width: 60px !important; overflow: hidden; background: rgba(128, 128, 128, 0.02) !important; }
         .column-collapsed .column-body { display: none !important; }
         .col-toggle-btn svg { transition: transform 0.3s; transform: rotate(180deg); }
@@ -1300,7 +1303,7 @@ function renderKanban(allItems, options = {}) {
 }
 
 function renderKanbanBoard(allItems) {
-    const term = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const term = (document.getElementById('searchInput')?.value || '');
     const orgFilter = (document.getElementById('orgFilter')?.value || '').toLowerCase();
     const statusFilter = (document.getElementById('statusFilter')?.value || '');
     const platformFilter = (document.getElementById('platformFilter')?.value || '');
@@ -1309,9 +1312,9 @@ function renderKanbanBoard(allItems) {
     const period = window.periodRange ? window.periodRange(periodFilter) : null;
     
     let items = (allItems || []).filter(item => {
-        const text = (item.title + ' ' + (item.org_name || '') + ' ' + (item.project_manager || '') + ' ' + (item.assigned_colleagues ? (Array.isArray(item.assigned_colleagues) ? item.assigned_colleagues.join(' ') : item.assigned_colleagues) : '')).toLowerCase();
-        
-        let matchesTerm = text.includes(term);
+        const text = item.title + ' ' + (item.org_name || '') + ' ' + (item.project_manager || '') + ' ' + (item.assigned_colleagues ? (Array.isArray(item.assigned_colleagues) ? item.assigned_colleagues.join(' ') : item.assigned_colleagues) : '') + ' ' + (item.collection_id ? window.asvaCollectionPath(item.collection_id) : '') + ' ' + item.id;
+        // Half-spaces, Arabic/Persian letters and digits and brackets do not matter.
+        let matchesTerm = window.asvaSearchMatch(text, term);
         let matchesOrg = orgFilter === "" || (item.org_name || "").toLowerCase() === orgFilter;
         let matchesStatus = statusFilter === "" || (item.status || 'raw') === statusFilter;
         let matchesPlatform = platformFilter === "" || (item.publish_platforms || []).includes(platformFilter);
@@ -1375,17 +1378,33 @@ function renderKanbanBoard(allItems) {
     const CARDS_PER_PAGE = 30;
     window.__depotColumns = {};
     // Long columns render in pages so the board stays fast with thousands of items.
-    window.showMoreCards = function(btn, colKey) {
+    window.showMoreCards = function(btn, colKey, all) {
         const entry = window.__depotColumns[colKey];
         if (!entry) return;
-        const next = entry.items.slice(entry.shown, entry.shown + CARDS_PER_PAGE);
+        const next = entry.items.slice(entry.shown, all ? entry.items.length : entry.shown + CARDS_PER_PAGE);
         entry.shown += next.length;
         btn.insertAdjacentHTML('beforebegin', next.map(item => window.__depotCardHtml(item, entry.statusKey)).join(''));
         const left = entry.items.length - entry.shown;
         if (left <= 0) btn.remove();
-        else btn.textContent = `نمایش ${window.toPersianDigits(Math.min(left, CARDS_PER_PAGE))} مورد بیشتر (${window.toPersianDigits(left)} باقی‌مانده)`;
+        else btn.innerHTML = showMoreLabel(left, colKey);
         if (typeof updateBatchUI === 'function') updateBatchUI();
     };
+
+    function showMoreLabel(left, key) {
+        return `نمایش ${window.toPersianDigits(Math.min(left, CARDS_PER_PAGE))} مورد بیشتر (${window.toPersianDigits(left)} باقی‌مانده)` +
+            ` <span class="show-all-cards" role="button" tabindex="0" onclick="event.stopPropagation(); showMoreCards(this.closest('.show-more-cards'), ${jsAttr(key)}, true)">همه</span>`;
+    }
+    // Scrolling near the end of a long column loads its next cards by itself.
+    if (!window.__depotInfiniteScroll) {
+        window.__depotInfiniteScroll = true;
+        document.addEventListener('scroll', (e) => {
+            const body = e.target;
+            if (!body || !body.classList || !body.classList.contains('column-body')) return;
+            if (body.scrollTop + body.clientHeight < body.scrollHeight - 400) return;
+            const btn = body.querySelector('.show-more-cards');
+            if (btn && !btn.dataset.loading) { btn.dataset.loading = '1'; btn.click(); setTimeout(() => { if (btn.isConnected) delete btn.dataset.loading; }, 150); }
+        }, true);
+    }
 
     function renderCards(colItems, statusKey, colKey) {
         let cardsHtml = '';
@@ -1415,7 +1434,7 @@ function renderKanbanBoard(allItems) {
             cardsHtml = shown.map(item => cardHtml(item, statusKey)).join('');
             const left = colItems.length - shown.length;
             if (left > 0) {
-                cardsHtml += `<button type="button" class="show-more-cards" onclick="event.stopPropagation(); showMoreCards(this, ${jsAttr(colKey || statusKey)})">نمایش ${window.toPersianDigits(Math.min(left, CARDS_PER_PAGE))} مورد بیشتر (${window.toPersianDigits(left)} باقی‌مانده)</button>`;
+                cardsHtml += `<button type="button" class="show-more-cards" onclick="event.stopPropagation(); showMoreCards(this, ${jsAttr(colKey || statusKey)})">${showMoreLabel(left, colKey || statusKey)}</button>`;
             }
         }
         return cardsHtml;
@@ -1469,6 +1488,7 @@ function renderKanbanBoard(allItems) {
                             <span>${escapeHtml(item.org_name || 'بدون سازمان')}</span>
                         </div>
                         <div style="font-size:1rem; font-weight:bold; color: var(--text-gray); line-height:1.4;">${escapeHtml(item.title)}</div>
+                        ${(() => { const path = item.collection_id ? window.asvaCollectionPath(item.collection_id) : ''; return path ? `<div class="card-col-path" title="${escapeHtml(path)}"><i class=ai data-ic=folder></i> ${escapeHtml(path)}</div>` : ''; })()}
                         ${stagesHtml}
                         <div style="margin-top: 8px; font-size: 0.75rem; color: var(--text-gray); display:flex; align-items:center; gap:4px;">
                             <svg style="pointer-events: none;" xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg> مدیر: ${mgrDisplay}
