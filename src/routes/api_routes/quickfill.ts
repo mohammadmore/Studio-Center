@@ -5,7 +5,7 @@ import { saveDatabase } from "../../store/db.js";
 import { checkPermission } from "../../middleware/auth.js";
 import { effectiveAvatar, hasPermission } from "../../utils/authUtils.js";
 import { addNotification, logContentActivity } from "../../utils/logger.js";
-import { normalizeJalaliDate, toInt } from "../../utils/helpers.js";
+import { INVALID_DATE_MESSAGE, normalizeJalaliDate, parseJalaliInput, toInt } from "../../utils/helpers.js";
 import { addStageOwnersToTeam, cardColleagueIds, dropManagerFromTeam, resolveColleagueIds } from "../../utils/contentUtils.js";
 import { emitToStaff } from "../../utils/socket.js";
 import { managerId, stagePlan } from "../../utils/workflowUtils.js";
@@ -301,6 +301,9 @@ function recordUndo(req: any, before: any[], title: string, description: string)
 subRouter.post("/quick_fill_save", (req: any, res) => {
   const ids: unknown[] = Array.isArray(req.body.ids) ? req.body.ids.slice(0, 50) : [req.body.id];
   const values = req.body.values && typeof req.body.values === "object" ? req.body.values : {};
+  if (values.publish_date !== undefined && !parseJalaliInput(values.publish_date).ok) {
+    return res.status(400).json({ status: "error", message: INVALID_DATE_MESSAGE });
+  }
   const st = userState(req.user);
   const before: any[] = [];
   const results: any[] = [];

@@ -142,7 +142,8 @@ async function openAddContentModal() {
     document.getElementById('newStages').innerHTML = stages.length
         ? stages.map(s => `<label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" value="${escapeHtml(s.setting_key)}"> ${escapeHtml(s.setting_key)}</label>`).join('')
         : '<span style="color: var(--text-gray); font-size: 0.85rem;">مرحله‌ای در تنظیمات ← مراحل تولید تعریف نشده است.</span>';
-    document.querySelectorAll('#newComponentsCount .comp-count').forEach(i => i.value = '');
+    // The same component kinds as the card's edit form: the content types list.
+    window.renderComponentInputs(document.getElementById('newComponentsCount'), 'comp-count');
     const typeSel = document.getElementById('newType');
     delete typeSel.dataset.touched;
     typeSel.onchange = () => { typeSel.dataset.touched = '1'; };
@@ -197,14 +198,14 @@ async function saveNewContent() {
     
     let components_count = {};
     document.querySelectorAll('#newComponentsCount .comp-count').forEach(inp => {
-        let val = parseInt(inp.value);
+        let val = parseInt(window.toEnglishDigits ? window.toEnglishDigits(inp.value) : inp.value);
         if (val > 0) {
             components_count[inp.dataset.name] = val;
         }
     });
 
     const extras = window.__newContentFields ? window.__newContentFields.read() : {};
-    if (extras.publish_date && !/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(extras.publish_date)) {
+    if (extras.publish_date && !(window.isValidJalaliDate ? window.isValidJalaliDate(extras.publish_date) : /^\d{4}\/\d{1,2}\/\d{1,2}$/.test(extras.publish_date))) {
         showToast('تاریخ انتشار را به شکل سال/ماه/روز بنویسید (مثلاً 1405/08/20) یا از تقویم انتخاب کنید.', 'error');
         return;
     }
@@ -918,11 +919,7 @@ async function submitBatchEdit() {
 
         <label style="font-weight: bold; margin-top: 10px; display: block;">تعداد اجزای محتوا (اختیاری)</label>
         <div id="newComponentsCount" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="ویدئو" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> ویدئو</div>
-            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="پوستر گرافیکی" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> پوستر گرافیکی</div>
-            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="فایل صوتی" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> فایل صوتی</div>
-            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="متن/کپشن" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> متن/کپشن</div>
-            <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count" data-name="استوری" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> استوری</div>
+            <!-- همان فهرست «نوع محتوا» که فرم ویرایش کارت دارد (new-content-fields.js) -->
         </div>
             
         <label style="font-weight: bold; margin-top: 10px; display: block;">مدیر پروژه</label>

@@ -97,6 +97,11 @@ export async function createSqliteDriver(file: string, dataDir: string): Promise
       }
       for (const [name, text] of changed) lastWritten.set(name, text);
     },
+    async version() {
+      // Changes whenever another connection (another process) commits.
+      const row = db.prepare("PRAGMA data_version").get() as { data_version: number } | undefined;
+      return row ? String(row.data_version) : null;
+    },
     async close() {
       db.close();
     },

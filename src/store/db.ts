@@ -21,6 +21,7 @@ import { sanitizeIcon, safeColor, safeUrl } from "../utils/helpers.js";
 import { encryptSecret, isEncrypted } from "../utils/secrets.js";
 import { normalizePasswordInput, passwordProblem } from "../utils/authUtils.js";
 import { tokens } from "./state.js";
+import { tidyAll } from "../utils/tidy.js";
 
 const SAVE_DELAY_MS = 500;
 
@@ -29,6 +30,8 @@ let ready = false;
 let saveTimer: NodeJS.Timeout | null = null;
 let saving: Promise<void> | null = null;
 let dirty = false;
+/** Storage version this process last loaded or wrote (see syncFromStorage). */
+let knownVersion: string | null = null;
 
 export function isDatabaseReady() {
   return ready;
@@ -245,6 +248,7 @@ function applyEmergencyAdminReset() {
 export async function initDatabase(customDriver?: StorageDriver) {
   driver = customDriver || (await createDriver());
   const data = await driver.load();
+  knownVersion = await currentVersion();
   if (data) {
     applySnapshot(data);
     normalizeLoadedData();
@@ -262,6 +266,8 @@ export async function initDatabase(customDriver?: StorageDriver) {
   if (applyEmergencyAdminReset()) await flushDatabase(true);
   if (markLegacyInvoicesSent()) await flushDatabase(true);
   if (normalizeStoredWorkTypes()) await flushDatabase(true);
+  // Names and choices with stray spaces, dates with Persian digits (older data).
+  if (tidyAll()) await flushDatabase(true);
   // Rewrite the file at once so no plain-text credential stays on disk.
   if (encryptStoredSecrets()) {
     await flushDatabase(true);
@@ -277,7 +283,159 @@ export async function initDatabase(customDriver?: StorageDriver) {
 async function writeNow() {
   if (!driver || !ready) return;
   dirty = false;
+  tidyAll();
   await driver.save(snapshotState());
+  knownVersion = await currentVersion();
+}
+
+// ───────── Several processes on the same data ─────────
+// Some hosts (LiteSpeed / Passenger) start more than one copy of the app. Each keeps the
+// data in memory, so without care one copy shows old data and its next save writes that
+// old copy over what another copy saved. To prevent this every change runs under a lock
+// shared by all processes (a lock directory next to the data), first reloading the data
+// if another process wrote it since, and is written to storage before the response goes
+// out. Reads reload changed data too.
+async function currentVersion() {
+  try {
+    return driver?.version ? await driver.version() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Reloads the stored data when another process changed it. Returns true if it did. */
+export async function syncFromStorage() {
+  if (!driver?.version || !ready || saving || localLocks > 0) return false;
+  return reloadIfChanged();
+}
+
+/**
+ * Every change made under the lock is stored before the lock is released, so changes still
+ * pending here are incidental ones made outside it (a read that tidied something up).
+ * Another process's stored change wins over those.
+ */
+async function reloadIfChanged() {
+  const v = await currentVersion();
+  if (v === null || v === knownVersion) return false;
+  const data = await driver!.load();
+  if (!data) return false;
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  dirty = false;
+  applySnapshot(data);
+  normalizeLoadedData();
+  knownVersion = v;
+  return true;
+}
+
+const LOCK_STALE_MS = 20_000;
+const LOCK_WAIT_MS = 10_000;
+let localLocks = 0;
+let localQueue: Promise<void> = Promise.resolve();
+
+function lockDir() {
+  return path.join(config.dataDir, "run", "write.lock");
+}
+
+async function acquireFileLock() {
+  const dir = lockDir();
+  await fs.promises.mkdir(path.dirname(dir), { recursive: true }).catch(() => {});
+  const start = Date.now();
+  for (;;) {
+    try {
+      await fs.promises.mkdir(dir);
+      return true;
+    } catch (e: any) {
+      if (e?.code !== "EEXIST") return false;
+      try {
+        const st = await fs.promises.stat(dir);
+        if (Date.now() - st.mtimeMs > LOCK_STALE_MS) {
+          await fs.promises.rmdir(dir).catch(() => {});
+          continue;
+        }
+      } catch {
+        continue;
+      }
+      if (Date.now() - start > LOCK_WAIT_MS) {
+        console.warn("Storage lock is busy for too long; continuing without it.");
+        return false;
+      }
+      await new Promise((r) => setTimeout(r, 25));
+    }
+  }
+}
+
+/**
+ * Takes the write lock (one holder at a time in this process and, for drivers shared by
+ * several processes, across processes). Returns the release function.
+ */
+export async function acquireStorageLock(): Promise<() => void> {
+  let releaseLocal!: () => void;
+  const previous = localQueue;
+  localQueue = new Promise<void>((r) => (releaseLocal = r));
+  await previous;
+  localLocks++;
+  const shared = !!driver?.version;
+  const haveFile = shared ? await acquireFileLock() : false;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    if (haveFile) fs.promises.rmdir(lockDir()).catch(() => {});
+    localLocks--;
+    releaseLocal();
+    if (localLocks === 0) runStoredCallbacks();
+  };
+}
+
+let storedCallbacks: (() => void)[] = [];
+function runStoredCallbacks() {
+  const list = storedCallbacks;
+  storedCallbacks = [];
+  for (const cb of list) {
+    try {
+      cb();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}
+
+/**
+ * Runs cb once the change being made is stored (right away when none is). Live updates to
+ * open pages use it: a page that reloads on such a message must find the change stored,
+ * whichever process answers it.
+ */
+export function whenStored(cb: () => void) {
+  if (localLocks > 0) storedCallbacks.push(cb);
+  else cb();
+}
+
+/** True when the storage can be shared by several processes (changes then need the lock). */
+export function isSharedStorage() {
+  return !!driver?.version;
+}
+
+/** Runs a change under the lock: fresh data first, written to storage before returning. */
+export async function withStorageLock<T>(fn: () => T | Promise<T>): Promise<T> {
+  const release = await acquireStorageLock();
+  try {
+    await syncWithin();
+    const result = await fn();
+    await flushDatabase();
+    return result;
+  } finally {
+    release();
+  }
+}
+
+/** Like syncFromStorage, but for the lock holder itself. */
+export async function syncWithin() {
+  if (!driver?.version || !ready) return false;
+  if (saving) await saving;
+  return reloadIfChanged();
 }
 
 function runSave() {
@@ -287,7 +445,7 @@ function runSave() {
     dirty = true;
     return;
   }
-  saving = writeNow()
+  saving = (driver?.version ? backgroundWrite() : writeNow())
     .catch((e) => {
       dirty = true;
       console.error(`Error saving database (${driver?.name}):`, e);
@@ -301,6 +459,32 @@ function runSave() {
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(runSave, SAVE_DELAY_MS);
+}
+
+/**
+ * A save that was not part of a locked change (a page visit log, a scheduled job). If
+ * another process wrote in the meantime, this copy is out of date: writing it would undo
+ * that change, so the stored data is loaded instead and the small local change is dropped.
+ */
+async function backgroundWrite() {
+  const release = await acquireStorageLock();
+  try {
+    const v = await currentVersion();
+    if (v !== null && knownVersion !== null && v !== knownVersion) {
+      console.warn("Another process changed the data; reloading instead of writing an old copy.");
+      dirty = false;
+      const data = await driver!.load();
+      if (data) {
+        applySnapshot(data);
+        normalizeLoadedData();
+      }
+      knownVersion = v;
+      return;
+    }
+    await writeNow();
+  } finally {
+    release();
+  }
 }
 
 /** Debounced save of the whole in-memory state. Ignored until the state was loaded. */

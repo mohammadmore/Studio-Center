@@ -30,6 +30,10 @@ export function loadSessionUser(req: any, res: any, next: any) {
   }
   req.user = user;
   req.account = account;
+  // Activity keeps the session alive: the cookie (7 days) is renewed at most once an hour,
+  // so someone working in the panel is never logged out in the middle of their work.
+  const hour = Math.floor(Date.now() / 3_600_000);
+  if (req.session.h !== hour) req.session.h = hour;
   // Staff previewing a brand's panel act as that brand (read only, see apiAuthGuard).
   const preview = req.session.preview;
   if (preview && user.role_id !== "client") {

@@ -117,6 +117,72 @@
 </div>
 
 <script>
+// ───────── Comparing form values (edit form, unsaved-changes check) ─────────
+window.cdNormText = (v) => String(v == null ? '' : v).replace(/[\u200b\u00a0]/g, ' ').replace(/\s+/g, ' ').trim();
+const cdLatin = (v) => (window.toEnglishDigits ? window.toEnglishDigits(String(v == null ? '' : v)) : String(v == null ? '' : v));
+/** 1405/9/3, ۱۴۰۵-۰۹-۰۳ ... -> 1405/09/03 (anything else is returned trimmed, to be rejected). */
+window.normJalaliInput = function (v) {
+    const s = cdLatin(v).trim();
+    const m = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/.exec(s);
+    return m ? `${m[1]}/${m[2].padStart(2, '0')}/${m[3].padStart(2, '0')}` : s;
+};
+window.isValidJalaliDate = function (v) {
+    const m = /^(\d{4})\/(\d{2})\/(\d{2})$/.exec(window.normJalaliInput(v));
+    if (!m) return false;
+    const y = +m[1], mo = +m[2], d = +m[3];
+    if (y < 1300 || y > 1500 || mo < 1 || mo > 12 || d < 1) return false;
+    if (window.jalaali && window.jalaali.isValidJalaaliDate) return window.jalaali.isValidJalaaliDate(y, mo, d);
+    return d <= (mo <= 6 ? 31 : mo <= 11 ? 30 : 30);
+};
+/** Component kinds: the content types list, plus any the card already has. */
+window.componentNames = function (item) {
+    const names = (window.allSettings?.content_type || []).filter(ct => ct.is_active !== 0).map(ct => window.cdNormText(ct.setting_key)).filter(Boolean);
+    Object.keys((item && item.components_count) || {}).forEach(k => {
+        const n = window.cdNormText(k);
+        if (n && !names.includes(n) && item.components_count[k] > 0) names.push(n);
+    });
+    return [...new Set(names)];
+};
+window.findCollectionByTitle = function (title, orgId) {
+    const t = window.cdNormText(title);
+    const same = (window.allCollections || []).filter(c => window.cdNormText(c.title) === t);
+    return same.find(c => orgId && String(c.org_id) === String(orgId)) || same.find(c => !c.org_id) || same[0] || null;
+};
+/** The edit form's values, normalized so that "unchanged" really compares equal. */
+window.readEditForm = function () {
+    const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const checked = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => window.cdNormText(cb.value));
+    const comps = {};
+    document.querySelectorAll('.edit-comp-count').forEach(input => {
+        const n = parseInt(cdLatin(input.value), 10);
+        comps[window.cdNormText(input.dataset.name)] = n > 0 ? n : 0;
+    });
+    return {
+        title: window.cdNormText(val('edit_title')),
+        status: val('edit_status'),
+        org_id: val('edit_org_id'),
+        collection: window.cdNormText(val('edit_collection_title')),
+        content_type: window.cdNormText(val('edit_content_type')),
+        project_manager: window.cdNormText(val('edit_project_manager')),
+        assigned_colleagues: checked('edit_team_cb').sort(),
+        publish_date: window.normJalaliInput(val('edit_publish_date')),
+        publish_time: cdLatin(val('edit_publish_time')).trim(),
+        publish_platforms: checked('edit_platforms').sort(),
+        stages: checked('edit_stages'),
+        components_count: comps,
+    };
+};
+window.readViewTexts = function () {
+    const v = (id) => { const el = document.getElementById(id); return el ? String(el.value).replace(/\r\n/g, '\n').trim() : null; };
+    return { caption: v('caption_text'), video_link: v('input_video_link'), cover_link: v('input_cover_link') };
+};
+window.cardHasChanges = function () {
+    if (window.currentContentEditMode && window.__editInitial) {
+        return JSON.stringify(window.readEditForm()) !== JSON.stringify(window.__editInitial);
+    }
+    return !!window.__viewInitial && JSON.stringify(window.readViewTexts()) !== JSON.stringify(window.__viewInitial);
+};
+
 /** The "team" list of a card (also redrawn when a stage owner joins the team). */
 window.cardTeamHtml = function (item) {
     let teamHtml = '<div style="color: #94a3b8; font-size: 0.9rem;">تیمی اختصاص نیافته</div>';
@@ -146,11 +212,13 @@ function openContentDetails(id, editMode = false) {
             item.stages.map(s => {
                 const isChecked = completed.includes(s) ? 'checked' : '';
                 const style = isChecked ? 'text-decoration: line-through; color: #94a3b8;' : 'color: var(--text-gray); font-weight: bold;';
-                return `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(128, 128, 128, 0.05); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);" onclick="event.stopPropagation()">
-                            <input type="checkbox" ${escapeHtml(isChecked)} onchange="toggleStage(${item.id}, ${jsAttr(s)}, this.checked)">
-                            <span style="${style}">${escapeHtml(s)}</span>
+                return `<label class="stage-tick" style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(128, 128, 128, 0.05); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);" onclick="event.stopPropagation()">
+                            <input type="checkbox" ${escapeHtml(isChecked)} onchange="toggleStage(${item.id}, ${jsAttr(s)}, this.checked, this)">
+                            <span class="stage-name" style="${style}">${escapeHtml(s)}</span>
+                            <span class="stage-busy" aria-hidden="true" style="margin-inline-start:auto; font-size:0.75rem; color:var(--text-gray);"></span>
                         </label>`;
-            }).join('') + 
+            }).join('') +
+            (item.stages.some(s => !completed.includes(s)) ? `<button type="button" class="btn-outline" style="align-self:flex-start; margin-top:4px;" onclick="toggleAllStages(${item.id}, this)"><i class=ai data-ic=check-check></i> همه مراحل انجام شد</button>` : '') +
             '</div>';
     }
 
@@ -343,8 +411,8 @@ function openContentDetails(id, editMode = false) {
                 <div style="font-size:0.85rem; color: var(--text-gray); margin-bottom: 5px; font-weight:bold;">تعداد اجزای محتوا:</div>
                 
                 <div style="display:flex; gap: 8px; flex-wrap: wrap;">
-                    ${(window.allSettings?.content_type || []).filter(ct => ct.is_active !== 0).map(ct => 
-                        `<label style="display:flex; align-items:center; gap:8px; background: var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px;"><span style="font-size:0.9rem;">${escapeHtml(ct.setting_key)}</span> <input type="text" inputmode="numeric" min="0" class="edit-comp-count" data-name="${escapeHtml(ct.setting_key)}" value="${escapeHtml(item.components_count?.[ct.setting_key] || 0)}" style="width:60px; padding:6px; border:1px solid #ddd; border-radius:6px; text-align:center; font-weight:bold;"></label>`
+                    ${window.componentNames(item).map(name =>
+                        `<label style="display:flex; align-items:center; gap:8px; background: var(--card-bg); padding:6px 12px; border:1px solid var(--border-color); border-radius:8px;"><span style="font-size:0.9rem;">${escapeHtml(name)}</span> <input type="text" inputmode="numeric" min="0" class="edit-comp-count" data-name="${escapeHtml(name)}" value="${escapeHtml(window.toPersianDigits ? window.toPersianDigits(item.components_count?.[name] || 0) : (item.components_count?.[name] || 0))}" style="width:60px; padding:6px; border:1px solid #ddd; border-radius:6px; text-align:center; font-weight:bold;"></label>`
                     ).join('')}
                 </div>
 
@@ -389,7 +457,13 @@ const colRadios = (window.allCollections || []).map(c => `
             </label>
         `).join('');
 
-        const typeOptions = (window.allSettings?.content_type || []).map(t => `<option value="${escapeHtml(t.setting_key)}" ${escapeHtml(item.content_type == t.setting_key ? 'selected' : '')}>${escapeHtml(t.setting_key)}</option>`).join('');
+        // The card's own type is always offered, even if it is no longer in the type list
+        // (otherwise the list showed "-- انتخاب --" and saving cleared the type).
+        const curType = window.cdNormText(item.content_type);
+        const typeList = (window.allSettings?.content_type || []);
+        const typeKnown = !curType || typeList.some(t => window.cdNormText(t.setting_key) === curType);
+        const typeOptions = (typeKnown ? '' : `<option value="${escapeHtml(curType)}" selected>${escapeHtml(curType)} (در فهرست انواع نیست)</option>`) +
+            typeList.map(t => `<option value="${escapeHtml(t.setting_key)}" ${window.cdNormText(t.setting_key) === curType ? 'selected' : ''}>${escapeHtml(t.setting_key)}</option>`).join('');
         setTimeout(() => { if(window.filterCol) window.filterCol(); }, 50);
         const mgrDatalist = (window.allColleagues || []).map(u => `<option value="${escapeHtml(u.full_name)}">`).join('');
         // Everyone is listed, but the card's project manager is hidden: a manager is not also a
@@ -485,7 +559,7 @@ const colRadios = (window.allCollections || []).map(c => `
                 </div>
                 <textarea id="caption_text" rows="4" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; resize:vertical; font-family:inherit;" placeholder="متن کپشن را اینجا بنویسید...">${escapeHtml(item.caption || '')}</textarea>
                 <div style="text-align:left; margin-top:8px;">
-                    <button onclick="saveField(${item.id}, 'caption', document.getElementById('caption_text').value)" style="background: var(--success-color); color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer;">ذخیره کپشن</button>
+                    <button onclick="saveField(${item.id}, 'caption', document.getElementById('caption_text').value, 'کپشن ذخیره شد')" style="background: var(--success-color); color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer;">ذخیره کپشن</button>
                 </div>
             </div>
             
@@ -495,7 +569,8 @@ const colRadios = (window.allCollections || []).map(c => `
             </div>` : ''}
 
             ${editMode ? `<div style="margin-top:20px;">
-                <button class="btn-primary"  onclick="saveAllEditFields(${item.id})" style="width:100%; padding:14px; "><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره همه تغییرات</button>
+                <button class="btn-primary"  onclick="saveAllEditFields(${item.id})" style="width:100%; padding:14px; "><svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align: middle; margin-left: 4px;'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg> ذخیره مشخصات کارت</button>
+                <div style="font-size:0.78rem; color:var(--text-gray); margin-top:6px; text-align:center; line-height:1.7;">عنوان، وضعیت، مجموعه، نوع، مدیر و همکاران، تاریخ، پلتفرم‌ها، مراحل و اجزا. کپشن و لینک‌ها دکمه‌ی ذخیره‌ی خودشان را دارند؛ مسئول و موعد مراحل در «گردش کار» پایین همین پنل.</div>
             </div>` : ''}
             ${(() => {
                 if (item.activity_log && item.activity_log.length > 0) {
@@ -561,8 +636,20 @@ const colRadios = (window.allCollections || []).map(c => `
     // A card in a collection is offered the collection's defaults on its empty fields.
     delete document.getElementById('detailsContent').dataset.cdCol;
     if (editMode && window.offerEditDefaults) window.offerEditDefaults();
-    document.getElementById('detailsContent').onchange = () => { window.hasUnsavedChanges = true; };
-    document.getElementById('detailsContent').oninput = () => { window.hasUnsavedChanges = true; };
+    // "Unsaved changes" means a value differs from what was loaded (compared normalized:
+    // spaces, Persian/Latin digits), not merely that some field fired an event.
+    window.__editInitial = editMode ? window.readEditForm() : null;
+    window.__viewInitial = window.readViewTexts();
+    window.__wfDirty = false;
+    const recheck = (e) => {
+        // A stage ticked in the edit form shows up in the stage owners panel at once.
+        if (e && e.type === 'change' && e.target && e.target.name === 'edit_stages' && window.refreshStagePlanRows) window.refreshStagePlanRows(id);
+        // Typing in the workflow panel (captions, plan) counts as an unsaved change there.
+        if (e && e.target && e.target.closest && e.target.closest('#wfPanel') && /^(TEXTAREA|INPUT|SELECT)$/.test(e.target.tagName)) window.__wfDirty = true;
+        window.hasUnsavedChanges = window.__wfDirty || window.cardHasChanges();
+    };
+    document.getElementById('detailsContent').onchange = recheck;
+    document.getElementById('detailsContent').oninput = recheck;
 
     const overlay = document.getElementById('detailsModal');
     overlay.style.display = 'flex';
@@ -619,40 +706,35 @@ window.reloadContentSource = async function () {
 };
 
 async function saveAllEditFields(id, closeAfterSave = false) {
-    const title = document.getElementById('edit_title').value;
-    const org_id = document.getElementById('edit_org_id').value;
-    const content_type = document.getElementById('edit_content_type').value;
-    const project_manager = document.getElementById('edit_project_manager').value;
-    const typedColTitle = document.getElementById('edit_collection_title').value.trim();
-    let collection_id = null;
-    if (typedColTitle) {
-        const found = (window.allCollections || []).find(c => c.title === typedColTitle);
-        if (found) collection_id = found.id;
-        else collection_id = typedColTitle; // We will pass string to let server know it's a new one
+    // Only what the user actually changed is sent: a field nobody touched stays as stored.
+    const now = window.readEditForm();
+    const before = window.__editInitial || {};
+    const changed = Object.keys(now).filter(k => JSON.stringify(now[k]) !== JSON.stringify(before[k]));
+    if (now.publish_date && !window.isValidJalaliDate(now.publish_date)) {
+        showToast('تاریخ انتشار نامعتبر است. آن را به شکل ۱۴۰۵/۰۹/۰۳ بنویسید یا از تقویم انتخاب کنید.', 'error');
+        document.getElementById('edit_publish_date').focus();
+        return;
     }
-
-    const assigned_colleagues = Array.from(document.querySelectorAll('input[name="edit_team_cb"]:checked')).map(cb => cb.value);
-    
-    const publish_date = window.toEnglishDigits ? window.toEnglishDigits(document.getElementById('edit_publish_date').value) : document.getElementById('edit_publish_date').value;
-    const publish_time = window.toEnglishDigits ? window.toEnglishDigits(document.getElementById('edit_publish_time').value) : document.getElementById('edit_publish_time').value;
-    
-    const publish_platforms = Array.from(document.querySelectorAll('input[name="edit_platforms"]:checked')).map(cb => cb.value);
-    const stages = Array.from(document.querySelectorAll('input[name="edit_stages"]:checked')).map(cb => cb.value);
-    const status = document.getElementById('edit_status').value;
-
+    if (!changed.length) {
+        window.hasUnsavedChanges = false;
+        showToast('تغییری برای ذخیره نبود', 'info');
+        if (closeAfterSave) closeDetailsModal(); else openContentDetails(id, false);
+        return;
+    }
     try {
-        
-        const components_count = {};
-        document.querySelectorAll('.edit-comp-count').forEach(input => {
-            const val = parseInt(window.toEnglishDigits(input.value));
-            if (val > 0) components_count[input.dataset.name] = val;
+        const payload = { id };
+        changed.forEach(k => {
+            if (k === 'collection') {
+                const typed = now.collection;
+                const found = typed ? window.findCollectionByTitle(typed, now.org_id) : null;
+                payload.collection_id = !typed ? null : found ? found.id : typed; // a new title creates the collection
+            } else if (k === 'components_count') {
+                // Counts of types not shown in the form are kept as they were.
+                const item = (window.allDepotItems || []).find(i => i.id == id) || {};
+                payload.components_count = Object.assign({}, item.components_count || {}, now.components_count);
+                Object.keys(payload.components_count).forEach(n => { if (!(payload.components_count[n] > 0)) delete payload.components_count[n]; });
+            } else payload[k] = now[k];
         });
-        
-        const payload = {
-            id, title, org_id, collection_id: collection_id, content_type, project_manager, 
-            assigned_colleagues, publish_date, publish_time, publish_platforms, stages,
-            components_count, status
-        };
         const res = await fetch('/api/update_content_details', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -660,17 +742,17 @@ async function saveAllEditFields(id, closeAfterSave = false) {
         });
         const result = await res.json();
         if (result.status === 'success') {
-            (result.warnings || []).forEach(w => window.showToast && window.showToast('' + w, 'info'));
             window.hasUnsavedChanges = false;
+            showToast('مشخصات کارت ذخیره شد', 'success');
+            (result.warnings || []).forEach(w => window.showToast && window.showToast('' + w, 'info'));
             await reloadContentSource();
-            showToast('تغییرات با موفقیت ذخیره شد', 'success');
             if (closeAfterSave) {
                 closeDetailsModal();
             } else {
                 openContentDetails(id, false);
             }
         } else {
-            showToast('خطا در ثبت اطلاعات', 'error');
+            showToast(result.message || 'خطا در ثبت اطلاعات', 'error');
         }
     } catch (e) {
         console.error(e);
@@ -744,7 +826,7 @@ window.filterTeam = function() {
     });
 };
 
-async function saveField(id, field, value) {
+async function saveField(id, field, value, okMessage) {
     try {
         const payload = { id };
         payload[field] = value;
@@ -755,10 +837,21 @@ async function saveField(id, field, value) {
         });
         const result = await res.json();
         if (result.status === 'success') {
-            await reloadContentSource();
-            openContentDetails(id);
+            showToast(okMessage || 'ذخیره شد', 'success');
+            window.hasUnsavedChanges = false;
+            if (window.currentContentEditMode) {
+                // In the edit form: keep whatever else is being edited on screen.
+                const item = (window.allDepotItems || []).find(i => i.id == id);
+                if (item) item[field] = value;
+                window.__viewInitial = window.readViewTexts();
+                window.hasUnsavedChanges = window.cardHasChanges();
+                reloadContentSource();
+            } else {
+                await reloadContentSource();
+                openContentDetails(id);
+            }
         } else {
-            showToast('خطا در ثبت اطلاعات', 'error');
+            showToast(result.message || 'خطا در ثبت اطلاعات', 'error');
         }
     } catch(e) {
         console.error(e);
@@ -829,6 +922,7 @@ window.deleteContent = deleteContent;
 
 
 function closeDetailsModal() {
+    if (window.hasUnsavedChanges && !window.__wfDirty && window.cardHasChanges && !window.cardHasChanges()) window.hasUnsavedChanges = false;
     if (window.hasUnsavedChanges) {
         document.getElementById('contentIdentityConfirmModal').style.display = 'flex';
         return;
@@ -843,31 +937,49 @@ function closeDetailsModal() {
 }
 window.closeDetailsModal = closeDetailsModal;
 
-async function toggleStage(id, stage, isChecked) {
-    try {
-        const res = await fetch('/api/toggle_stage', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ id, stage, isChecked })
-        });
-        const result = await res.json();
-        if (result.status === 'success') {
-            const item = window.allDepotItems.find(i => i.id == id);
-            if(item) {
-                if(!item.completed_stages) item.completed_stages = [];
-                if(isChecked) {
-                    if(!item.completed_stages.includes(stage)) item.completed_stages.push(stage);
-                } else {
-                    item.completed_stages = item.completed_stages.filter(s => s !== stage);
-                }
-                openContentDetails(id); // refresh modal
-            }
-        }
-    } catch(e) {
-        console.error(e);
+/**
+ * Ticking a stage: shown at once on that row only (no full-screen wait, no redraw of the
+ * card); if the server does not confirm, the tick is undone and an error is shown.
+ */
+function paintStageRow(cb, done, busy) {
+    const row = cb && cb.closest('.stage-tick');
+    if (!row) return;
+    const name = row.querySelector('.stage-name');
+    if (name) name.style.cssText = done ? 'text-decoration: line-through; color: #94a3b8;' : 'color: var(--text-gray); font-weight: bold;';
+    const b = row.querySelector('.stage-busy');
+    if (b) b.textContent = busy ? 'در حال ذخیره…' : '';
+    cb.disabled = !!busy;
+}
+function offerPublish(id) {
+    showToast('همه‌ی مراحل تمام شد. وضعیت «منتشر شده» شود؟', 'info', { text: 'منتشر شده', callback: async () => {
+        const r = await window.api('/api/add_content', { action: 'update_status', id: parseInt(id), status: 'published' }, { success: 'وضعیت «منتشر شده» شد' });
+        if (r) { await reloadContentSource(); openContentDetails(id); }
+    } });
+}
+async function toggleStage(id, stage, isChecked, cb) {
+    paintStageRow(cb, isChecked, true);
+    const result = await window.api('/api/toggle_stage', { id, stage, isChecked });
+    paintStageRow(cb, isChecked, false);
+    if (!result) {
+        if (cb) { cb.checked = !isChecked; paintStageRow(cb, !isChecked, false); }
+        return;
     }
+    const item = (window.allDepotItems || []).find(i => i.id == id);
+    if (item) item.completed_stages = result.completed_stages || item.completed_stages;
+    if (window.renderWorkflowPanel) window.renderWorkflowPanel(id);
+    if (result.suggest_publish) offerPublish(id);
 }
 window.toggleStage = toggleStage;
+window.toggleAllStages = async function (id, btn) {
+    if (btn) btn.disabled = true;
+    const result = await window.api('/api/toggle_stage', { id, all: true }, { success: 'همه مراحل تکمیل شد' });
+    if (btn) btn.disabled = false;
+    if (!result) return;
+    const item = (window.allDepotItems || []).find(i => i.id == id);
+    if (item) item.completed_stages = result.completed_stages || item.completed_stages;
+    openContentDetails(id);
+    if (result.suggest_publish) offerPublish(id);
+};
 
 /** Two names are the same person even with stray spaces or Arabic ي/ك. */
 window.sameName = function (a, b) {

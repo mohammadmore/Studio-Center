@@ -38,6 +38,9 @@
     if (!it || !host) return;
     var old = document.getElementById("wfPanel");
     if (old) old.remove();
+    // A redraw (after a save there, or a tab switch) drops unsaved text of the panel.
+    window.__wfDirty = false;
+    if (window.cardHasChanges) window.hasUnsavedChanges = window.cardHasChanges();
     var panel = document.createElement("div");
     panel.id = "wfPanel";
     panel.className = "wf-panel";
@@ -66,10 +69,43 @@
   };
 
   // ---------- stages ----------
+  /** Stages ticked in the card's open edit form count here right away (not saved yet). */
+  function draftStages(it) {
+    var boxes = document.querySelectorAll('#detailsContent input[name="edit_stages"]');
+    if (window.currentContentEditMode && window.currentEditingContentId == it.id && boxes.length) {
+      return Array.prototype.filter.call(boxes, function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+    }
+    return it.stages || [];
+  }
+  function sameList(a, b) { return JSON.stringify(a || []) === JSON.stringify(b || []); }
+
+  /** Redraws the stage rows (e.g. after a stage was ticked in the edit form), keeping what was typed. */
+  window.refreshStagePlanRows = function (id) {
+    var it = item(id), pane = document.getElementById("wfPane");
+    if (!it || !pane || currentTab !== "stages") return;
+    var typed = {};
+    pane.querySelectorAll(".wf-stage-row").forEach(function (row) {
+      typed[row.getAttribute("data-name")] = {
+        owner: row.querySelector('[data-f="owner"]') && row.querySelector('[data-f="owner"]').value,
+        due: row.querySelector('[data-f="due"]') && row.querySelector('[data-f="due"]').value,
+        hours: row.querySelector('[data-f="hours"]') && row.querySelector('[data-f="hours"]').value,
+      };
+    });
+    stagesPane(it, pane);
+    pane.querySelectorAll(".wf-stage-row").forEach(function (row) {
+      var v = typed[row.getAttribute("data-name")];
+      if (!v) return;
+      if (v.owner !== undefined && row.querySelector('[data-f="owner"]')) row.querySelector('[data-f="owner"]').value = v.owner;
+      if (v.due !== undefined && row.querySelector('[data-f="due"]')) row.querySelector('[data-f="due"]').value = v.due;
+      if (v.hours !== undefined && row.querySelector('[data-f="hours"]')) row.querySelector('[data-f="hours"]').value = v.hours;
+    });
+  };
+
   function stagesPane(it, pane) {
-    var stages = it.stages || [];
+    var stages = draftStages(it);
+    var unsavedStages = !sameList(stages, it.stages);
     if (!stages.length) {
-      pane.innerHTML = '<div class="wf-empty-sm">برای این محتوا مرحله تولیدی تعریف نشده است. از ویرایش کارت مراحل را اضافه کنید.</div>';
+      pane.innerHTML = '<div class="wf-empty-sm">برای این محتوا مرحله تولیدی تعریف نشده است. در «ویرایش کلی» از «مراحل تولید لازم» مرحله‌ها را تیک بزنید؛ همین‌جا ظاهر می‌شوند.</div>';
       return;
     }
     var plan = it.stage_plan || {};
@@ -81,7 +117,7 @@
       var isDone = done.indexOf(s) !== -1;
       var late = !isDone && p.due_date && p.due_date < today;
       var chip = isDone ? window.statusChip("تکمیل", "green") : late ? window.statusChip("عقب افتاده", "red") : p.due_date ? window.statusChip("موعد " + window.fa(p.due_date), "blue") : "";
-      return '<div class="wf-stage-row" data-stage="' + i + '">' +
+      return '<div class="wf-stage-row" data-stage="' + i + '" data-name="' + e(s) + '">' +
         '<div class="wf-row between"><b>' + window.fa(i + 1) + ". " + e(s) + "</b>" + chip + "</div>" +
         (editable
           ? '<div class="wf-row">' +
@@ -92,7 +128,8 @@
           : '<div class="muted" style="font-size:.85rem">' + (p.owner_id ? "مسئول: " + e(colleagueName(p.owner_id)) : "بدون مسئول") + (p.estimated_hours ? " — " + window.fa(p.estimated_hours) + " ساعت" : "") + "</div>") +
         "</div>";
     }).join("") +
-      (editable ? '<div class="wf-actions"><button type="button" class="wf-btn primary" id="wfSavePlan">ذخیره مسئولان و موعدها</button></div>' : "") +
+      (unsavedStages ? '<p class="muted" style="font-size:.8rem;margin-top:8px;color:#b45309"><i class=ai data-ic=info></i> مراحلی که در فرم «ویرایش کلی» تیک زده‌اید هنوز ذخیره نشده‌اند؛ با دکمه‌ی زیر همراه مسئولان و موعدها ذخیره می‌شوند.</p>' : "") +
+      (editable ? '<div class="wf-actions"><button type="button" class="wf-btn primary" id="wfSavePlan">ذخیره مسئولان و موعدها' + (unsavedStages ? " (و مراحل)" : "") + '</button></div>' : "") +
       '<p class="muted" style="font-size:.78rem;margin-top:8px">با تیک خوردن هر مرحله، مسئول مرحله بعد خودکار خبردار می‌شود. یک روز مانده به موعد یادآوری و پس از موعد به مدیر پروژه ارجاع داده می‌شود.</p>';
     // The collection's default owners are offered on stages that have none (confirm each).
     var cd = editable && window.collectionDefaults && window.collectionDefaults.of(it.collection_id);
@@ -112,9 +149,20 @@
           estimated_hours: row.querySelector('[data-f="hours"]').value,
         };
       });
-      var res = await window.api("/api/update_stage_plan", { id: it.id, plan: out }, { success: "ذخیره شد" });
+      // Stages ticked in the edit form are saved first, so the plan has them.
+      if (unsavedStages) {
+        var saved = await window.api("/api/update_content_details", { id: it.id, stages: stages });
+        if (!saved) return;
+        it.stages = stages.slice();
+        if (window.__editInitial) window.__editInitial.stages = stages.slice();
+      }
+      var res = await window.api("/api/update_stage_plan", { id: it.id, plan: out });
       if (res) {
         it.stage_plan = res.stage_plan;
+        // What the server stored is what is shown (owners that did not stick would be visible).
+        var missing = Object.keys(out).filter(function (s) { return out[s].owner_id && !(res.stage_plan[s] && String(res.stage_plan[s].owner_id) === String(out[s].owner_id)); });
+        if (missing.length) window.showToast("مسئول این مراحل ذخیره نشد: " + missing.join("، "), "error");
+        else window.showToast(res.message || "برنامه مراحل ذخیره شد", "success");
         // Stage owners join the card's team: show it straight away.
         if (Array.isArray(res.assigned_colleagues)) {
           it.assigned_colleagues = res.assigned_colleagues;
@@ -263,6 +311,7 @@
           ta.value = ta.value.slice(0, pos) + (pos && !/\s$/.test(ta.value.slice(0, pos)) ? "\n" : "") + s.text + ta.value.slice(pos);
           count(ta);
           window.hasUnsavedChanges = true;
+          window.__wfDirty = true;
         }
         sel.value = "";
       };

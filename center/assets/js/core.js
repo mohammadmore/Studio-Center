@@ -182,25 +182,52 @@
     if (typeof window.showToast === "function") window.showToast(message, type || "error");
   }
 
-  var offlineBar = null;
+  // ---------- no connection ----------
+  // While the server can't be reached every save button is disabled (html.asva-offline) and
+  // a clear bar says so; the server is probed every few seconds and everything comes back
+  // on its own when it answers again. Nothing is shown as saved without the server's answer.
+  var offlineBar = null, offlineProbe = null, isOfflineNow = false;
+  (function () {
+    var css = document.createElement("style");
+    css.textContent =
+      "html.asva-offline :is(.btn-primary,.wf-btn.primary,#qfSave,.qf-actions .save,.cd-yes,button[type=submit]," +
+      "button[onclick*='save'],button[onclick*='Save'],button[onclick*='submit'],button[id*='save'],button[id*='Save']){" +
+      "opacity:.45!important;pointer-events:none!important;cursor:not-allowed!important;filter:grayscale(.6)}" +
+      ".asva-offline-bar{position:fixed;top:0;left:0;right:0;z-index:2147483646;background:#b91c1c;color:#fff;text-align:center;" +
+      "padding:10px 14px;font-size:.92rem;font-family:inherit;line-height:1.7;box-shadow:0 6px 20px -8px rgba(0,0,0,.5)}" +
+      ".asva-offline-bar b{display:block}";
+    (document.head || document.documentElement).appendChild(css);
+  })();
   function setOffline(isOffline) {
+    if (isOffline === isOfflineNow && (!isOffline || (offlineBar && offlineBar.parentNode))) return;
+    isOfflineNow = isOffline;
+    document.documentElement.classList.toggle("asva-offline", isOffline);
     if (!document.body) return;
     if (isOffline) {
       if (!offlineBar) {
         offlineBar = document.createElement("div");
-        offlineBar.setAttribute("role", "status");
-        offlineBar.style.cssText =
-          "position:fixed;top:0;left:0;right:0;z-index:100000;background:#b91c1c;color:#fff;" +
-          "text-align:center;padding:8px 12px;font-size:0.9rem;font-family:inherit;";
-        offlineBar.textContent = "ارتباط با سرور برقرار نیست. تغییرات شما ذخیره نمی‌شود تا اتصال برگردد.";
+        offlineBar.className = "asva-offline-bar";
+        offlineBar.setAttribute("role", "alert");
+        offlineBar.innerHTML = "<b>ارتباط با سرور قطع است.</b>دکمه‌های ذخیره تا برگشتن اتصال غیرفعال‌اند. پنجره‌ها را نبندید تا چیزی که نوشته‌اید از بین نرود؛ اتصال هر چند ثانیه دوباره بررسی می‌شود.";
       }
       if (!offlineBar.parentNode) document.body.appendChild(offlineBar);
-    } else if (offlineBar && offlineBar.parentNode) {
-      offlineBar.parentNode.removeChild(offlineBar);
+      if (!offlineProbe) offlineProbe = setInterval(probe, 5000);
+    } else {
+      if (offlineBar && offlineBar.parentNode) {
+        offlineBar.parentNode.removeChild(offlineBar);
+        notify("اتصال برقرار شد. حالا می‌توانید ذخیره کنید.", "success");
+      }
+      if (offlineProbe) { clearInterval(offlineProbe); offlineProbe = null; }
     }
   }
+  function probe() {
+    originalFetch(asvaUrl("/api/check_auth"), { cache: "no-store" }).then(function (r) {
+      if (r.status < 500) setOffline(false);
+    }, function () {});
+  }
+  window.asvaIsOffline = function () { return isOfflineNow; };
   window.addEventListener("offline", function () { setOffline(true); });
-  window.addEventListener("online", function () { setOffline(false); });
+  window.addEventListener("online", function () { probe(); });
 
   // ---------- API request handling ----------
   var originalFetch = window.fetch.bind(window);
@@ -208,6 +235,7 @@
   var CACHE_TTL = 60 * 1000;
   var CACHE_PREFIX = "asva-api:";
   var inFlight = {};
+  var lastGood = {};
   var redirecting = false;
 
   function jsonResponse(body, status) {
@@ -267,15 +295,50 @@
     }
   };
 
+  // An ended session no longer sends the user away from the page (losing what they typed):
+  // a small dialog logs them in again right here, then they press save once more.
+  var reloginOpen = false;
   function sessionExpired() {
-    if (redirecting || /^\/(index|login)?$/.test(appPath(location.pathname))) return;
-    redirecting = true;
+    if (redirecting || reloginOpen || /^\/(index|login)?$/.test(appPath(location.pathname))) return;
     cacheClear();
-    notify("نشست شما به پایان رسیده است. در حال انتقال به صفحه ورود...", "error");
+    if (!document.body) return goToLogin();
+    reloginOpen = true;
+    var me = window.ASVA_ME || {};
+    var box = document.createElement("div");
+    box.style.cssText = "position:fixed;inset:0;z-index:2147483645;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;font-family:inherit";
+    box.innerHTML =
+      '<form role="dialog" aria-modal="true" aria-label="ورود دوباره" style="background:var(--card-bg,#fff);color:var(--text-dark,#111);border-radius:16px;padding:22px;max-width:380px;width:100%;box-shadow:0 30px 60px -20px rgba(0,0,0,.5)">' +
+      '<h3 style="margin:0 0 6px">نشست شما تمام شده است</h3>' +
+      '<p style="margin:0 0 14px;font-size:.88rem;color:var(--text-gray,#555);line-height:1.8">برای این‌که چیزی از کارتان از بین نرود، همین‌جا دوباره وارد شوید و بعد دکمه‌ی ذخیره را یک بار دیگر بزنید.</p>' +
+      '<input name="u" autocomplete="username" placeholder="نام کاربری" class="form-control" style="width:100%;margin-bottom:8px;box-sizing:border-box">' +
+      '<input name="p" type="password" autocomplete="current-password" placeholder="رمز عبور" class="form-control" style="width:100%;margin-bottom:8px;box-sizing:border-box">' +
+      '<div data-err style="color:#b91c1c;font-size:.85rem;min-height:1.4em"></div>' +
+      '<div style="display:flex;gap:8px;margin-top:6px"><button type="submit" class="btn-primary" style="flex:1">ورود و ادامه</button>' +
+      '<button type="button" data-leave class="btn-outline">رفتن به صفحه‌ی ورود</button></div></form>';
+    document.body.appendChild(box);
+    var form = box.querySelector("form");
+    form.u.value = me.username || "";
+    (me.username ? form.p : form.u).focus();
+    box.querySelector("[data-leave]").onclick = goToLogin;
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      var err = form.querySelector("[data-err]");
+      err.textContent = "";
+      originalFetch(asvaUrl("/api/login"), {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ username: form.u.value, password: form.p.value }),
+      }).then(function (r) { return r.json().catch(function () { return {}; }); }).then(function (d) {
+        if (d.status !== "success") { err.textContent = d.message || "ورود انجام نشد"; return; }
+        box.remove();
+        reloginOpen = false;
+        notify("دوباره وارد شدید. اگر چیزی ذخیره نشده بود، دکمه‌ی ذخیره را دوباره بزنید.", "success");
+      }, function () { err.textContent = "ارتباط با سرور برقرار نشد"; });
+    };
+  }
+  function goToLogin() {
+    redirecting = true;
     var next = location.pathname + location.search;
-    setTimeout(function () {
-      location.href = asvaUrl("/") + "?expired=1&next=" + encodeURIComponent(next);
-    }, 1500);
+    location.href = asvaUrl("/") + "?expired=1&next=" + encodeURIComponent(next);
   }
 
   // ---------- smaller images before upload ----------
@@ -372,8 +435,19 @@
 
     var request = originalFetch(input, init).then(
       function (res) {
+        // The host answers 502/503/504 itself (an HTML page) when the app is down.
+        var hostDown = res.status >= 502 && res.status <= 504 && !/json/.test(res.headers.get("content-type") || "");
+        if (hostDown) {
+          setOffline(true);
+          if (!isRead) notify("سرور در دسترس نیست؛ تغییر ذخیره نشد. پنجره را نبندید و بعد از برگشتن اتصال دوباره ذخیره کنید.", "error");
+          if (isRead && lastGood[cacheKey]) return new Response(lastGood[cacheKey], { status: 200, headers: { "Content-Type": "application/json", "X-Asva-Stale": "1" } });
+          return jsonResponse({ status: "error", message: "سرور در دسترس نیست؛ تغییر ذخیره نشد." }, 503);
+        }
         setOffline(false);
-        if (res.status === 401) sessionExpired();
+        if (res.status === 401 && apiPath !== "/api/login") sessionExpired();
+        // Last good answer of each list, shown again if the connection drops for a moment
+        // (instead of empty lists and zero counts).
+        if (res.ok && isRead) res.clone().text().then(function (text) { if (text.length < 3e6) lastGood[cacheKey] = text; }, function () {});
         if (res.ok && !isRead) cacheClear();
         if (res.ok && cacheable) {
           res.clone().text().then(function (text) { cacheSet(cacheKey, text); });
@@ -382,7 +456,14 @@
       },
       function () {
         setOffline(true);
-        if (!isRead) notify("ارتباط با سرور برقرار نشد. لطفاً اتصال اینترنت را بررسی و دوباره تلاش کنید.", "error");
+        if (!isRead) notify("ارتباط با سرور برقرار نشد؛ تغییر ذخیره نشد. پنجره را نبندید و بعد از برگشتن اتصال دوباره ذخیره کنید.", "error");
+        if (isRead && lastGood[cacheKey]) return new Response(lastGood[cacheKey], { status: 200, headers: { "Content-Type": "application/json", "X-Asva-Stale": "1" } });
+        if (isRead && cacheable) {
+          try {
+            var raw = sessionStorage.getItem(CACHE_PREFIX + cacheKey);
+            if (raw) return new Response(JSON.parse(raw).body, { status: 200, headers: { "Content-Type": "application/json", "X-Asva-Stale": "1" } });
+          } catch (e) {}
+        }
         return jsonResponse({ status: "error", message: "ارتباط با سرور برقرار نشد. لطفاً دوباره تلاش کنید." }, 503);
       }
     ).finally(function () {
@@ -395,6 +476,34 @@
     if (dedupeKey) inFlight[dedupeKey] = request;
     return dedupeKey ? request.then(function (r) { return r.clone(); }) : request;
   };
+
+  // ---------- date fields ----------
+  // Every Jalali date field accepts ۱۴۰۵/۹/۳, 1405-09-03 ... and shows it as ۱۴۰۵/۰۹/۰۳; an
+  // impossible date is marked at once (the server rejects it too, instead of clearing it).
+  function jalaliCheck(v) {
+    var s = String(v || "").replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06f0); }).replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); }).trim();
+    if (!s) return { ok: true, value: "" };
+    var m = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/.exec(s);
+    if (!m) return { ok: false };
+    var y = +m[1], mo = +m[2], d = +m[3];
+    var ok = y >= 1300 && y <= 1500 && mo >= 1 && mo <= 12 && d >= 1 &&
+      (window.jalaali && window.jalaali.isValidJalaaliDate ? window.jalaali.isValidJalaaliDate(y, mo, d) : d <= (mo <= 6 ? 31 : 30));
+    return ok ? { ok: true, value: m[1] + "/" + ("0" + mo).slice(-2) + "/" + ("0" + d).slice(-2) } : { ok: false };
+  }
+  window.asvaCheckJalali = jalaliCheck;
+  document.addEventListener("change", function (e) {
+    var el = e.target;
+    if (!el || !el.matches || !el.matches("input[data-jdp]")) return;
+    var r = jalaliCheck(el.value);
+    el.setAttribute("aria-invalid", r.ok ? "false" : "true");
+    el.style.outline = r.ok ? "" : "2px solid #dc2626";
+    el.title = r.ok ? "" : "تاریخ نامعتبر است؛ مثلاً ۱۴۰۵/۰۹/۰۳";
+    if (r.ok && r.value) {
+      var shown = r.value.replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; });
+      if (el.value !== shown) el.value = shown;
+    }
+    if (!r.ok) notify("تاریخ نامعتبر است. آن را به شکل ۱۴۰۵/۰۹/۰۳ بنویسید یا از تقویم انتخاب کنید.", "error");
+  }, true);
 
   // Forms without a JS handler: block a second submit while the page is leaving.
   document.addEventListener("submit", function (e) {
@@ -717,6 +826,7 @@
   "use strict";
   var ICONS = {
     "check": "<path d=\"M20 6 9 17l-5-5\"/>",
+    "check-check": "<path d=\"M18 6 7 17l-5-5\"/><path d=\"m22 10-7.5 7.5L13 16\"/>",
     "x": "<path d=\"M18 6 6 18\"/> <path d=\"m6 6 12 12\"/>",
     "plus": "<path d=\"M5 12h14\"/> <path d=\"M12 5v14\"/>",
     "building-2": "<path d=\"M10 12h4\"/> <path d=\"M10 8h4\"/> <path d=\"M14 21v-3a2 2 0 0 0-4 0v3\"/> <path d=\"M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2\"/> <path d=\"M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16\"/>",

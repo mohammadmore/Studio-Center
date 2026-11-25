@@ -80,8 +80,12 @@ window.showLoading = function(text = 'لطفا کمی صبر کنید...') {
     const loaderText = document.getElementById('global-loader-text');
     if (loader && loaderText) {
         loaderText.innerText = text;
+        clearTimeout(window.__loaderHideTimer);
         loader.style.visibility = 'visible';
         loader.style.opacity = '1';
+        // Never left on screen: a call without its matching hideLoading ends here.
+        clearTimeout(window.__loaderMaxTimer);
+        window.__loaderMaxTimer = setTimeout(window.hideLoading, 25000);
     }
 };
 
@@ -89,40 +93,43 @@ window.hideLoading = function() {
     const loader = document.getElementById('global-loader-overlay');
     if (loader) {
         loader.style.opacity = '0';
-        setTimeout(() => { loader.style.visibility = 'hidden'; }, 200);
+        clearTimeout(window.__loaderMaxTimer);
+        clearTimeout(window.__loaderHideTimer);
+        window.__loaderHideTimer = setTimeout(() => { loader.style.visibility = 'hidden'; }, 200);
     }
 };
 
-// Monkey-patch window.fetch to automatically show/hide loader and handle network errors
+// The full-screen "please wait" layer is only for saves that take a moment: reading data
+// never covers the page (lists show their own loading state), quick saves never flash it,
+// and it always goes away, even if a request hangs.
 const originalFetch = window.fetch;
-let activeFetches = 0;
-window.fetch = async function(...args) {
-    const url = args[0];
-    
-    // Don't show loader for background polling
-    const isBackground = typeof url === 'string' && (url.includes('get_notifications') || url.includes('get_studio_info'));
-    
-    if (!isBackground) {
-        activeFetches++;
-        window.showLoading();
+let activeSaves = 0, loaderDelay = null, loaderGuard = null;
+function loaderDone() {
+    activeSaves = Math.max(0, activeSaves - 1);
+    if (activeSaves === 0) {
+        clearTimeout(loaderDelay); loaderDelay = null;
+        clearTimeout(loaderGuard); loaderGuard = null;
+        window.hideLoading();
     }
-    
+}
+window.fetch = async function(...args) {
+    const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+    const init = args[1] || {};
+    const method = String(init.method || (args[0] && args[0].method) || 'GET').toUpperCase();
+    const isSave = method !== 'GET' && method !== 'HEAD' && !/get_notifications|get_studio_info|quick_fill_seen|heartbeat|timer/.test(url);
+    if (isSave) {
+        activeSaves++;
+        if (!loaderDelay) loaderDelay = setTimeout(() => { if (activeSaves > 0) window.showLoading(); }, 700);
+        clearTimeout(loaderGuard);
+        loaderGuard = setTimeout(() => { activeSaves = 0; window.hideLoading(); }, 20000);
+    }
     try {
-        const response = await originalFetch.apply(this, args);
-        return response;
+        return await originalFetch.apply(this, args);
     } catch (error) {
-        if (!isBackground) {
-            window.showToast('خطا در ارتباط با سرور', 'error');
-        }
+        if (isSave) window.showToast('خطا در ارتباط با سرور', 'error');
         throw error;
     } finally {
-        if (!isBackground) {
-            activeFetches--;
-            if (activeFetches <= 0) {
-                activeFetches = 0;
-                window.hideLoading();
-            }
-        }
+        if (isSave) loaderDone();
     }
 };
 

@@ -645,6 +645,8 @@ describe("activity log", () => {
     await admin.get("/assets/js/core.js");
     await admin.get("/api/get_orgs");
     await admin.post("/api/requests").send({ action: "create", org_id: 1, title: "درخواست تست لاگ" }).expect(200);
+    // The entry is written under the storage lock right after the response.
+    await new Promise((r) => setTimeout(r, 150));
     const added = state.audit_logs.slice(before);
     assert.equal(added.length, 1, JSON.stringify(added));
     assert.doesNotMatch(JSON.stringify(added[0]), /\/api\/requests/);
@@ -1122,5 +1124,52 @@ describe("project manager and team", () => {
     assert.deepEqual(res.body.assigned_colleagues, [owner2]);
     await admin.post("/api/update_stage_plan").send({ id: 932, plan: { "تدوین": { owner_id: 2 } } });
     assert.deepEqual(card(932).assigned_colleagues, [owner2]);
+  });
+});
+
+describe("field-test fixes", () => {
+  it("keeps stored names and choices trimmed and dates in one format", async () => {
+    const { tidyAll } = await import("../src/utils/tidy.js");
+    state.contents.push({ id: 9501, title: " موناکو ", org_id: 1, status: "todo", content_type: "ریلز ", project_manager: " علی", assigned_colleagues: ["سارا ", "سارا"], publish_date: "۱۴۰۵/۹/۳", publish_time: "9:05", components_count: { "ریلز ": 1, "استوری": 2 } });
+    assert.equal(tidyAll(), true);
+    const c = card(9501);
+    assert.equal(c.content_type, "ریلز");
+    assert.equal(c.title, "موناکو");
+    assert.equal(c.project_manager, "علی");
+    assert.deepEqual(c.assigned_colleagues, ["سارا"]);
+    assert.equal(c.publish_date, "1405/09/03");
+    assert.equal(c.publish_time, "09:05");
+    assert.deepEqual(c.components_count, { "ریلز": 1, "استوری": 2 });
+    assert.equal(tidyAll(), false);
+  });
+
+  it("rejects an impossible date instead of clearing the stored one", async () => {
+    const admin = await login("admin");
+    state.contents.push({ id: 9502, title: "تاریخ", org_id: 1, status: "todo", publish_date: "1405/09/03" });
+    const bad = await admin.post("/api/update_content_details").send({ id: 9502, publish_date: "1405/13/40" });
+    assert.equal(bad.status, 400);
+    assert.equal(card(9502).publish_date, "1405/09/03");
+    const typed = await admin.post("/api/update_content_details").send({ id: 9502, publish_date: "۱۴۰۵-۱۰-۱" });
+    assert.equal(typed.body.status, "success");
+    assert.equal(card(9502).publish_date, "1405/10/01");
+    // Fields that were not sent stay as they were.
+    await admin.post("/api/update_content_details").send({ id: 9502, title: "تاریخ ۲" });
+    assert.equal(card(9502).publish_date, "1405/10/01");
+    assert.equal((await admin.post("/api/add_content").send({ title: "بد", publish_date: "فردا" })).status, 400);
+  });
+
+  it("ticks every stage at once, offers publishing, and a published card has all stages done", async () => {
+    const admin = await login("admin");
+    state.contents.push({ id: 9503, title: "مراحل", org_id: 1, status: "in_progress", stages: ["نگارش", "تدوین", "انتشار"], completed_stages: [] });
+    const one = await admin.post("/api/toggle_stage").send({ id: 9503, stage: "نگارش", isChecked: true });
+    assert.equal(one.body.suggest_publish, false);
+    const pub = await admin.post("/api/toggle_stage").send({ id: 9503, stage: "انتشار", isChecked: true });
+    assert.equal(pub.body.suggest_publish, true);
+    const all = await admin.post("/api/toggle_stage").send({ id: 9503, all: true });
+    assert.deepEqual(all.body.completed_stages.sort(), ["انتشار", "تدوین", "نگارش"].sort());
+    assert.equal((await admin.post("/api/toggle_stage").send({ id: 9503, stage: "ناموجود", isChecked: true })).status, 400);
+    state.contents.push({ id: 9504, title: "منتشرشده", org_id: 1, status: "todo", stages: ["نگارش", "تدوین"], completed_stages: [] });
+    await admin.post("/api/add_content").send({ action: "update_status", id: 9504, status: "published" });
+    assert.deepEqual(card(9504).completed_stages, ["نگارش", "تدوین"]);
   });
 });

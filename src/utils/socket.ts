@@ -3,6 +3,7 @@ import { sessionMiddleware } from "../middleware/session.js";
 import { loadSessionUser } from "../middleware/auth.js";
 import { isAdmin } from "./authUtils.js";
 import { config } from "../config.js";
+import { whenStored } from "../store/db.js";
 
 let io: SocketIOServer | null = null;
 const STAFF_ROOM = "staff";
@@ -40,11 +41,15 @@ export function initSocket(server: any) {
 
 /** Broadcasts a content change to logged-in studio staff only. */
 export function emitToStaff(event: string, payload: any) {
-  io?.to(STAFF_ROOM).emit(event, payload);
+  whenStored(() => io?.to(STAFF_ROOM).emit(event, payload));
 }
 
 /** Pushes a new notification to whoever it is meant for. */
 export function emitNotification(n: any) {
+  if (!io) return;
+  whenStored(() => sendNotification(n));
+}
+function sendNotification(n: any) {
   if (!io) return;
   const payload = { id: n.id, title: n.title, description: n.description, link: n.link, type: n.type };
   if (n.role_target === "admin") io.to(ADMIN_ROOM).emit("notification", payload);

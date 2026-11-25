@@ -38,6 +38,14 @@ export function createJsonDriver(file: string, dataDir: string): StorageDriver {
       // A corrupt file must stop the server instead of silently starting empty.
       return JSON.parse(text);
     },
+    async version() {
+      try {
+        const st = await fs.promises.stat(file);
+        return `${st.mtimeMs}:${st.size}:${st.ino}`;
+      } catch {
+        return null;
+      }
+    },
     async save(data) {
       await fs.promises.mkdir(dir, { recursive: true });
       const tmp = `${file}.${process.pid}.tmp`;

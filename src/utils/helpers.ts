@@ -27,6 +27,22 @@ export function normalizeJalaliDate(value: unknown) {
   return `${match[1]}/${match[2].padStart(2, "0")}/${match[3].padStart(2, "0")}`;
 }
 
+/**
+ * A date typed by a user: "" (no date), or a real Jalali date in any common spelling.
+ * Anything else is rejected instead of silently clearing the stored date.
+ */
+export function parseJalaliInput(value: unknown): { ok: boolean; value: string } {
+  const raw = toLatinDigits(value).trim();
+  if (!raw) return { ok: true, value: "" };
+  const m = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/.exec(raw);
+  if (!m) return { ok: false, value: "" };
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (y < 1300 || y > 1500 || !jalaali.isValidJalaaliDate(y, mo, d)) return { ok: false, value: "" };
+  return { ok: true, value: `${m[1]}/${m[2].padStart(2, "0")}/${m[3].padStart(2, "0")}` };
+}
+
+export const INVALID_DATE_MESSAGE = "تاریخ نامعتبر است. آن را به شکل ۱۴۰۵/۰۹/۰۳ بنویسید یا از تقویم انتخاب کنید.";
+
 export function todayJalali(date = new Date()) {
   const j = jalaali.toJalaali(date);
   return `${j.jy}/${String(j.jm).padStart(2, "0")}/${String(j.jd).padStart(2, "0")}`;

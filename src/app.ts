@@ -16,7 +16,7 @@ import icsRouter from "./routes/ics.js";
 import { loadSessionUser } from "./middleware/auth.js";
 import { sessionMiddleware } from "./middleware/session.js";
 import { auditRequest } from "./middleware/audit.js";
-import { isDatabaseReady, saveDatabase } from "./store/db.js";
+import { acquireStorageLock, flushDatabase, isDatabaseReady, saveDatabase, syncFromStorage, syncWithin } from "./store/db.js";
 import { settings } from "./store/state.js";
 import { isSafeFileName } from "./utils/files.js";
 import { emitCacheBust } from "./utils/socket.js";
@@ -278,6 +278,39 @@ export function createApp() {
   // After the body parser: the limit needs the username to recognise a trusted browser.
   app.use("/api/login", loginLimiter);
 
+  // Fresh data for every request (another process may have changed it), and every change
+  // under the shared write lock, stored before the response is sent (see store/db.ts).
+  app.use(async (req: any, res: any, next) => {
+    const write = !["GET", "HEAD", "OPTIONS"].includes(req.method) && !/^\/api\/upload_/.test(req.path);
+    try {
+      if (!write) {
+        await syncFromStorage();
+        return next();
+      }
+      const release = await acquireStorageLock();
+      let done = false;
+      const finishUp = () => {
+        if (done) return Promise.resolve();
+        done = true;
+        return flushDatabase()
+          .catch((e) => console.error("Saving after a change failed:", e))
+          .finally(release);
+      };
+      // The response goes out only after the change is stored, so the next request (served
+      // by this or another process) already sees it.
+      const end = res.end;
+      res.end = function (...args: any[]) {
+        finishUp().finally(() => end.apply(res, args));
+        return res;
+      };
+      res.on("close", () => void finishUp());
+      await syncWithin();
+      next();
+    } catch (e) {
+      next(e);
+    }
+  });
+
   app.use(sessionMiddleware());
   app.use(loadSessionUser);
   app.use("/api", sameOriginGuard);
@@ -322,7 +355,9 @@ export function createApp() {
     const path = req.path;
     res.on("finish", () => {
       if (req.method !== "GET" && path.startsWith("/api/") && res.statusCode < 500) {
-        saveDatabase();
+        // The change itself was stored before the response went out; uploads run outside
+        // the lock (they stream large bodies) and are saved here.
+        if (/^\/api\/upload_/.test(path)) saveDatabase();
         // Other open pages drop their cached lists so they show this change.
         if (res.statusCode < 400 && !CACHE_NEUTRAL_API.test(path)) emitCacheBust();
       }

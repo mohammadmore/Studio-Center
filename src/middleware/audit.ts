@@ -1,5 +1,5 @@
 import { addAuditLog } from "../utils/logger.js";
-import { saveDatabase } from "../store/db.js";
+import { isSharedStorage, saveDatabase, withStorageLock } from "../store/db.js";
 
 const ENDPOINT_NAMES: Record<string, string> = {
   manage_users: "مدیریت کاربران/همکاران",
@@ -201,8 +201,13 @@ export function auditRequest(req: any, res: any, next: any) {
     const desc = describe(req, path, method);
     if (!desc) return;
     const ok = res.statusCode >= 200 && res.statusCode < 300;
-    addAuditLog(user, `${desc} (${ok ? "موفق" : `خطا ${res.statusCode}`})`, req.ip);
-    saveDatabase();
+    const record = () => {
+      addAuditLog(user, `${desc} (${ok ? "موفق" : `خطا ${res.statusCode}`})`, req.ip);
+      saveDatabase();
+    };
+    // Under the shared write lock with fresh data (another process may have written).
+    if (!isSharedStorage()) record();
+    else withStorageLock(record).catch((e) => console.error("Audit log could not be saved:", e));
   });
   next();
 }

@@ -736,11 +736,7 @@
 
                 <label style="font-weight: bold; margin-top: 10px; display: block;">تعداد اجزای محتوا (اختیاری)</label>
                 <div id="newScheduleComponentsCount" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="ویدئو" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> ویدئو</div>
-                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="پوستر گرافیکی" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> پوستر گرافیکی</div>
-                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="فایل صوتی" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> فایل صوتی</div>
-                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="متن/کپشن" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> متن/کپشن</div>
-                    <div style="display:flex; align-items:center; gap:8px;"><input type="text" inputmode="numeric" min="0" placeholder="0" class="comp-count-sched" data-name="استوری" style="width:60px; padding:8px; border:1px solid #ddd; border-radius:6px; text-align:center;"> استوری</div>
+                    <!-- همان فهرست «نوع محتوا» که فرم ویرایش کارت دارد (new-content-fields.js) -->
                 </div>
             </div>
 
@@ -1752,6 +1748,8 @@
                         const tSelect = document.getElementById('newScheduleType');
                         tSelect.innerHTML = '';
                         delete tSelect.dataset.touched;
+                        window.allSettings = window.allSettings || {};
+                        window.renderComponentInputs(document.getElementById('newScheduleComponentsCount'), 'comp-count-sched', setData.data);
                         tSelect.onchange = () => { tSelect.dataset.touched = '1'; };
                         (setData.data && setData.data.content_type || []).forEach(t => {
                             tSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(t.setting_key)}">${escapeHtml(t.setting_key)}</option>`);

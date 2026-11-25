@@ -23,6 +23,25 @@
    *   defaultTargets() the page's own fields that a collection's defaults may fill
    *                 (see collection-defaults.js); offered when a collection is chosen
    */
+  /**
+   * The "number of parts" inputs of the new-content forms: one per content type, the same
+   * list the card's edit form uses (so "1 reels + 1 story" can be entered when creating).
+   */
+  window.renderComponentInputs = function (box, cls, settingsData) {
+    if (!box) return;
+    var s = settingsData || window.allSettings || {};
+    var names = [];
+    (s.content_type || []).forEach(function (t) {
+      var n = String((t && t.setting_key) || "").replace(/\s+/g, " ").trim();
+      if (n && t.is_active !== 0 && names.indexOf(n) === -1) names.push(n);
+    });
+    box.innerHTML = names.length
+      ? names.map(function (n) {
+          return '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="text" inputmode="numeric" placeholder="۰" class="' + cls + '" data-name="' + esc(n) + '" style="width:60px; padding:8px; border:1px solid var(--border-color); border-radius:6px; text-align:center;"> ' + esc(n) + "</label>";
+        }).join("")
+      : '<span style="color:var(--text-gray); font-size:0.85rem;">نوع محتوایی در تنظیمات پایه تعریف نشده است.</span>';
+  };
+
   window.newContentFields = function (container, opts) {
     var p = opts.prefix;
     var settings = function () { return (opts.settings && opts.settings()) || window.allSettings || {}; };
@@ -40,7 +59,7 @@
         html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px;">' +
           '<div><label style="' + label + '" for="' + p + 'Status">وضعیت (ستون میز کار)</label><select id="' + p + 'Status" style="' + field + '">' +
           STATUSES.map(function (s) { return '<option value="' + s[0] + '">' + esc(s[1]) + '</option>'; }).join("") + '</select></div>' +
-          '<div><label style="' + label + '" for="' + p + 'PublishDate">تاریخ انتشار</label><input id="' + p + 'PublishDate" placeholder="مثلاً 1405/08/20" autocomplete="off" style="' + field + '"></div>' +
+          '<div><label style="' + label + '" for="' + p + 'PublishDate">تاریخ انتشار</label><input id="' + p + 'PublishDate" data-jdp placeholder="مثلاً ۱۴۰۵/۰۸/۲۰ — یا از تقویم انتخاب کنید" autocomplete="off" style="' + field + '"></div>' +
           '<div><label style="' + label + '" for="' + p + 'PublishTime">ساعت انتشار</label><input type="time" id="' + p + 'PublishTime" style="' + field + '"></div>' +
           '</div>';
       }
@@ -116,7 +135,7 @@
       if (opts.withSchedule) {
         data.status = id("Status").value;
         var d = (id("PublishDate").value || "").trim();
-        if (d) data.publish_date = window.toEnglishDigits ? window.toEnglishDigits(d) : d;
+        if (d) data.publish_date = window.normJalaliInput ? window.normJalaliInput(d) : (window.toEnglishDigits ? window.toEnglishDigits(d) : d);
         var tm = id("PublishTime").value;
         if (tm) data.publish_time = tm;
       }

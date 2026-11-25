@@ -1,5 +1,5 @@
 import { colleagues, invoices, leaves, notifications } from "./store/state.js";
-import { saveDatabase } from "./store/db.js";
+import { saveDatabase, withStorageLock } from "./store/db.js";
 import { addNotification } from "./utils/logger.js";
 import { normalizeJalaliDate, todayJalali } from "./utils/helpers.js";
 import { checkStageDeadlines } from "./utils/workflowUtils.js";
@@ -92,15 +92,18 @@ export function syncLeaveStatuses(today = todayJalali()) {
 
 export function startJobs() {
   let statsRunOn = "";
-  const run = () => {
+  const run = async () => {
     try {
-      const changed = [
-        notifyOverdueInvoices(),
-        syncLeaveStatuses(),
-        checkStageDeadlines(),
-        autoSendMonthlyReports(),
-      ].some(Boolean);
-      if (changed) saveDatabase();
+      // Under the shared lock with fresh data, like a request (several processes may run).
+      await withStorageLock(() => {
+        const changed = [
+          notifyOverdueInvoices(),
+          syncLeaveStatuses(),
+          checkStageDeadlines(),
+          autoSendMonthlyReports(),
+        ].some(Boolean);
+        if (changed) saveDatabase();
+      });
       cleanupStaleUploads();
       const backup = runDailyBackup();
       if (backup) console.log(`Daily backup written: ${backup.name}`);

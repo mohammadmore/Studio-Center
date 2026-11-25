@@ -24,5 +24,10 @@ export interface StorageDriver {
   /** Returns null when nothing has ever been stored. Throws when stored data can't be read. */
   load(): Promise<Snapshot | null>;
   save(data: Snapshot): Promise<void>;
+  /**
+   * A cheap token that changes whenever the stored data changes (another process may have
+   * written it). Drivers that can be shared by several processes implement it.
+   */
+  version?(): Promise<string | null>;
   close?(): Promise<void>;
 }

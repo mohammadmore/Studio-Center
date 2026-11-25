@@ -1466,6 +1466,9 @@ window.showLoading = function(text = 'لطفا کمی صبر کنید...') {
     if (loader && loaderText) {
         loaderText.innerText = text;
         loader.classList.add('active');
+        // Never left on screen: a call without its matching hideLoading ends here.
+        clearTimeout(window.__loaderMaxTimer);
+        window.__loaderMaxTimer = setTimeout(window.hideLoading, 25000);
     }
 };
 

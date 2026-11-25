@@ -17,7 +17,9 @@ import { addAuditLog, addNotification, logContentActivity } from "../../utils/lo
 import {
   addDaysToJalali,
   nextId,
+  INVALID_DATE_MESSAGE,
   normalizeJalaliDate,
+  parseJalaliInput,
   toInt,
 } from "../../utils/helpers.js";
 import {
@@ -194,7 +196,9 @@ subRouter.post("/schedule_content", checkPermission(["calendar", "depot"]), (req
   if (req.body.status && blockedForClient(req, card, req.body.status)) {
     return res.status(400).json({ status: "error", message: SEND_TO_CLIENT_BLOCKED });
   }
-  card.publish_date = normalizeJalaliDate(publish_date) || "";
+  const date = parseJalaliInput(publish_date);
+  if (!date.ok) return res.status(400).json({ status: "error", message: INVALID_DATE_MESSAGE });
+  card.publish_date = date.value;
   if (publish_time !== undefined) card.publish_time = publish_time;
   if (req.body.status) card.status = req.body.status;
   card.is_recurring = !!is_recurring;
@@ -258,6 +262,8 @@ subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) =
   }
   if (action) return res.status(400).json({ status: "error", message: "عملیات نامعتبر" });
 
+  const date = parseJalaliInput(req.body.publish_date);
+  if (!date.ok) return res.status(400).json({ status: "error", message: INVALID_DATE_MESSAGE });
   const orgId = org_id ? toInt(org_id) : null;
   const validOrgId = orgId && organizations.some((o) => o.id == orgId) ? orgId : null;
   // The "new content" form carries every field of the card, so nothing needs a second edit.
@@ -275,7 +281,7 @@ subRouter.post("/add_content", checkPermission(CONTENT_PERMS), (req: any, res) =
     assigned_colleagues: Array.isArray(req.body.assigned_colleagues) ? req.body.assigned_colleagues : [],
     stages: Array.isArray(req.body.stages) ? req.body.stages : [],
     status: "raw",
-    publish_date: normalizeJalaliDate(req.body.publish_date),
+    publish_date: date.value,
     publish_time: text(req.body.publish_time, 10),
     publish_platforms: strList(req.body.publish_platforms),
     caption: text(req.body.caption, 20000),
@@ -823,6 +829,22 @@ subRouter.post("/toggle_stage", (req, res) => {
   if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
   if (!canEditCard(req, card)) return forbidden(res);
   if (!card.completed_stages) card.completed_stages = [];
+  const stages: string[] = Array.isArray(card.stages) ? card.stages : [];
+  // «همه مراحل انجام شد»: every stage at once (one request, one handoff message).
+  if (req.body.all) {
+    const missing = stages.filter((s) => !card.completed_stages.includes(s));
+    card.completed_stages = [...card.completed_stages, ...missing];
+    const now = new Date().toISOString();
+    for (const s of missing) if (card.stage_plan?.[s]) card.stage_plan[s].completed_at = now;
+    if (missing.length) {
+      logContentActivity(card, req, "همه مراحل را تکمیل کرد");
+      onStageCompleted(card, missing[missing.length - 1]);
+    }
+    saveDatabase();
+    emitToStaff("content_updated", { contentId: card.id, card });
+    return res.json({ status: "success", message: "همه مراحل تکمیل شد", completed_stages: card.completed_stages, suggest_publish: card.status !== "published" });
+  }
+  if (!stages.includes(stage)) return res.status(400).json({ status: "error", message: "این مرحله در کارت نیست" });
   if (isChecked) {
     if (!card.completed_stages.includes(stage)) card.completed_stages.push(stage);
   } else {
@@ -835,7 +857,10 @@ subRouter.post("/toggle_stage", (req, res) => {
   }
   saveDatabase();
   emitToStaff("content_updated", { contentId: card.id, card });
-  return res.json({ status: "success", message: "مرحله به‌روزرسانی شد" });
+  // The publishing stage (or the last open one) done: offer to mark the card published.
+  const allDone = stages.length > 0 && stages.every((s) => card.completed_stages.includes(s));
+  const suggestPublish = !!isChecked && card.status !== "published" && (/انتشار/.test(String(stage)) || allDone);
+  return res.json({ status: "success", message: "مرحله به‌روزرسانی شد", completed_stages: card.completed_stages, suggest_publish: suggestPublish });
 });
 
 export function findOrCreateCollection(title: string, orgId: any) {
@@ -1018,6 +1043,8 @@ subRouter.post("/update_content_details", (req: any, res) => {
   const card = contents.find((c) => c.id == id);
   if (!card) return res.status(404).json({ status: "error", message: "کارت یافت نشد" });
   if (!canEditCard(req, card)) return forbidden(res);
+  const date = publish_date !== undefined ? parseJalaliInput(publish_date) : null;
+  if (date && !date.ok) return res.status(400).json({ status: "error", message: INVALID_DATE_MESSAGE });
   if (status !== undefined && blockedForClient(req, card, status)) {
     return res.status(400).json({ status: "error", message: SEND_TO_CLIENT_BLOCKED });
   }
@@ -1063,7 +1090,7 @@ subRouter.post("/update_content_details", (req: any, res) => {
   }
   if (project_manager !== undefined || assigned_colleagues !== undefined) dropManagerFromTeam(card);
   if (content_type !== undefined) card.content_type = content_type;
-  if (publish_date !== undefined) card.publish_date = normalizeJalaliDate(publish_date);
+  if (date) card.publish_date = date.value;
   if (publish_time !== undefined) card.publish_time = publish_time;
   if (publish_platforms !== undefined) card.publish_platforms = publish_platforms;
   if (stages !== undefined) card.stages = stages;
